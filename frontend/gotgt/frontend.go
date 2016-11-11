@@ -1,6 +1,8 @@
 package gotgt
 
 import (
+	"os"
+	"net"
 	"github.com/Sirupsen/logrus"
 
 	"github.com/openebs/longhorn/types"
@@ -37,6 +39,16 @@ func (t *goTgt) Startup(name string, size, sectorSize int64, rw types.ReaderWrit
 
 	t.tgtName = "iqn.2016-09.com.openebs.jiva:" + name
 	t.lhbsName = "RemBs:" + name
+	host, _ := os.Hostname()
+	addrs, _ := net.LookupIP(host)
+	var ip string
+	for _, addr := range addrs {
+		if ipv4 := addr.To4(); ipv4 != nil {
+			ip = ipv4.String()
+			break
+			//fmt.Println("IPv4: ", ipv4)
+		}
+	}
 	t.cfg = &config.Config{
 		Storages: []config.BackendStorage{
 			config.BackendStorage{
@@ -48,7 +60,7 @@ func (t *goTgt) Startup(name string, size, sectorSize int64, rw types.ReaderWrit
 		ISCSIPortals: []config.ISCSIPortalInfo{
 			config.ISCSIPortalInfo{
 				ID:     0,
-				Portal: "127.0.0.1:3260",
+				Portal: ip+":3260",
 			},
 		},
 		ISCSITargets: map[string]config.ISCSITarget{
