@@ -6,7 +6,7 @@ source $(dirname $0)/version
 cd $(dirname $0)/../package
 
 TAG=${TAG:-${VERSION}}
-REPO=${REPO:-rancher}
+REPO=${REPO:-openebs}
 
 if [ ! -x ../bin/longhorn ]; then
     ../scripts/build
