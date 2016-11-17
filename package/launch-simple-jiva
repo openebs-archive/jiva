@@ -2,7 +2,7 @@
 
 set -x
 set -e
-mount --rbind /host/dev /dev
+#mount --rbind /host/dev /dev
 
 volume=$1
 size=$2
