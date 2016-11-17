@@ -1,8 +1,9 @@
 package gotgt
 
 import (
-	"os"
 	"net"
+	"os"
+
 	"github.com/Sirupsen/logrus"
 
 	"github.com/openebs/longhorn/types"
@@ -11,7 +12,7 @@ import (
 	"github.com/openebs/gotgt/pkg/config"
 	"github.com/openebs/gotgt/pkg/port/iscsit"
 	"github.com/openebs/gotgt/pkg/scsi"
-	_ "github.com/openebs/gotgt/pkg/scsi/backingstore"
+	_ "github.com/openebs/gotgt/pkg/scsi/backingstore" /* init lib */
 )
 
 func New() types.Frontend {
@@ -60,7 +61,7 @@ func (t *goTgt) Startup(name string, size, sectorSize int64, rw types.ReaderWrit
 		ISCSIPortals: []config.ISCSIPortalInfo{
 			config.ISCSIPortalInfo{
 				ID:     0,
-				Portal: ip+":3260",
+				Portal: ip + ":3260",
 			},
 		},
 		ISCSITargets: map[string]config.ISCSITarget{
