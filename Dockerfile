@@ -19,17 +19,22 @@ RUN curl -fsSL "$GOLANG_DOWNLOAD_URL" -o golang.tar.gz \
 	&& tar -xzf golang.tar.gz \
 && rm golang.tar.gz
 
+RUN mkdir -p /go
+ENV PATH $PATH:/usr/local/go/bin
+ENV GOPATH=/go
 
-RUN mkdir -p `pwd`/src/github.com/openebs/
-RUN cd `pwd`/src/github.com/openebs/ ;\
-git clone https://github.com/openebs/longhorn.git
-RUN export GOROOT=`pwd`/go ;\
-export PATH=$PATH:/usr/local/go/bin ;\
-export GOPATH=`pwd`/src/github.com/openebs ;\
-export PATH=$PATH:$GOROOT/bin;\
-mkdir -p `pwd`github.com/rancher/trash ;\
-cd `pwd`/src/github.com/openebs/longhorn ;\
-go get github.com/rancher/trash . ;\
-COPY trash.yml `pwd`/src/github.com/openebs/longhorn/ ;\
-trash . ;\
-make
+# Go tools
+RUN go get github.com/rancher/trash
+RUN go get github.com/golang/lint/golint
+
+# Docker
+RUN curl -sL https://get.docker.com/builds/Linux/x86_64/docker-1.9.1 > /usr/bin/docker && \
+chmod +x /usr/bin/docker
+
+
+RUN mkdir -p $GOPATH/src/github.com/openebs/
+RUN cd $GOPATH/src/github.com/openebs/
+RUN git clone https://github.com/openebs/longhorn.git
+RUN cd $GOPATH/src/github.com/openebs/longhorn
+RUN trash .
+RUN make
