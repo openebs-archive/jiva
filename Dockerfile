@@ -22,13 +22,7 @@ RUN curl -fsSL "$GOLANG_DOWNLOAD_URL" -o golang.tar.gz \
 RUN mkdir -p /go
 ENV GOPATH=/go
 ENV PATH $PATH:/usr/local/go/bin/:$GOPATH/bin
-
-#Test Setup
-RUN pwd
-RUN echo $PATH
-RUN ls -l /usr/local/
-RUN ls -l /usr/local/go*
-RUN go 
+ 
 
 # Go tools
 RUN go get github.com/rancher/trash
