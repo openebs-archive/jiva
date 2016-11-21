@@ -23,6 +23,11 @@ RUN mkdir -p /go
 ENV GOPATH=/go
 ENV PATH $PATH:$GOPATH/bin
 
+#Test Setup
+RUN pwd
+RUN ls -l /usr/local/go*
+RUN go 
+
 # Go tools
 RUN go get github.com/rancher/trash
 RUN go get github.com/golang/lint/golint
