@@ -25,6 +25,8 @@ ENV PATH $PATH:$GOPATH/bin
 
 #Test Setup
 RUN pwd
+RUN echo $PATH
+RUN ls -l /usr/local/
 RUN ls -l /usr/local/go*
 RUN go 
 
