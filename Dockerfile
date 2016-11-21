@@ -38,4 +38,4 @@ RUN cd $GOPATH/src/github.com/openebs/ && \
     git clone https://github.com/openebs/longhorn.git && \
     cd $GOPATH/src/github.com/openebs/longhorn && \
     trash . && \
-    make
+    sudo make
