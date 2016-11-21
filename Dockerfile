@@ -40,7 +40,7 @@ apt-cache policy docker-engine ;\
 apt-get install -y docker-engine && \
 echo "done"
 #systemctl status docker ;\
-service docker status ;\
+#service docker status ;\
 docker info
 
 
