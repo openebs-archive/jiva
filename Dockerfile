@@ -39,7 +39,7 @@ apt-get update ;\
 apt-cache policy docker-engine ;\
 apt-get install -y docker-engine && \
 echo "done"
-systemctl status docker ;\
+#systemctl status docker ;\
 service docker status ;\
 docker info
 
