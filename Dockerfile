@@ -34,8 +34,8 @@ chmod +x /usr/bin/docker
 
 
 RUN mkdir -p $GOPATH/src/github.com/openebs/
-RUN cd $GOPATH/src/github.com/openebs/
-RUN git clone https://github.com/openebs/longhorn.git
-RUN cd $GOPATH/src/github.com/openebs/longhorn
-RUN trash .
-RUN make
+RUN cd $GOPATH/src/github.com/openebs/ && \
+    git clone https://github.com/openebs/longhorn.git && \
+    cd $GOPATH/src/github.com/openebs/longhorn && \
+    trash . && \
+    make
