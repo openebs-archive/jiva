@@ -29,8 +29,19 @@ RUN go get github.com/rancher/trash
 RUN go get github.com/golang/lint/golint
 
 # Docker
+#
 RUN curl -sL https://get.docker.com/builds/Linux/x86_64/docker-1.9.1 > /usr/bin/docker && \
-chmod +x /usr/bin/docker
+chmod +x /usr/bin/docker && \
+apt-get update ;\
+apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D ;\
+echo "deb https://apt.dockerproject.org/repo ubuntu-xenial main" | tee /etc/apt/sources.list.d/docker.list ;\
+apt-get update ;\
+apt-cache policy docker-engine ;\
+apt-get install -y docker-engine && \
+# systemctl status docker ;\
+service docker start ;\
+docker info
+
 
 
 RUN mkdir -p $GOPATH/src/github.com/openebs/
@@ -38,4 +49,4 @@ RUN cd $GOPATH/src/github.com/openebs/ && \
     git clone https://github.com/openebs/longhorn.git && \
     cd $GOPATH/src/github.com/openebs/longhorn && \
     trash . && \
-    sudo make
+    make
