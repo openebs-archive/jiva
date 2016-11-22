@@ -25,8 +25,8 @@ ENV PATH $PATH:/usr/local/go/bin/:$GOPATH/bin
 
 #adding docker gropu
 RUN groupadd -r swuser -g 433 && \
-useradd -u 431 -r -g swuser -d <homedir> -s /sbin/nologin -c "Docker image user" swuser && \
-chown -R swuser:swuser <homedir>
+useradd -u 431 -r -g swuser -d go/src/github.com/openebs/ -s /sbin/nologin -c "Docker image user" swuser && \
+chown -R swuser:swuser go/src/github.com/openebs/
  
 
 # Go tools
