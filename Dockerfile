@@ -23,8 +23,9 @@ RUN mkdir -p /go
 ENV GOPATH=/go
 ENV PATH $PATH:/usr/local/go/bin/:$GOPATH/bin
 
-#adding docker gropu
-RUN groupadd -r swuser -g 433 && \
+#adding docker group
+RUN mkdir -p $GOPATH/src/github.com/openebs/ && \
+groupadd -r swuser -g 433 && \
 useradd -u 431 -r -g swuser -d go/src/github.com/openebs/ -s /sbin/nologin -c "Docker image user" swuser && \
 chown -R swuser:swuser go/src/github.com/openebs/
  
