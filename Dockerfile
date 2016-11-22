@@ -52,7 +52,7 @@ chmod +x /usr/bin/docker && \
 
 
 
-RUN mkdir -p $GOPATH/src/github.com/openebs/
+#RUN mkdir -p $GOPATH/src/github.com/openebs/
 RUN cd $GOPATH/src/github.com/openebs/ && \
     git clone https://github.com/openebs/longhorn.git && \
     cd $GOPATH/src/github.com/openebs/longhorn && \
