@@ -22,6 +22,11 @@ RUN curl -fsSL "$GOLANG_DOWNLOAD_URL" -o golang.tar.gz \
 RUN mkdir -p /go
 ENV GOPATH=/go
 ENV PATH $PATH:/usr/local/go/bin/:$GOPATH/bin
+
+#adding docker gropu
+RUN groupadd -r swuser -g 433 && \
+useradd -u 431 -r -g swuser -d <homedir> -s /sbin/nologin -c "Docker image user" swuser && \
+chown -R swuser:swuser <homedir>
  
 
 # Go tools
