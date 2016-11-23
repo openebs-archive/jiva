@@ -7,9 +7,9 @@ import (
 	"github.com/Sirupsen/logrus"
 
 	"github.com/openebs/longhorn/types"
-	"github.com/openebs/longhorn/util"
 
 	"github.com/openebs/gotgt/pkg/config"
+	"github.com/openebs/gotgt/pkg/port"
 	"github.com/openebs/gotgt/pkg/port/iscsit"
 	"github.com/openebs/gotgt/pkg/scsi"
 	_ "github.com/openebs/gotgt/pkg/scsi/backingstore" /* init lib */
@@ -30,7 +30,7 @@ type goTgt struct {
 	tgtName    string
 	lhbsName   string
 	cfg        *config.Config
-	scsiDevice *util.ScsiDevice
+	targetDriver port.SCSITargetService
 }
 
 func (t *goTgt) Startup(name string, size, sectorSize int64, rw types.ReaderWriterAt) error {
@@ -80,7 +80,7 @@ func (t *goTgt) Startup(name string, size, sectorSize int64, rw types.ReaderWrit
 	t.Size = size
 	t.SectorSize = int(sectorSize)
 	t.rw = rw
-	if err := t.startScsiDevice(t.cfg); err != nil {
+	if err := t.startScsiTarget(t.cfg); err != nil {
 		return err
 	}
 
@@ -94,14 +94,7 @@ func (t *goTgt) Shutdown() error {
 		t.Volume = ""
 	}
 
-	if t.scsiDevice != nil {
-		logrus.Infof("Shutdown SCSI device at %v", t.scsiDevice.Device)
-		/*if err := t.scsiDevice.Shutdown(); err != nil {
-			return err
-		}*/
-		t.scsiDevice = nil
-	}
-	t.stopScsiDevice()
+	t.stopScsiTarget()
 	t.isUp = false
 
 	return nil
@@ -114,22 +107,25 @@ func (t *goTgt) State() types.State {
 	return types.StateDown
 }
 
-func (t *goTgt) startScsiDevice(cfg *config.Config) error {
+func (t *goTgt) startScsiTarget(cfg *config.Config) error {
 	scsiTarget := scsi.NewSCSITargetService()
-	targetDriver, err := iscsit.NewISCSITargetService(scsiTarget)
+	var err error
+	t.targetDriver, err = iscsit.NewISCSITargetService(scsiTarget)
 	if err != nil {
 		logrus.Errorf("iscsi target driver error")
 		return err
 	}
 	scsi.InitSCSILUMapEx(t.tgtName, t.Volume, 1, 1, uint64(t.Size), uint64(t.SectorSize), t.rw)
-	targetDriver.NewTarget(t.tgtName, cfg)
-	go targetDriver.Run()
+	t.targetDriver.NewTarget(t.tgtName, cfg)
+	go t.targetDriver.Run()
 
 	logrus.Infof("SCSI device created")
 	return nil
 }
 
-func (t *goTgt) stopScsiDevice() error {
-	logrus.Infof("SCSI device stop...")
+func (t *goTgt) stopScsiTarget() error {
+	logrus.Infof("stopping target %v ...", t.tgtName)
+	t.targetDriver.Stop()
+	logrus.Infof("target %v stopped", t.tgtName)
 	return nil
 }
