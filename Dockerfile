@@ -33,7 +33,7 @@ RUN cd $GOPATH/src/github.com/openebs/ && \
     cd $GOPATH/src/github.com/openebs/longhorn && \
     trash .
 
-COPY launch-simple-jiva /usr/bin/
+COPY ./package/launch-simple-jiva /usr/bin/
 
 # Docker
 #RUN curl -sL https://get.docker.com/builds/Linux/x86_64/docker-1.9.1 > /usr/bin/docker && \
