@@ -27,6 +27,14 @@ ENV PATH $PATH:/usr/local/go/bin/:$GOPATH/bin
 RUN go get github.com/rancher/trash
 RUN go get github.com/golang/lint/golint
 
+RUN mkdir -p $GOPATH/src/github.com/openebs/
+RUN cd $GOPATH/src/github.com/openebs/ && \
+    git clone https://github.com/openebs/longhorn.git && \
+    cd $GOPATH/src/github.com/openebs/longhorn && \
+    trash .
+
+COPY launch-simple-jiva /usr/bin/
+
 # Docker
 #RUN curl -sL https://get.docker.com/builds/Linux/x86_64/docker-1.9.1 > /usr/bin/docker && \
 #chmod +x /usr/bin/docker && \
@@ -47,14 +55,6 @@ RUN go get github.com/golang/lint/golint
 #groupadd -r swuser -g 433 && \
 #useradd -u 431 -r -g swuser -d /go/src/github.com/openebs/ -s /sbin/nologin -c "Docker image user" swuser && \
 #chown -R swuser:swuser /go/src/github.com/openebs/
-
-
-
-#RUN mkdir -p $GOPATH/src/github.com/openebs/
-#RUN cd $GOPATH/src/github.com/openebs/ && \
-#    git clone https://github.com/openebs/longhorn.git && \
-#    cd $GOPATH/src/github.com/openebs/longhorn && \
-#    trash . && \
 #    make
 
-CMD trash .
+CMD ["longhorn"]
