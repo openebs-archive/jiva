@@ -40,7 +40,7 @@ deps: _build_check_go _build_check_docker
 	@echo "INFO:\tverifying dependencies for jiva ..."
 
 _install_trash:
-	#go get -u github.com/rancher/trash
+	go get -u github.com/rancher/trash
 
 _fetch_longhorn:
 	mkdir -p $(GOPATH)/src/github.com/openebs
@@ -48,22 +48,20 @@ _fetch_longhorn:
 		then \
 	          cd $(GOPATH)/src/github.com/openebs && git clone https://github.com/openebs/longhorn.git; \
 		fi;
-	cd $(GOPATH)/src/github.com/openebs/longhorn && git pull
-	#trash .
+	cd $(GOPATH)/src/github.com/openebs/longhorn && git pull && trash .
 
 _customize_longhorn:
 	cp -R $(GOPATH)/src/github.com/openebs/jiva/package/* $(GOPATH)/src/github.com/openebs/longhorn/package/
 	cp -R $(GOPATH)/src/github.com/openebs/jiva/scripts/* $(GOPATH)/src/github.com/openebs/longhorn/scripts/
 
 _build_longhorn:
-	cd $(GOPATH)/src/github.com/openebs/longhorn
-	make
+	cd $(GOPATH)/src/github.com/openebs/longhorn && make
 
 #
 # Will build the go based binaries
 # The binaries will be placed at $GOPATH/bin/
 #
-build: deps _install_trash _fetch_longhorn _customize_longhorn
+build: deps _install_trash _fetch_longhorn _customize_longhorn _build_longhorn
 	@echo ""
 	@echo "INFO:\t..... verify that jiva image is created"
 	@echo "INFO:\t..... run ci over jiva image"
