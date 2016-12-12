@@ -66,7 +66,6 @@ _push_image:
 #
 build: deps _install_trash _fetch_longhorn _customize_longhorn _build_longhorn _push_image
 	@echo ""
-	@echo "INFO:\t..... verify that jiva image is created"
 	@echo "INFO:\t..... run ci over jiva image"
 	@echo ""
 
