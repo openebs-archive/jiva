@@ -78,3 +78,6 @@ build: deps _install_trash _fetch_longhorn _customize_longhorn _build_longhorn _
 .PHONY: help deps build 
 .DEFAULT_GOAL := build
 
+_test_longhorn
+	IMAGE := $(shell sudo docker images | grep jiva | awk '{print $1":"$2}')
+	shell ci/start_init_test.sh IMAGE
