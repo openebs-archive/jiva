@@ -57,11 +57,14 @@ _customize_longhorn:
 _build_longhorn:
 	cd $(GOPATH)/src/github.com/openebs/longhorn && make
 
+_push_image:
+	$(GOPATH)/src/github.com/openebs/longhorn/scripts/push
+        
 #
 # Will build the go based binaries
 # The binaries will be placed at $GOPATH/bin/
 #
-build: deps _install_trash _fetch_longhorn _customize_longhorn _build_longhorn
+build: deps _install_trash _fetch_longhorn _customize_longhorn _build_longhorn _push_image
 	@echo ""
 	@echo "INFO:\t..... verify that jiva image is created"
 	@echo "INFO:\t..... run ci over jiva image"
