@@ -16,4 +16,7 @@ before_install:
   - mkdir -p $HOME/gopath/bin
 script:
   - make build
-
+notifications:
+  email:
+    recipients:
+      - kiran.mova@cloudbyte.com
