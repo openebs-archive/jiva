@@ -58,7 +58,7 @@ _build_longhorn:
 	cd $(GOPATH)/src/github.com/openebs/longhorn && make
 
 _push_image:
-	$(GOPATH)/src/github.com/openebs/longhorn/scripts/push
+	cd $(GOPATH)/src/github.com/openebs/longhorn && ./scripts/push
         
 #
 # Will build the go based binaries
