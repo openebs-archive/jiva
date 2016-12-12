@@ -15,6 +15,7 @@ import (
 	_ "github.com/openebs/gotgt/pkg/scsi/backingstore" /* init lib */
 )
 
+/*New is called on module load */
 func New() types.Frontend {
 	return &goTgt{}
 }
@@ -27,9 +28,9 @@ type goTgt struct {
 	isUp bool
 	rw   types.ReaderWriterAt
 
-	tgtName    string
-	lhbsName   string
-	cfg        *config.Config
+	tgtName      string
+	lhbsName     string
+	cfg          *config.Config
 	targetDriver port.SCSITargetService
 }
 
