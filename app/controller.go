@@ -35,6 +35,10 @@ func ControllerCmd() cli.Command {
 				Name:  "frontend",
 				Value: "",
 			},
+			cli.StringFlag{
+				Name:  "frontendIP",
+				Value: "",
+			},
 			cli.StringSliceFlag{
 				Name:  "enable-backend",
 				Value: (*cli.StringSlice)(&[]string{"tcp"}),
@@ -52,6 +56,7 @@ func ControllerCmd() cli.Command {
 }
 
 func startController(c *cli.Context) error {
+	var frontendIP string
 	if c.NArg() == 0 {
 		return errors.New("volume name is required")
 	}
@@ -65,7 +70,9 @@ func startController(c *cli.Context) error {
 	backends := c.StringSlice("enable-backend")
 	replicas := c.StringSlice("replica")
 	frontendName := c.String("frontend")
-
+	if frontendName == "gotgt" {
+		frontendIP = c.String("frontendIP")
+	}
 	factories := map[string]types.BackendFactory{}
 	for _, backend := range backends {
 		switch backend {
@@ -87,7 +94,7 @@ func startController(c *cli.Context) error {
 		frontend = f
 	}
 
-	control := controller.NewController(name, dynamic.New(factories), frontend)
+	control := controller.NewController(name, frontendIP, dynamic.New(factories), frontend)
 	server := rest.NewServer(control)
 	router := http.Handler(rest.NewRouter(server))
 

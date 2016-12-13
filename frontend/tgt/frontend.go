@@ -34,7 +34,7 @@ type Tgt struct {
 	scsiDevice   *ScsiDevice
 }
 
-func (t *Tgt) Startup(name string, size, sectorSize int64, rw types.ReaderWriterAt) error {
+func (t *Tgt) Startup(name string, frontendIP string, size, sectorSize int64, rw types.ReaderWriterAt) error {
 	t.Volume = name
 	t.Size = size
 	t.SectorSize = int(sectorSize)

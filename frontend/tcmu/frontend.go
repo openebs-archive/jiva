@@ -35,7 +35,7 @@ type Tcmu struct {
 	isUp   bool
 }
 
-func (t *Tcmu) Startup(name string, size, sectorSize int64, rw types.ReaderWriterAt) error {
+func (t *Tcmu) Startup(name string, frontendIP string, size, sectorSize int64, rw types.ReaderWriterAt) error {
 	t.volume = name
 
 	t.Shutdown()
