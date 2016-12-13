@@ -14,6 +14,6 @@ before_install:
   - sudo apt-get install -y curl
   - mkdir -p $HOME/gopath/bin
   - mkdir -p $HOME/gopath/src/github/openebs
-  - cd $HOME/gopath/src/github/openebs && git clone https://github.com/openebs/jiva.git
+  - cd $HOME/gopath/src/github.com/openebs && git clone https://github.com/openebs/jiva.git
 script:
-  - cd $HOME/gopath/src/github/openebs/jiva && make build
+  - cd $HOME/gopath/src/github.com/openebs/jiva && make build
