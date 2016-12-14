@@ -17,3 +17,10 @@ before_install:
   - cd $HOME/gopath/src/github.com/openebs && git clone https://github.com/openebs/jiva.git
 script:
   - cd $HOME/gopath/src/github.com/openebs/jiva && make build
+notifications:
+  email:
+    recipients:
+      - kiran.mova@cloudbyte.com
+  webhooks:
+    urls:
+      - https://webhooks.gitter.im/e/d885a0beef16020c3878
