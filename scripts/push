@@ -2,11 +2,18 @@
 set -e
 
 source "$(dirname $0)/version"
+IMAGEID=$( docker images -q openebs/jiva:${VERSION} )
+
+exit
 
 if [ ! -z "${DNAME}" ] && [ ! -z "${DPASS}" ]; 
 then 
   docker login -u "${DNAME}" -p "${DPASS}"; 
   docker push openebs/jiva:${VERSION} ; 
+  if [ ! -z "${TRAVIS_TAG}" ] ; 
+    docker tag ${IMAGEID} openebs/jiva:${TRAVIS_TAG}
+    docker push openebs/jiva:${TRAVIS_TAG}; 
+  fi;
 else
   echo "No docker credentials provided. Skip uploading openebs/jiva:${VERSION} to docker hub"; 
 fi;
