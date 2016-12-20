@@ -4,8 +4,6 @@ set -e
 source "$(dirname $0)/version"
 IMAGEID=$( docker images -q openebs/jiva:${VERSION} )
 
-exit
-
 if [ ! -z "${DNAME}" ] && [ ! -z "${DPASS}" ]; 
 then 
   docker login -u "${DNAME}" -p "${DPASS}"; 
