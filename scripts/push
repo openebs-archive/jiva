@@ -9,6 +9,7 @@ then
   docker login -u "${DNAME}" -p "${DPASS}"; 
   docker push openebs/jiva:${VERSION} ; 
   if [ ! -z "${TRAVIS_TAG}" ] ; 
+  then
     docker tag ${IMAGEID} openebs/jiva:${TRAVIS_TAG}
     docker push openebs/jiva:${TRAVIS_TAG}; 
     docker tag ${IMAGEID} openebs/jiva:latest
