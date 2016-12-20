@@ -1,6 +1,6 @@
 #!/bin/bash
 
-RELEASE_TAG="0.0.1"
+RELEASE_TAG="dev"
 COMMIT=$(git rev-parse --short HEAD)
 VERSION="${RELEASE_TAG}-${COMMIT}"
 
