@@ -85,12 +85,13 @@ CONTAINER_ID=$(docker run -d \
   -p $JIVA_REP_IP:9503:9503 \
   -p $JIVA_REP_IP:9504:9504 \
   --name $JIVA_REP_NAME \
+  -v $JIVA_REP_VOLSTORE:/$JIVA_REP_VOLNAME \
   $JIVA_REP_VERSION \
   launch replica \
   --frontendIP $JIVA_CTL_IP \
   --listen $JIVA_REP_IP:9502 \
   --size $JIVA_REP_VOLSIZE \
-  $JIVA_REP_VOLSTORE)
+  /$JIVA_REP_VOLNAME)
 
 if [ $? -ne 0 ]; then
   echo "Failed to start $JIVA_REP_NAME"
