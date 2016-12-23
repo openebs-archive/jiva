@@ -52,7 +52,7 @@ _fetch_longhorn:
 
 _customize_longhorn:
 	cp -R $(GOPATH)/src/github.com/openebs/jiva/package/* $(GOPATH)/src/github.com/openebs/longhorn/package/
-	cp -R $(GOPATH)/src/github.com/openebs/jiva/scripts/* $(GOPATH)/src/github.com/openebs/longhorn/scripts/
+	cp -R $(GOPATH)/src/github.com/openebs/jiva/buildscripts/* $(GOPATH)/src/github.com/openebs/longhorn/scripts/
 
 _build_longhorn:
 	cd $(GOPATH)/src/github.com/openebs/longhorn && make
