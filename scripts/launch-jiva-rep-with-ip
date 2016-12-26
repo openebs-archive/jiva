@@ -8,6 +8,11 @@ anywait() {
   done
 }
 
+if [ -z "$JIVA_CTL_IP" ]; then
+  echo 'Please set $JIVA_CTL_IP'
+  exit
+fi
+
 if [ -z "$JIVA_REP_NAME" ]; then
   echo 'Please set $JIVA_REP_NAME'
   exit
