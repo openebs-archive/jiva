@@ -7,9 +7,14 @@ IMAGEID=$( docker images -q openebs/jiva:${VERSION} )
 if [ ! -z "${DNAME}" ] && [ ! -z "${DPASS}" ]; 
 then 
   docker login -u "${DNAME}" -p "${DPASS}"; 
-  docker push openebs/jiva:${VERSION} ; 
+  #Push the development build images to jiva-ci docker hub repository
+  docker tag ${IMAGEID} openebs/jiva-ci:${VERSION}
+  docker push openebs/jiva-ci:${VERSION} ; 
   if [ ! -z "${TRAVIS_TAG}" ] ; 
   then
+    #Push the release tag image to jiva docker hub repository
+    #When a git hub is tagged with a release, the travis will 
+    #hold the release tag in env TRAVIS_TAG
     docker tag ${IMAGEID} openebs/jiva:${TRAVIS_TAG}
     docker push openebs/jiva:${TRAVIS_TAG}; 
     docker tag ${IMAGEID} openebs/jiva:latest
