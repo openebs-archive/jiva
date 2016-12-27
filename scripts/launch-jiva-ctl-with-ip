@@ -8,6 +8,21 @@ anywait() {
   done
 }
 
+cleanup() { 
+  if [ ! -z "$CONTAINER_ID" ]; then
+    while true; 
+    do
+      docker ps | grep $CONTAINER_ID
+      if [ $? -ne 0 ]; then
+        sudo ip addr del $JIVA_CTL_IP/$JIVA_CTL_SUBNET dev $JIVA_CTL_IFACE
+        break;
+      fi
+      sleep 10
+    done
+  fi
+}
+
+
 if [ -z "$JIVA_CTL_NAME" ]; then
   echo 'Please set $JIVA_CTL_NAME'
   exit
@@ -94,3 +109,4 @@ fi
 echo "Waiting for container $JIVA_CTL_NAME ($CONTAINER_ID) to finish"
 PID=$(ps aux | grep "docker-containerd-shim $CONTAINER_ID" | grep -v "grep" | awk '{print $2}')
 anywait $PID
+cleanup
