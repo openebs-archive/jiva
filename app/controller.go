@@ -110,11 +110,11 @@ func startController(c *cli.Context) error {
 		}
 	}
 
-	logrus.Infof("Listening on %s", "*:9501")
+	logrus.Infof("Listening on %s:%s", frontendIP, "9501")
 
 	addShutdown(func() {
 		control.Shutdown()
 	})
 
-	return http.ListenAndServe(":9501", router)
+	return http.ListenAndServe(frontendIP+":9501", router)
 }
