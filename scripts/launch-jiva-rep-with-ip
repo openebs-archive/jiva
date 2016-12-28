@@ -84,6 +84,7 @@ echo "Configuring $JIVA_REP_IP/$JIVA_REP_SUBNET on $JIVA_REP_IFACE"
 #TODO - Validate if the IP exists on the right interface
 #TODO - Validate that interface exists
 sudo ip addr add $JIVA_REP_IP/$JIVA_REP_SUBNET dev $JIVA_REP_IFACE
+mkdir -p $JIVA_REP_VOLSTORE
 #TODO - Validate that IP is configured successfully
 
 _stop() {
