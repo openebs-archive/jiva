@@ -29,7 +29,7 @@ func ControllerCmd() cli.Command {
 		Flags: []cli.Flag{
 			cli.StringFlag{
 				Name:  "listen",
-				Value: "localhost:9501",
+				Value: ":9501",
 			},
 			cli.StringFlag{
 				Name:  "frontend",
@@ -57,6 +57,7 @@ func ControllerCmd() cli.Command {
 
 func startController(c *cli.Context) error {
 	var frontendIP string
+	var controlListener string
 	if c.NArg() == 0 {
 		return errors.New("volume name is required")
 	}
@@ -72,6 +73,7 @@ func startController(c *cli.Context) error {
 	if frontendName == "gotgt" {
 		frontendIP = c.String("frontendIP")
 	}
+	controlListener = c.String("listen")
 	factories := map[string]types.BackendFactory{}
 	for _, backend := range backends {
 		switch backend {
@@ -110,11 +112,11 @@ func startController(c *cli.Context) error {
 		}
 	}
 
-	logrus.Infof("Listening on %s:%s", frontendIP, "9501")
+	logrus.Infof("Listening on %s", controlListener)
 
 	addShutdown(func() {
 		control.Shutdown()
 	})
 
-	return http.ListenAndServe(frontendIP+":9501", router)
+	return http.ListenAndServe(controlListener, router)
 }
