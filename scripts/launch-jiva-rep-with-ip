@@ -105,6 +105,7 @@ CONTAINER_ID=$(docker run -d \
   -p $JIVA_REP_IP:9502:9502 \
   -p $JIVA_REP_IP:9503:9503 \
   -p $JIVA_REP_IP:9504:9504 \
+  --expose 9700-9800 \
   --name $JIVA_REP_NAME \
   -v $JIVA_REP_VOLSTORE:/$JIVA_REP_VOLNAME \
   $JIVA_REP_VERSION \
