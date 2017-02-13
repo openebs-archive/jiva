@@ -57,27 +57,29 @@ _customize_longhorn:
 _build_longhorn:
 	cd $(GOPATH)/src/github.com/openebs/longhorn && make
 
+_run_ci:
+	@echo ""
+	@echo "INFO:\t..... run ci over jiva image"
+	@echo ""
+	#IMAGE := $(shell sudo docker images | grep jiva | awk '{print $1":"$2}')
+	#shell ci/start_init_test.sh IMAGE
+
 _push_image:
 	cd $(GOPATH)/src/github.com/openebs/longhorn && ./scripts/push
-        
+
+
 #
 # Will build the go based binaries
 # The binaries will be placed at $GOPATH/bin/
 #
-build: deps _install_trash _fetch_longhorn _customize_longhorn _build_longhorn _push_image
-	@echo ""
-	@echo "INFO:\t..... run ci over jiva image"
-	@echo ""
-
+build: deps _install_trash _fetch_longhorn _customize_longhorn _build_longhorn _run_ci _push_image
 
 
 #
 # This is done to avoid conflict with a file of same name as the targets
 # mentioned in this makefile.
 #
-.PHONY: help deps build 
+.PHONY: help deps build
 .DEFAULT_GOAL := build
 
-_test_longhorn:
-	IMAGE := $(shell sudo docker images | grep jiva | awk '{print $1":"$2}')
-	shell ci/start_init_test.sh IMAGE
+
