@@ -2,6 +2,7 @@ package agent
 
 import (
 	"net/http"
+	_ "net/http/pprof" /* for profiling */
 
 	"github.com/gorilla/mux"
 	"github.com/rancher/go-rancher/api"
@@ -33,5 +34,6 @@ func NewRouter(s *Server) *mux.Router {
 	router.Methods("GET").Path("/v1/processes/{id}").Handler(f(schemas, s.GetProcess))
 	router.Methods("POST").Path("/v1/processes").Handler(f(schemas, s.CreateProcess))
 
+	router.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
 	return router
 }

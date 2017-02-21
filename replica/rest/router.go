@@ -2,6 +2,7 @@ package rest
 
 import (
 	"net/http"
+	_ "net/http/pprof" /* for profiling */
 
 	"github.com/gorilla/mux"
 	"github.com/rancher/go-rancher/api"
@@ -66,6 +67,7 @@ func NewRouter(s *Server) *mux.Router {
 	for name, action := range actions {
 		router.Methods("POST").Path("/v1/replicas/{id}").Queries("action", name).Handler(f(schemas, checkAction(s, action)))
 	}
+	router.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
 
 	return router
 }

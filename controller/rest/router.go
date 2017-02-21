@@ -1,6 +1,9 @@
 package rest
 
 import (
+	"net/http"
+	_ "net/http/pprof" /* for profiling */
+
 	"github.com/gorilla/mux"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/longhorn/replica/rest"
@@ -36,6 +39,8 @@ func NewRouter(s *Server) *mux.Router {
 
 	// Journal
 	router.Methods("POST").Path("/v1/journal").Handler(f(schemas, s.ListJournal))
+
+	router.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
 
 	return router
 }

@@ -117,6 +117,5 @@ func startController(c *cli.Context) error {
 	addShutdown(func() {
 		control.Shutdown()
 	})
-
 	return http.ListenAndServe(controlListener, router)
 }
