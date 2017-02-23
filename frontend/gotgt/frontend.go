@@ -3,7 +3,7 @@ package gotgt
 import (
 	"github.com/Sirupsen/logrus"
 
-	"github.com/openebs/longhorn/types"
+	"github.com/rancher/longhorn/types"
 
 	"github.com/openebs/gotgt/pkg/config"
 	"github.com/openebs/gotgt/pkg/port"
