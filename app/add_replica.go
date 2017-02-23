@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
@@ -29,4 +30,16 @@ func addReplica(c *cli.Context) error {
 	url := c.GlobalString("url")
 	task := sync.NewTask(url)
 	return task.AddReplica(replica)
+}
+func AutoAddReplica(frontendIP string, replica string) error {
+	url := "http://" + frontendIP + ":9501"
+	task := sync.NewTask(url)
+	for {
+		err := task.AddReplica(replica)
+		if err != nil {
+			time.Sleep(2 * time.Second)
+			continue
+		}
+		return err
+	}
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
+	"github.com/rancher/longhorn/controller/client"
 )
 
 func RmReplicaCmd() cli.Command {
@@ -26,6 +27,13 @@ func rmReplica(c *cli.Context) error {
 	replica := c.Args()[0]
 
 	controllerClient := getCli(c)
+	_, err := controllerClient.DeleteReplica(replica)
+	return err
+}
+
+func AutoRmReplica(frontendIP string, replica string) error {
+	url := "http://" + frontendIP + ":9501"
+	controllerClient := client.NewControllerClient(url)
 	_, err := controllerClient.DeleteReplica(replica)
 	return err
 }

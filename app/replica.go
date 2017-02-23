@@ -27,6 +27,10 @@ func ReplicaCmd() cli.Command {
 				Value: "localhost:9502",
 			},
 			cli.StringFlag{
+				Name:  "frontendIP",
+				Value: "",
+			},
+			cli.StringFlag{
 				Name:  "backing-file",
 				Usage: "qcow file to use as the base image of this disk",
 			},
@@ -45,6 +49,10 @@ func ReplicaCmd() cli.Command {
 		},
 	}
 }
+func AutoConfigureReplica(frontendIP string, address string) {
+	AutoRmReplica(frontendIP, address)
+	AutoAddReplica(frontendIP, address)
+}
 
 func startReplica(c *cli.Context) error {
 	if c.NArg() != 1 {
@@ -60,6 +68,7 @@ func startReplica(c *cli.Context) error {
 	s := replica.NewServer(dir, backingFile, 512)
 
 	address := c.String("listen")
+	frontendIP := c.String("frontendIP")
 	size := c.String("size")
 	if size != "" {
 		size, err := units.RAMInBytes(size)
@@ -117,6 +126,9 @@ func startReplica(c *cli.Context) error {
 			cmd.Stderr = os.Stderr
 			resp <- cmd.Run()
 		}()
+	}
+	if frontendIP != "" {
+		go AutoConfigureReplica(frontendIP, "tcp://"+address)
 	}
 
 	return <-resp
