@@ -95,9 +95,9 @@ _stop() {
   done
 }
 
-echo "Trapping SIGINT, SIGTERM and SIGKILL"
-trap _stop SIGINT
-trap _stop SIGTERM
+#echo "Trapping SIGINT, SIGTERM and SIGKILL"
+#trap _stop SIGINT
+#trap _stop SIGTERM
 
 echo "Starting container $JIVA_REP_NAME"
 CONTAINER_ID=$(docker run -d \
@@ -123,4 +123,4 @@ fi
 echo "Waiting for container $JIVA_REP_NAME ($CONTAINER_ID) to finish"
 PID=$(ps aux | grep "docker-containerd-shim $CONTAINER_ID" | grep -v "grep" | awk '{print $2}')
 anywait $PID
-cleanup
+#cleanup
