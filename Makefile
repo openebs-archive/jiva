@@ -61,8 +61,6 @@ _run_ci:
 	@echo ""
 	@echo "INFO:\t..... run ci over jiva image"
 	@echo ""
-	#IMAGE := $(shell sudo docker images | grep jiva | awk '{print $1":"$2}')
-	#shell ci/start_init_test.sh IMAGE
 	./ci/start_init_test.sh
 
 _push_image:
