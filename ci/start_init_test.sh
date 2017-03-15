@@ -1,5 +1,10 @@
 #!/bin/bash
 
+JIVA_IMAGE=$(sudo docker images | grep jiva | awk '{print $1":"$2}')
+echo "Run CI tests on $JIVA_IMAGE"
+exit 0
+
+
 sudo docker network create --subnet=172.18.0.0/16 longhorn-net
 sudo docker run -d -it --net longhorn-net --ip 172.18.0.3 -P --expose 9502-9504 -v /mnt/vol1:/vol1  $1 launch replica --frontendIP 172.18.0.2 --listen 172.18.0.3:9502 --size 10g /vol1
 sudo docker run -d --net longhorn-net --ip 172.18.0.2 -P --expose 3260 --expose 9501 --expose 9502-9504 $1 launch controller --frontend gotgt --frontendIP 172.18.0.2 --replica tcp://172.18.0.3:9502 store1

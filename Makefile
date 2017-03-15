@@ -63,6 +63,7 @@ _run_ci:
 	@echo ""
 	#IMAGE := $(shell sudo docker images | grep jiva | awk '{print $1":"$2}')
 	#shell ci/start_init_test.sh IMAGE
+	./ci/start_init_test.sh
 
 _push_image:
 	cd $(GOPATH)/src/github.com/openebs/longhorn && ./scripts/push
