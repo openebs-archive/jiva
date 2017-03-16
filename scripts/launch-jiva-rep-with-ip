@@ -99,6 +99,9 @@ _stop() {
 #trap _stop SIGINT
 #trap _stop SIGTERM
 
+# Don't set the name, to avoid deleting a failed container
+#  --name $JIVA_REP_NAME \
+
 echo "Starting container $JIVA_REP_NAME"
 CONTAINER_ID=$(docker run -d \
   --network="host" \
@@ -106,7 +109,6 @@ CONTAINER_ID=$(docker run -d \
   -p $JIVA_REP_IP:9503:9503 \
   -p $JIVA_REP_IP:9504:9504 \
   --expose 9700-9800 \
-  --name $JIVA_REP_NAME \
   -v $JIVA_REP_VOLSTORE:/$JIVA_REP_VOLNAME \
   $JIVA_REP_VERSION \
   launch replica \

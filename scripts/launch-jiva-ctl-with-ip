@@ -88,12 +88,14 @@ echo "Trapping SIGINT, SIGTERM and SIGKILL"
 #trap _stop SIGINT
 #trap _stop SIGTERM
 
+#Dont set the name to avoid deleting failed containers
+# --name $JIVA_CTL_NAME \
+
 echo "Starting container $JIVA_CTL_NAME"
 CONTAINER_ID=$(docker run -d \
   --network="host" \
   -p $JIVA_CTL_IP:3260:3260 \
   -p $JIVA_CTL_IP:9501:9501 \
-  --name $JIVA_CTL_NAME \
   $JIVA_CTL_VERSION \
   launch controller \
   --frontend gotgt \
