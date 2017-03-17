@@ -1,27 +1,12 @@
 #!/bin/bash
 
+KEEP_ALIVE=false
 anywait() {
-  for pid in "$@"; do
-    while kill -0 "$pid"; do
-      sleep 0.5
-    done
+  while ${KEEP_ALIVE}; 
+  do
+    sleep 10
   done
 }
-
-cleanup() { 
-  if [ ! -z "$CONTAINER_ID" ]; then
-    while true; 
-    do
-      docker ps | grep $CONTAINER_ID
-      if [ $? -ne 0 ]; then
-        sudo ip addr del $JIVA_CTL_IP/$JIVA_CTL_SUBNET dev $JIVA_CTL_IFACE
-        break;
-      fi
-      sleep 10
-    done
-  fi
-}
-
 
 if [ -z "$JIVA_CTL_NAME" ]; then
   echo 'Please set $JIVA_CTL_NAME'
@@ -82,18 +67,21 @@ _stop() {
   do
     sleep 1
   done
+  echo "Clearing the IP $JIVA_CTL_IP"
+  sudo ip addr del $JIVA_CTL_IP/$JIVA_CTL_SUBNET dev $JIVA_CTL_IFACE
+  KEEP_ALIVE=false
 }
 
 echo "Trapping SIGINT, SIGTERM and SIGKILL"
-#trap _stop SIGINT
-#trap _stop SIGTERM
+trap _stop SIGINT
+trap _stop SIGTERM
 
 #Dont set the name to avoid deleting failed containers
-# --name $JIVA_CTL_NAME \
 
 echo "Starting container $JIVA_CTL_NAME"
 CONTAINER_ID=$(docker run -d \
   --network="host" \
+  --name $JIVA_CTL_NAME \
   -p $JIVA_CTL_IP:3260:3260 \
   -p $JIVA_CTL_IP:9501:9501 \
   $JIVA_CTL_VERSION \
@@ -108,7 +96,6 @@ if [ $? -ne 0 ]; then
   exit
 fi
 
-echo "Waiting for container $JIVA_CTL_NAME ($CONTAINER_ID) to finish"
-PID=$(ps aux | grep "docker-containerd-shim $CONTAINER_ID" | grep -v "grep" | awk '{print $2}')
-anywait $PID
-#cleanup
+echo "Launched container $JIVA_CTL_NAME ($CONTAINER_ID)"
+KEEP_ALIVE=true
+anywait
