@@ -24,12 +24,25 @@ func NewServer(conn net.Conn, data types.DataProcessor) *Server {
 	}
 }
 
+var monitorChan chan struct{}
+
+func (s *Server) CreateMonitorChannel() chan struct{} {
+	monitorChan = make(chan struct{}, 5)
+	return monitorChan
+}
+
+func (s *Server) GetMonitorChannel() chan struct{} {
+	return monitorChan
+}
+
 func (s *Server) Handle() error {
 	go s.write()
 	defer func() {
 		s.done <- struct{}{}
 	}()
-	return s.read()
+	err := s.read()
+	monitorChan <- struct{}{}
+	return err
 }
 
 func (s *Server) readFromWire(ret chan<- error) {

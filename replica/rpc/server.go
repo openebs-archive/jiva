@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"net"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/rancher/longhorn/replica"
@@ -38,10 +39,23 @@ func (s *Server) ListenAndServe() error {
 			continue
 		}
 
+		err = conn.SetKeepAlive(true)
+		if err != nil {
+			logrus.Errorf("failed to accept connection %v", err)
+			continue
+		}
+
+		err = conn.SetKeepAlivePeriod(10 * time.Second)
+		if err != nil {
+			logrus.Errorf("failed to accept connection %v", err)
+			continue
+		}
+
 		logrus.Infof("New connection from: %v", conn.RemoteAddr())
 
 		go func(conn net.Conn) {
 			server := rpc.NewServer(conn, s.s)
+			s.s.MonitorChannel = server.CreateMonitorChannel()
 			server.Handle()
 		}(conn)
 	}

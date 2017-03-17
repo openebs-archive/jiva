@@ -69,7 +69,7 @@ func CheckReplicaState(frontendIP string, replicaIP string) (string, error) {
 	return "", err
 }
 
-func AutoConfigureReplica(frontendIP string, address string) {
+func AutoConfigureReplica(s *replica.Server, frontendIP string, address string) {
 checkagain:
 	state, err := CheckReplicaState(frontendIP, address)
 	if err == nil && (state == "" || state == "ERR") {
@@ -78,8 +78,13 @@ checkagain:
 		time.Sleep(5 * time.Second)
 		goto checkagain
 	}
+	s.Close()
 	AutoRmReplica(frontendIP, address)
 	AutoAddReplica(frontendIP, address)
+	select {
+	case <-s.MonitorChannel:
+		goto checkagain
+	}
 }
 
 func startReplica(c *cli.Context) error {
@@ -156,7 +161,7 @@ func startReplica(c *cli.Context) error {
 		}()
 	}
 	if frontendIP != "" {
-		go AutoConfigureReplica(frontendIP, "tcp://"+address)
+		go AutoConfigureReplica(s, frontendIP, "tcp://"+address)
 	}
 
 	return <-resp

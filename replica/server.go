@@ -25,6 +25,7 @@ type Server struct {
 	dir               string
 	defaultSectorSize int64
 	backing           *BackingFile
+	MonitorChannel    chan struct{}
 }
 
 func NewServer(dir string, backing *BackingFile, sectorSize int64) *Server {
