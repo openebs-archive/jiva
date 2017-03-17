@@ -2,15 +2,18 @@ package app
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/docker/go-units"
+	"github.com/rancher/longhorn/controller/client"
 	"github.com/rancher/longhorn/replica"
 	"github.com/rancher/longhorn/replica/rest"
 	"github.com/rancher/longhorn/replica/rpc"
@@ -49,7 +52,32 @@ func ReplicaCmd() cli.Command {
 		},
 	}
 }
+
+func CheckReplicaState(frontendIP string, replicaIP string) (string, error) {
+	url := "http://" + frontendIP + ":9501"
+	ControllerClient := client.NewControllerClient(url)
+	reps, err := ControllerClient.ListReplicas()
+	if err != nil {
+		return "", err
+	}
+
+	for _, rep := range reps {
+		if rep.Address == replicaIP {
+			return rep.Mode, nil
+		}
+	}
+	return "", err
+}
+
 func AutoConfigureReplica(frontendIP string, address string) {
+checkagain:
+	state, err := CheckReplicaState(frontendIP, address)
+	if err == nil && (state == "" || state == "ERR") {
+		fmt.Println("Removing Replica")
+	} else {
+		time.Sleep(5 * time.Second)
+		goto checkagain
+	}
 	AutoRmReplica(frontendIP, address)
 	AutoAddReplica(frontendIP, address)
 }
