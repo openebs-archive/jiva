@@ -11,7 +11,7 @@ env:
 before_install:
   - sleep 15
   - sudo apt-get install -y
-  - sudo apt-get install -y curl
+  - sudo apt-get install -y curl open-iscsi
   - mkdir -p $HOME/gopath/bin
   - mkdir -p $HOME/gopath/src/github/openebs
   - cd $HOME/gopath/src/github.com/openebs && git clone https://github.com/openebs/jiva.git
