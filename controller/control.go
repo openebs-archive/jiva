@@ -298,7 +298,15 @@ func (c *Controller) WriteAt(b []byte, off int64) (int, error) {
 	n, err := c.backend.WriteAt(b, off)
 	c.RUnlock()
 	if err != nil {
-		return n, c.handleError(err)
+		errh := c.handleError(err)
+		if bErr, ok := err.(*BackendError); ok {
+			if len(bErr.Errors) > 0 {
+				for address := range bErr.Errors {
+					c.RemoveReplica(address)
+				}
+			}
+		}
+		return n, errh
 	}
 	return n, err
 }
@@ -313,7 +321,15 @@ func (c *Controller) ReadAt(b []byte, off int64) (int, error) {
 	n, err := c.backend.ReadAt(b, off)
 	c.RUnlock()
 	if err != nil {
-		return n, c.handleError(err)
+		errh := c.handleError(err)
+		if bErr, ok := err.(*BackendError); ok {
+			if len(bErr.Errors) > 0 {
+				for address := range bErr.Errors {
+					c.RemoveReplica(address)
+				}
+			}
+		}
+		return n, errh
 	}
 	return n, err
 }
@@ -411,4 +427,5 @@ func (c *Controller) monitoring(address string, backend types.Backend) {
 		c.SetReplicaMode(address, types.ERR)
 	}
 	logrus.Infof("Monitoring stopped %v", address)
+	c.RemoveReplica(address)
 }
