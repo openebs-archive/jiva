@@ -167,6 +167,15 @@ func (s *Server) DeleteReplica(rw http.ResponseWriter, req *http.Request) error 
 	return s.doOp(req, s.s.Delete())
 }
 
+func (s *Server) StartReplica(rw http.ResponseWriter, req *http.Request) error {
+	var action Action
+	apiContext := api.GetApiContext(req)
+	if err := apiContext.Read(&action); err != nil && err != io.EOF {
+		return err
+	}
+	return s.doOp(req, s.s.Start(action.Value))
+}
+
 func (s *Server) SetRevisionCounter(rw http.ResponseWriter, req *http.Request) error {
 	var input RevisionCounter
 	apiContext := api.GetApiContext(req)
@@ -174,4 +183,13 @@ func (s *Server) SetRevisionCounter(rw http.ResponseWriter, req *http.Request) e
 		return err
 	}
 	return s.doOp(req, s.s.SetRevisionCounter(input.Counter))
+}
+
+func (s *Server) SetReplicaCounter(rw http.ResponseWriter, req *http.Request) error {
+	var input ReplicaCounter
+	apiContext := api.GetApiContext(req)
+	if err := apiContext.Read(&input); err != nil && err != io.EOF {
+		return err
+	}
+	return s.doOp(req, s.s.SetReplicaCounter(input.Counter))
 }

@@ -91,6 +91,11 @@ func (c *Controller) VerifyRebuildReplica(address string) error {
 	if err := c.backend.SetRevisionCounter(address, counter); err != nil {
 		return fmt.Errorf("Fail to set revision counter for %v: %v", address, err)
 	}
+	for _, temprep := range c.replicas {
+		if err := c.backend.SetReplicaCounter(temprep.Address, int64(len(c.replicas))); err != nil {
+			return fmt.Errorf("Fail to set replica counter for %v: %v", address, err)
+		}
+	}
 
 	logrus.Debugf("WO replica %v's chain verified, update mode to RW", address)
 	c.setReplicaModeNoLock(address, types.RW)

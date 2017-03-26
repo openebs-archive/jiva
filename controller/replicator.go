@@ -292,3 +292,18 @@ func (r *replicator) GetRevisionCounter(address string) (int64, error) {
 
 	return counter, nil
 }
+
+func (r *replicator) SetReplicaCounter(address string, counter int64) error {
+	backend, ok := r.backends[address]
+	if !ok {
+		return fmt.Errorf("Cannot find backend %v", address)
+	}
+
+	if err := backend.backend.SetReplicaCounter(counter); err != nil {
+		return err
+	}
+
+	logrus.Infof("Set backend %s replica counter to %v", address, counter)
+
+	return nil
+}

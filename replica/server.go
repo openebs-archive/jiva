@@ -19,6 +19,9 @@ const (
 
 type State string
 
+var ActionChannel chan string
+var Dir string
+
 type Server struct {
 	sync.RWMutex
 	r                 *Replica
@@ -29,11 +32,21 @@ type Server struct {
 }
 
 func NewServer(dir string, backing *BackingFile, sectorSize int64) *Server {
+	ActionChannel = make(chan string, 5)
+	Dir = dir
 	return &Server{
 		dir:               dir,
 		backing:           backing,
 		defaultSectorSize: sectorSize,
 	}
+}
+
+func (s *Server) Start(action string) error {
+	s.Lock()
+	defer s.Unlock()
+	ActionChannel <- action
+
+	return nil
 }
 
 func (s *Server) getSectorSize() int64 {
@@ -86,6 +99,7 @@ func (s *Server) Open() error {
 	logrus.Infof("Opening volume %s, size %d/%d", s.dir, size, sectorSize)
 	r, err := New(size, sectorSize, s.dir, s.backing)
 	if err != nil {
+		fmt.Println("ERROR OPENING VOLUME")
 		return err
 	}
 	s.r = r
@@ -283,6 +297,16 @@ func (s *Server) SetRevisionCounter(counter int64) error {
 		return nil
 	}
 	return s.r.SetRevisionCounter(counter)
+}
+
+func (s *Server) SetReplicaCounter(counter int64) error {
+	s.Lock()
+	defer s.Unlock()
+
+	if s.r == nil {
+		return nil
+	}
+	return s.r.SetPeerCounter(counter)
 }
 
 func (s *Server) PingResponse() error {

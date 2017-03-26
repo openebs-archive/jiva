@@ -51,6 +51,7 @@ func NewRouter(s *Server) *mux.Router {
 
 	// Actions
 	actions := map[string]func(http.ResponseWriter, *http.Request) error{
+		"start":              s.StartReplica,
 		"reload":             s.ReloadReplica,
 		"snapshot":           s.SnapshotReplica,
 		"open":               s.OpenReplica,
@@ -62,6 +63,7 @@ func NewRouter(s *Server) *mux.Router {
 		"revert":             s.RevertReplica,
 		"prepareremovedisk":  s.PrepareRemoveDisk,
 		"setrevisioncounter": s.SetRevisionCounter,
+		"setreplicacounter":  s.SetReplicaCounter,
 	}
 
 	for name, action := range actions {

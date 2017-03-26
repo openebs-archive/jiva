@@ -11,6 +11,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/rancher/longhorn/controller/rest"
+	"github.com/rancher/longhorn/types"
 )
 
 type ControllerClient struct {
@@ -175,6 +176,15 @@ func (c *ControllerClient) GetVolume() (*rest.Volume, error) {
 	}
 
 	return &volumes.Data[0], nil
+}
+
+func (c *ControllerClient) Register(address string, revisionCount int64, replicaCount int64) error {
+	err := c.post("/register", &types.RegReplica{
+		Address:  address,
+		RevCount: revisionCount,
+		RepCount: replicaCount,
+	}, nil)
+	return err
 }
 
 func (c *ControllerClient) post(path string, req, resp interface{}) error {

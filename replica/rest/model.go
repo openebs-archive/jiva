@@ -72,6 +72,16 @@ type RevisionCounter struct {
 	Counter int64 `json:"counter"`
 }
 
+type ReplicaCounter struct {
+	client.Resource
+	Counter int64 `json:"counter"`
+}
+
+type Action struct {
+	client.Resource
+	Value string `json:"Action"`
+}
+
 func NewReplica(context *api.ApiContext, state replica.State, info replica.Info, rep *replica.Replica) *Replica {
 	r := &Replica{
 		Resource: client.Resource{
@@ -87,8 +97,10 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 
 	switch state {
 	case replica.Initial:
+		actions["start"] = true
 		actions["create"] = true
 	case replica.Open:
+		actions["start"] = true
 		actions["close"] = true
 		actions["setrebuilding"] = true
 		actions["snapshot"] = true
@@ -98,13 +110,17 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["revert"] = true
 		actions["prepareremovedisk"] = true
 		actions["setrevisioncounter"] = true
+		actions["setreplicacounter"] = true
 	case replica.Closed:
+		actions["start"] = true
 		actions["open"] = true
 		actions["removedisk"] = true
 		actions["replacedisk"] = true
 		actions["revert"] = true
 		actions["prepareremovedisk"] = true
+		actions["setreplicacounter"] = true
 	case replica.Dirty:
+		actions["start"] = true
 		actions["setrebuilding"] = true
 		actions["close"] = true
 		actions["snapshot"] = true
@@ -113,12 +129,15 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["replacedisk"] = true
 		actions["revert"] = true
 		actions["prepareremovedisk"] = true
+		actions["setreplicacounter"] = true
 	case replica.Rebuilding:
+		actions["start"] = true
 		actions["snapshot"] = true
 		actions["setrebuilding"] = true
 		actions["close"] = true
 		actions["reload"] = true
 		actions["setrevisioncounter"] = true
+		actions["setreplicacounter"] = true
 	case replica.Error:
 	}
 

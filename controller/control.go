@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/Sirupsen/logrus"
@@ -11,22 +12,25 @@ import (
 
 type Controller struct {
 	sync.RWMutex
-	Name       string
-	frontendIP string
-	size       int64
-	sectorSize int64
-	replicas   []types.Replica
-	factory    types.BackendFactory
-	backend    *replicator
-	frontend   types.Frontend
+	Name               string
+	frontendIP         string
+	size               int64
+	sectorSize         int64
+	replicas           []types.Replica
+	factory            types.BackendFactory
+	backend            *replicator
+	frontend           types.Frontend
+	RegisteredReplicas map[string]types.RegReplica
+	MaxRevReplica      string
 }
 
 func NewController(name string, frontendIP string, factory types.BackendFactory, frontend types.Frontend) *Controller {
 	c := &Controller{
-		factory:    factory,
-		Name:       name,
-		frontend:   frontend,
-		frontendIP: frontendIP,
+		factory:            factory,
+		Name:               name,
+		frontend:           frontend,
+		frontendIP:         frontendIP,
+		RegisteredReplicas: map[string]types.RegReplica{},
 	}
 	c.reset()
 	return c
@@ -34,6 +38,10 @@ func NewController(name string, frontendIP string, factory types.BackendFactory,
 
 func (c *Controller) AddReplica(address string) error {
 	return c.addReplica(address, true)
+}
+
+func (c *Controller) RegisterReplica(register types.RegReplica) error {
+	return c.registerReplica(register)
 }
 
 func (c *Controller) hasWOReplica() bool {
@@ -72,6 +80,30 @@ func (c *Controller) addReplica(address string, snapshot bool) error {
 	defer c.Unlock()
 
 	return c.addReplicaNoLock(newBackend, address, snapshot)
+}
+
+func (c *Controller) signalToAdd() {
+	c.factory.SignalToAdd(c.MaxRevReplica, "start")
+}
+
+func (c *Controller) registerReplica(register types.RegReplica) error {
+	c.Lock()
+	defer c.Unlock()
+
+	c.RegisteredReplicas[register.Address] = register
+	if c.MaxRevReplica == "" {
+		c.MaxRevReplica = register.Address
+	}
+	if c.RegisteredReplicas[c.MaxRevReplica].RevCount < register.RevCount {
+		c.MaxRevReplica = register.Address
+	}
+	if c.RegisteredReplicas[c.MaxRevReplica].RepCount == int64(len(c.RegisteredReplicas)) {
+		c.signalToAdd()
+	}
+	if c.RegisteredReplicas[c.MaxRevReplica].RepCount == 0 {
+		c.signalToAdd()
+	}
+	return nil
 }
 
 func (c *Controller) Snapshot(name string) (string, error) {
@@ -215,6 +247,7 @@ func (c *Controller) startFrontend() error {
 
 func (c *Controller) Start(addresses ...string) error {
 	var expectedRevision int64
+	var sendSignal int
 
 	c.Lock()
 	defer c.Unlock()
@@ -282,6 +315,18 @@ func (c *Controller) Start(addresses ...string) error {
 			logrus.Errorf("Revision conflict detected! Expect %v, got %v in replica %v. Mark as ERR",
 				expectedRevision, counter, address)
 			c.setReplicaModeNoLock(address, types.ERR)
+		}
+	}
+	for regrep := range c.RegisteredReplicas {
+		sendSignal = 1
+		for _, tmprep := range c.replicas {
+			if strings.Contains(tmprep.Address, regrep) {
+				sendSignal = 0
+				break
+			}
+		}
+		if sendSignal == 1 {
+			c.factory.SignalToAdd(regrep, "add")
 		}
 	}
 

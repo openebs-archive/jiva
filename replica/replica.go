@@ -49,6 +49,10 @@ type Replica struct {
 	revisionLock  sync.Mutex
 	revisionCache int64
 	revisionFile  *sparse.DirectFileIoProcessor
+
+	peerLock  sync.Mutex
+	peerCache int64
+	peerFile  *sparse.DirectFileIoProcessor
 }
 
 type Info struct {
@@ -99,6 +103,23 @@ const (
 	OpReplace  = "replace"
 )
 
+func CreateTempReplica() (*Replica, error) {
+	if err := os.Mkdir(Dir, 0700); err != nil && !os.IsExist(err) {
+		return nil, err
+	}
+
+	r := &Replica{
+		dir: Dir,
+	}
+	if err := r.initRevisionCounter(); err != nil {
+		return nil, err
+	}
+	if err := r.initPeerCounter(); err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
 func ReadInfo(dir string) (Info, error) {
 	var info Info
 	err := (&Replica{dir: dir}).unmarshalFile(volumeMetaData, &info)
@@ -144,6 +165,10 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 	}
 
 	if err := r.initRevisionCounter(); err != nil {
+		return nil, err
+	}
+
+	if err := r.initPeerCounter(); err != nil {
 		return nil, err
 	}
 

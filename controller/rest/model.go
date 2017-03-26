@@ -65,6 +65,13 @@ type PrepareRebuildOutput struct {
 	Disks []string `json:"disks"`
 }
 
+type RegReplica struct {
+	client.Resource
+	Address  string `json:"Address"`
+	RevCount int64  `json:"RevCount"`
+	RepCount int64  `json:"RepCount"`
+}
+
 func NewVolume(context *api.ApiContext, name string, replicas int) *Volume {
 	v := &Volume{
 		Resource: client.Resource{

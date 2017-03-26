@@ -38,6 +38,21 @@ func (s *Server) GetReplica(rw http.ResponseWriter, req *http.Request) error {
 	return nil
 }
 
+func (s *Server) RegisterReplica(rw http.ResponseWriter, req *http.Request) error {
+	var regReplica RegReplica
+	apiContext := api.GetApiContext(req)
+	if err := apiContext.Read(&regReplica); err != nil {
+		return err
+	}
+
+	local := types.RegReplica{Address: regReplica.Address, RevCount: regReplica.RevCount, RepCount: regReplica.RepCount}
+	if err := s.c.RegisterReplica(local); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *Server) CreateReplica(rw http.ResponseWriter, req *http.Request) error {
 	var replica Replica
 	apiContext := api.GetApiContext(req)

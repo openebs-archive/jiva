@@ -170,27 +170,36 @@ func find(list []string, item string) int {
 	return -1
 }
 
-func (t *Task) AddReplica(replica string) error {
+func (t *Task) AddReplica(replicaAddress string) error {
+	var action string
 	volume, err := t.client.GetVolume()
 	if err != nil {
 		return err
 	}
+	addr := strings.Split(replicaAddress, "://")
+	parts := strings.Split(addr[1], ":")
+	Replica, _ := replica.CreateTempReplica()
 
 	if volume.ReplicaCount == 0 {
-		return t.client.Start(replica)
+		revisionCount := Replica.GetRevisionCounter()
+		replicaCount := Replica.GetPeerCounter()
+		t.client.Register(parts[0], revisionCount, replicaCount)
+		action = <-replica.ActionChannel
 	}
-
-	if err := t.checkAndResetFailedRebuild(replica); err != nil {
+	if action == "start" {
+		return t.client.Start(replicaAddress)
+	}
+	if err := t.checkAndResetFailedRebuild(replicaAddress); err != nil {
 		return err
 	}
 
-	logrus.Infof("Adding replica %s in WO mode", replica)
-	_, err = t.client.CreateReplica(replica)
+	logrus.Infof("Adding replica %s in WO mode", replicaAddress)
+	_, err = t.client.CreateReplica(replicaAddress)
 	if err != nil {
 		return err
 	}
 
-	fromClient, toClient, err := t.getTransferClients(replica)
+	fromClient, toClient, err := t.getTransferClients(replicaAddress)
 	if err != nil {
 		return err
 	}
@@ -199,7 +208,7 @@ func (t *Task) AddReplica(replica string) error {
 		return err
 	}
 
-	output, err := t.client.PrepareRebuild(rest.EncodeID(replica))
+	output, err := t.client.PrepareRebuild(rest.EncodeID(replicaAddress))
 	if err != nil {
 		return err
 	}
@@ -208,7 +217,7 @@ func (t *Task) AddReplica(replica string) error {
 		return err
 	}
 
-	if err := t.reloadAndVerify(replica, toClient); err != nil {
+	if err := t.reloadAndVerify(replicaAddress, toClient); err != nil {
 		return err
 	}
 

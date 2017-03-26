@@ -51,6 +51,10 @@ func (f *Wrapper) SetRevisionCounter(counter int64) error {
 	return nil
 }
 
+func (f *Wrapper) SetReplicaCounter(counter int64) error {
+	return nil
+}
+
 func (ff *Factory) Create(address string) (types.Backend, error) {
 	logrus.Infof("Creating file: %s", address)
 	file, err := os.OpenFile(address, os.O_RDWR|os.O_CREATE, 0600)
@@ -60,6 +64,10 @@ func (ff *Factory) Create(address string) (types.Backend, error) {
 	}
 
 	return &Wrapper{file}, nil
+}
+
+func (ff *Factory) SignalToAdd(address string, action string) error {
+	return nil
 }
 
 func (f *Wrapper) GetMonitorChannel() types.MonitorChannel {

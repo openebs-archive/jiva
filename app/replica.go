@@ -2,7 +2,6 @@ package app
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
@@ -73,7 +72,7 @@ func AutoConfigureReplica(s *replica.Server, frontendIP string, address string) 
 checkagain:
 	state, err := CheckReplicaState(frontendIP, address)
 	if err == nil && (state == "" || state == "ERR") {
-		fmt.Println("Removing Replica")
+		logrus.Infof("Removing Replica")
 	} else {
 		time.Sleep(5 * time.Second)
 		goto checkagain

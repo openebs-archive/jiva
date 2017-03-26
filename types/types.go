@@ -33,12 +33,14 @@ type Backend interface {
 	RemainSnapshots() (int, error)
 	GetRevisionCounter() (int64, error)
 	SetRevisionCounter(counter int64) error
+	SetReplicaCounter(counter int64) error
 	GetMonitorChannel() MonitorChannel
 	StopMonitoring()
 }
 
 type BackendFactory interface {
 	Create(address string) (Backend, error)
+	SignalToAdd(string, string) error
 }
 
 type Controller interface {
@@ -62,6 +64,12 @@ type State string
 type Replica struct {
 	Address string
 	Mode    Mode
+}
+
+type RegReplica struct {
+	Address  string
+	RevCount int64
+	RepCount int64
 }
 
 type Frontend interface {

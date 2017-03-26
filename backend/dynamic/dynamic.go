@@ -28,3 +28,10 @@ func (d *Factory) Create(address string) (types.Backend, error) {
 
 	return nil, fmt.Errorf("Failed to find factory for %s", address)
 }
+
+func (d *Factory) SignalToAdd(address string, action string) error {
+	if factory, ok := d.factories["tcp"]; ok {
+		return factory.SignalToAdd(address, action)
+	}
+	return nil
+}

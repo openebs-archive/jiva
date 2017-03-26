@@ -137,6 +137,11 @@ func (r *Remote) SetRevisionCounter(counter int64) error {
 	return r.doAction("setrevisioncounter", &map[string]int64{"counter": counter})
 }
 
+func (r *Remote) SetReplicaCounter(counter int64) error {
+	logrus.Infof("Set replica counter of %s to : %v", r.name, counter)
+	return r.doAction("setreplicacounter", &map[string]int64{"counter": counter})
+}
+
 func (r *Remote) info() (rest.Replica, error) {
 	var replica rest.Replica
 	req, err := http.NewRequest("GET", r.replicaURL, nil)
@@ -203,6 +208,21 @@ func (rf *Factory) Create(address string) (types.Backend, error) {
 	go r.monitorPing(rpc)
 
 	return r, nil
+}
+
+func (rf *Factory) SignalToAdd(address string, action string) error {
+	controlAddress, _, _, err := util.ParseAddresses(address + ":9502")
+	if err != nil {
+		return err
+	}
+	r := &Remote{
+		name:       address,
+		replicaURL: fmt.Sprintf("http://%s/v1/replicas/1", controlAddress),
+		httpClient: &http.Client{
+			Timeout: timeout,
+		},
+	}
+	return r.doAction("start", &map[string]string{"Action": action})
 }
 
 func (r *Remote) monitorPing(client *rpc.Client) {
