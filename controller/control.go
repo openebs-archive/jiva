@@ -189,6 +189,11 @@ func (c *Controller) RemoveReplica(address string) error {
 					return fmt.Errorf("Cannot remove last replica if volume is up")
 				}
 			}
+			for regrep := range c.RegisteredReplicas {
+				if strings.Contains(address, regrep) {
+					delete(c.RegisteredReplicas, regrep)
+				}
+			}
 			c.replicas = append(c.replicas[:i], c.replicas[i+1:]...)
 			c.backend.RemoveBackend(r.Address)
 		}
