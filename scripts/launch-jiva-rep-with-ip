@@ -45,9 +45,30 @@ if [ -z "$JIVA_REP_IFACE" ]; then
   exit
 fi
 
-if [ -z "$JIVA_REP_IP" ]; then
+# The rep ip variable name can be:
+# JIVA_REP_IP or
+# JIVA_REP_IP_0
+# The suffix is equal to value of NOMAD_ALLOC_INDEX
+#
+# NOTE:
+#   Below are valid invocations w.r.t replica ip
+#
+#   JIVA_REP_IP="1.2.1.2" ./launch-jiva-rep-with-ip2
+#   JIVA_REP_IP_1="1.2.1.2" NOMAD_ALLOC_INDEX="1" ./launch-jiva-rep-with-ip2
+#   JIVA_REP_IP_2="1.2.1.3" NOMAD_ALLOC_INDEX="2" ./launch-jiva-rep-with-ip2
+if [ ! -z "$NOMAD_ALLOC_INDEX" ]; then
+  JIVA_REP_IP_VAR="JIVA_REP_IP_$NOMAD_ALLOC_INDEX"
+else
+  JIVA_REP_IP_VAR="JIVA_REP_IP"
+fi
+
+# use of indirection ${!PARAMETER} to interpolate nested variable
+if [ -z "${!JIVA_REP_IP_VAR}" ]; then
   echo 'Please set $JIVA_REP_IP'
   exit
+else
+  # Set the replica IP addr meant for this replica instance
+  JIVA_REP_IP=${!JIVA_REP_IP_VAR}
 fi
 
 if [ -z "$JIVA_REP_SUBNET" ]; then
