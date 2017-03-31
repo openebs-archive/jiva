@@ -87,21 +87,44 @@ func (c *Controller) signalToAdd() {
 }
 
 func (c *Controller) registerReplica(register types.RegReplica) error {
+
+	var (
+		revisionConflict int64
+		revCount         int64
+	)
+
 	c.Lock()
 	defer c.Unlock()
 
 	c.RegisteredReplicas[register.Address] = register
+
 	if c.MaxRevReplica == "" {
 		c.MaxRevReplica = register.Address
 	}
+
 	if c.RegisteredReplicas[c.MaxRevReplica].RevCount < register.RevCount {
 		c.MaxRevReplica = register.Address
 	}
+
 	if c.RegisteredReplicas[c.MaxRevReplica].RepCount == int64(len(c.RegisteredReplicas)) {
 		c.signalToAdd()
 	}
 	if c.RegisteredReplicas[c.MaxRevReplica].RepCount == 0 {
 		c.signalToAdd()
+	}
+	if len(c.RegisteredReplicas) >= 2 {
+		for _, tmprep := range c.RegisteredReplicas {
+			if revCount == 0 {
+				revCount = tmprep.RevCount
+			} else {
+				if revCount != tmprep.RevCount {
+					revisionConflict = 1
+				}
+			}
+		}
+		if revisionConflict == 0 {
+			c.signalToAdd()
+		}
 	}
 	return nil
 }
