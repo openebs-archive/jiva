@@ -3,6 +3,9 @@ set -e
 
 source "$(dirname $0)/version"
 IMAGEID=$( docker images -q openebs/jiva:${VERSION} )
+#Set the RC release tag to push the release into docker hub.
+#TODO: A cleaner way to make releases needs to be setup.
+RELEASE_TAG="0.2-RC3"
 
 if [ ! -z "${DNAME}" ] && [ ! -z "${DPASS}" ]; 
 then 
@@ -10,15 +13,19 @@ then
   #Push the development build images to jiva-ci docker hub repository
   docker tag ${IMAGEID} openebs/jiva-ci:${VERSION}
   docker push openebs/jiva-ci:${VERSION} ; 
-  if [ ! -z "${TRAVIS_TAG}" ] ; 
+  if [ ! -z "${TRAVIS_TAG}" ] || [ ! -z "${RELEASE_TAG}" ]; 
   then
     #Push the release tag image to jiva docker hub repository
     #When a git hub is tagged with a release, the travis will 
     #hold the release tag in env TRAVIS_TAG
-    docker tag ${IMAGEID} openebs/jiva:${TRAVIS_TAG}
-    docker push openebs/jiva:${TRAVIS_TAG}; 
+    if [ ! -z "${TRAVIS_TAG}" ];
+    then
+      RELEASE_TAG=${TRAVIS_TAG}
+    fi
+    docker tag ${IMAGEID} openebs/jiva:${RELEASE_TAG}
+    docker push openebs/jiva:${RELEASE_TAG}; 
     docker tag ${IMAGEID} openebs/jiva:latest
-    docker push openebs/jiva:latest; 
+    docker push openebs/jiva:latest;
   fi;
 else
   echo "No docker credentials provided. Skip uploading openebs/jiva:${VERSION} to docker hub"; 
