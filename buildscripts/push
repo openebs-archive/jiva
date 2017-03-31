@@ -5,7 +5,7 @@ source "$(dirname $0)/version"
 IMAGEID=$( docker images -q openebs/jiva:${VERSION} )
 #Set the RC release tag to push the release into docker hub.
 #TODO: A cleaner way to make releases needs to be setup.
-RELEASE_TAG="0.2-RC3"
+#RELEASE_TAG="0.2-RC3"
 
 if [ ! -z "${DNAME}" ] && [ ! -z "${DPASS}" ]; 
 then 
