@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/rancher/longhorn/controller/rest"
@@ -178,11 +179,12 @@ func (c *ControllerClient) GetVolume() (*rest.Volume, error) {
 	return &volumes.Data[0], nil
 }
 
-func (c *ControllerClient) Register(address string, revisionCount int64, replicaCount int64) error {
+func (c *ControllerClient) Register(address string, revisionCount int64, replicaCount int64, upTime time.Duration) error {
 	err := c.post("/register", &types.RegReplica{
 		Address:  address,
 		RevCount: revisionCount,
 		RepCount: replicaCount,
+		UpTime:   upTime,
 	}, nil)
 	return err
 }

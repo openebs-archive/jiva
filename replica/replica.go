@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/rancher/longhorn/types"
@@ -38,13 +39,14 @@ var (
 
 type Replica struct {
 	sync.RWMutex
-	volume          diffDisk
-	dir             string
-	info            Info
-	diskData        map[string]*disk
-	diskChildrenMap map[string]map[string]bool
-	activeDiskData  []*disk
-	readOnly        bool
+	volume           diffDisk
+	dir              string
+	ReplicaStartTime time.Time
+	info             Info
+	diskData         map[string]*disk
+	diskChildrenMap  map[string]map[string]bool
+	activeDiskData   []*disk
+	readOnly         bool
 
 	revisionLock  sync.Mutex
 	revisionCache int64
@@ -109,7 +111,8 @@ func CreateTempReplica() (*Replica, error) {
 	}
 
 	r := &Replica{
-		dir: Dir,
+		dir:              Dir,
+		ReplicaStartTime: StartTime,
 	}
 	if err := r.initRevisionCounter(); err != nil {
 		return nil, err

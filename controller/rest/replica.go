@@ -45,7 +45,7 @@ func (s *Server) RegisterReplica(rw http.ResponseWriter, req *http.Request) erro
 		return err
 	}
 
-	local := types.RegReplica{Address: regReplica.Address, RevCount: regReplica.RevCount, RepCount: regReplica.RepCount}
+	local := types.RegReplica{Address: regReplica.Address, RevCount: regReplica.RevCount, RepCount: regReplica.RepCount, UpTime: regReplica.UpTime}
 	if err := s.c.RegisterReplica(local); err != nil {
 		return err
 	}

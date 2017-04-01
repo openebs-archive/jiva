@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 )
@@ -21,6 +22,7 @@ type State string
 
 var ActionChannel chan string
 var Dir string
+var StartTime time.Time
 
 type Server struct {
 	sync.RWMutex
@@ -34,6 +36,7 @@ type Server struct {
 func NewServer(dir string, backing *BackingFile, sectorSize int64) *Server {
 	ActionChannel = make(chan string, 5)
 	Dir = dir
+	StartTime = time.Now()
 	return &Server{
 		dir:               dir,
 		backing:           backing,

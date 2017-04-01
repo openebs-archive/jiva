@@ -2,6 +2,7 @@ package rest
 
 import (
 	"encoding/base64"
+	"time"
 
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
@@ -67,9 +68,10 @@ type PrepareRebuildOutput struct {
 
 type RegReplica struct {
 	client.Resource
-	Address  string `json:"Address"`
-	RevCount int64  `json:"RevCount"`
-	RepCount int64  `json:"RepCount"`
+	Address  string        `json:"Address"`
+	RevCount int64         `json:"RevCount"`
+	RepCount int64         `json:"RepCount"`
+	UpTime   time.Duration `json:"UpTime"`
 }
 
 func NewVolume(context *api.ApiContext, name string, replicas int) *Volume {

@@ -1,6 +1,9 @@
 package types
 
-import "io"
+import (
+	"io"
+	"time"
+)
 
 const (
 	WO  = Mode("WO")
@@ -68,6 +71,7 @@ type Replica struct {
 
 type RegReplica struct {
 	Address  string
+	UpTime   time.Duration
 	RevCount int64
 	RepCount int64
 }

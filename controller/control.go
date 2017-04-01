@@ -2,12 +2,12 @@ package controller
 
 import (
 	"fmt"
-	"strings"
-	"sync"
-
 	"github.com/Sirupsen/logrus"
 	"github.com/rancher/longhorn/types"
 	"github.com/rancher/longhorn/util"
+	"strings"
+	"sync"
+	"time"
 )
 
 type Controller struct {
@@ -22,6 +22,8 @@ type Controller struct {
 	frontend           types.Frontend
 	RegisteredReplicas map[string]types.RegReplica
 	MaxRevReplica      string
+	StartTime          time.Time
+	StartSignalled     bool
 }
 
 func NewController(name string, frontendIP string, factory types.BackendFactory, frontend types.Frontend) *Controller {
@@ -31,6 +33,7 @@ func NewController(name string, frontendIP string, factory types.BackendFactory,
 		frontend:           frontend,
 		frontendIP:         frontendIP,
 		RegisteredReplicas: map[string]types.RegReplica{},
+		StartTime:          time.Now(),
 	}
 	c.reset()
 	return c
@@ -97,6 +100,16 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 	defer c.Unlock()
 
 	c.RegisteredReplicas[register.Address] = register
+	if len(c.replicas) > 0 {
+		return nil
+	}
+	if c.StartSignalled == true {
+		if c.MaxRevReplica == register.Address {
+			c.signalToAdd()
+		} else {
+			return nil
+		}
+	}
 
 	if c.MaxRevReplica == "" {
 		c.MaxRevReplica = register.Address
@@ -108,9 +121,19 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 
 	if c.RegisteredReplicas[c.MaxRevReplica].RepCount == int64(len(c.RegisteredReplicas)) {
 		c.signalToAdd()
+		c.StartSignalled = true
+		return nil
 	}
 	if c.RegisteredReplicas[c.MaxRevReplica].RepCount == 0 {
 		c.signalToAdd()
+		c.StartSignalled = true
+		return nil
+	}
+	//TODO Improve on this logic for HA
+	if register.UpTime > time.Since(c.StartTime) && (c.StartSignalled == false || c.MaxRevReplica == register.Address) {
+		c.signalToAdd()
+		c.StartSignalled = true
+		return nil
 	}
 	if len(c.RegisteredReplicas) >= 2 {
 		for _, tmprep := range c.RegisteredReplicas {
@@ -124,6 +147,8 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 		}
 		if revisionConflict == 0 {
 			c.signalToAdd()
+			c.StartSignalled = true
+			return nil
 		}
 	}
 	return nil
@@ -206,6 +231,8 @@ func (c *Controller) RemoveReplica(address string) error {
 			if len(c.replicas) == 1 && c.frontend.State() == types.StateUp {
 				if r.Mode == "ERR" {
 					if c.frontend != nil {
+						c.StartSignalled = false
+						c.MaxRevReplica = ""
 						c.frontend.Shutdown()
 					}
 				} else {

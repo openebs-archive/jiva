@@ -3,6 +3,7 @@ package sync
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/rancher/longhorn/controller/client"
@@ -172,6 +173,9 @@ func find(list []string, item string) int {
 
 func (t *Task) AddReplica(replicaAddress string) error {
 	var action string
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+Register:
 	volume, err := t.client.GetVolume()
 	if err != nil {
 		return err
@@ -183,8 +187,13 @@ func (t *Task) AddReplica(replicaAddress string) error {
 	if volume.ReplicaCount == 0 {
 		revisionCount := Replica.GetRevisionCounter()
 		replicaCount := Replica.GetPeerCounter()
-		t.client.Register(parts[0], revisionCount, replicaCount)
-		action = <-replica.ActionChannel
+		upTime := time.Since(Replica.ReplicaStartTime)
+		t.client.Register(parts[0], revisionCount, replicaCount, upTime)
+		select {
+		case <-ticker.C:
+			goto Register
+		case action = <-replica.ActionChannel:
+		}
 	}
 	if action == "start" {
 		return t.client.Start(replicaAddress)
