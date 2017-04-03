@@ -38,6 +38,11 @@ if [ -z "$JIVA_CTL_IP" ]; then
   exit
 fi
 
+if ping -c1 -W2 $JIVA_CTL_IP
+then
+	exit
+fi
+
 if [ -z "$JIVA_CTL_SUBNET" ]; then
   echo 'Please set $JIVA_CTL_SUBNET'
   exit
