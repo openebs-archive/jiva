@@ -21,6 +21,13 @@ type Replica struct {
 	Disks           map[string]replica.DiskInfo `json:"disks"`
 	RemainSnapshots int                         `json:"remainsnapshots"`
 	RevisionCounter int64                       `json:"revisioncounter"`
+	ReplicaCounter  int64                       `json:"replicacounter"`
+}
+
+type Stats struct {
+	client.Resource
+	ReplicaCounter  int64 `json:"replicacounter"`
+	RevisionCounter int64 `json:"revisioncounter"`
 }
 
 type CreateInput struct {
@@ -176,6 +183,7 @@ func NewSchema() *client.Schemas {
 	schemas.AddType("prepareRemoveDiskInput", PrepareRemoveDiskInput{})
 	schemas.AddType("prepareRemoveDiskOutput", PrepareRemoveDiskOutput{})
 	schemas.AddType("revisionCounter", RevisionCounter{})
+	schemas.AddType("replicaCounter", ReplicaCounter{})
 	schemas.AddType("replacediskInput", ReplaceDiskInput{})
 	replica := schemas.AddType("replica", Replica{})
 
@@ -216,6 +224,9 @@ func NewSchema() *client.Schemas {
 		},
 		"setrevisioncounter": {
 			Input: "revisionCounter",
+		},
+		"setreplicacounter": {
+			Input: "replicaCounter",
 		},
 		"replacedisk": {
 			Input:  "replacediskinput",

@@ -44,6 +44,9 @@ func NewRouter(s *Server) *mux.Router {
 	router.Methods("GET").Path("/v1/schemas/{id}").Handler(api.SchemaHandler(schemas))
 	router.Methods("GET").Path("/v1").Handler(api.VersionHandler(schemas, "v1"))
 
+	// Stats
+	router.Methods("GET").Path("/v1/stats").Handler(f(schemas, s.GetStats))
+
 	// Replicas
 	router.Methods("GET").Path("/v1/replicas").Handler(f(schemas, s.ListReplicas))
 	router.Methods("GET").Path("/v1/replicas/{id}").Handler(f(schemas, s.GetReplica))

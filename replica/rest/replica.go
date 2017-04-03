@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
+	"github.com/rancher/longhorn/types"
 )
 
 func (s *Server) ListReplicas(rw http.ResponseWriter, req *http.Request) error {
@@ -33,6 +34,30 @@ func (s *Server) GetReplica(rw http.ResponseWriter, req *http.Request) error {
 	} else {
 		rw.WriteHeader(http.StatusNotFound)
 	}
+	return nil
+}
+
+func (s *Server) GetReplicaStats(apiContext *api.ApiContext) *types.Stats {
+	return s.s.Stats()
+}
+
+func (s *Server) GetStats(rw http.ResponseWriter, req *http.Request) error {
+	var stats *types.Stats
+	apiContext := api.GetApiContext(req)
+	stats = s.GetReplicaStats(apiContext)
+
+	resp := &Stats{
+		Resource: client.Resource{
+			Type:    "replica",
+			Id:      "1",
+			Actions: map[string]string{},
+			Links:   map[string]string{},
+		},
+		RevisionCounter: stats.RevisionCounter,
+		ReplicaCounter:  stats.ReplicaCounter,
+	}
+
+	apiContext.Write(resp)
 	return nil
 }
 

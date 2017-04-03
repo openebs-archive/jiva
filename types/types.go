@@ -76,6 +76,11 @@ type RegReplica struct {
 	RepCount int64
 }
 
+type Stats struct {
+	RevisionCounter int64
+	ReplicaCounter  int64
+}
+
 type Frontend interface {
 	Startup(name string, frontendIP string, size, sectorSize int64, rw ReaderWriterAt) error
 	Shutdown() error

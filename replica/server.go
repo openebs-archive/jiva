@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/rancher/longhorn/types"
 )
 
 const (
@@ -149,7 +150,14 @@ func (s *Server) Status() (State, Info) {
 		return Open, info
 	}
 }
+func (s *Server) Stats() *types.Stats {
+	r := s.r
+	return &types.Stats{
+		RevisionCounter: r.revisionCache,
+		ReplicaCounter:  r.peerCache,
+	}
 
+}
 func (s *Server) SetRebuilding(rebuilding bool) error {
 	s.Lock()
 	defer s.Unlock()
