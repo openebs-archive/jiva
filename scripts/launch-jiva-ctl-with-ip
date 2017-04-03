@@ -93,6 +93,7 @@ CONTAINER_ID=$(docker run -d \
   launch controller \
   --frontend gotgt \
   --frontendIP $JIVA_CTL_IP \
+  --listen $JIVA_CTL_IP:9501 \
   $JIVA_CTL_VOLNAME\
   $JIVA_CTL_VOLSIZE)
 
