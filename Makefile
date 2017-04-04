@@ -48,7 +48,7 @@ _fetch_longhorn:
 		then \
 	          cd $(GOPATH)/src/github.com/openebs && git clone https://github.com/openebs/longhorn.git; \
 		fi;
-	cd $(GOPATH)/src/github.com/openebs/longhorn && git pull && trash .
+	cd $(GOPATH)/src/github.com/openebs/longhorn && git fetch && git branch -r && git checkout Pre-release && trash .
 
 _customize_longhorn:
 	cp -R package/* $(GOPATH)/src/github.com/openebs/longhorn/package/
