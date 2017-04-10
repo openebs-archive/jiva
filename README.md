@@ -8,7 +8,7 @@ OpenEBS VSM/Storage Pod allows you to create persistent or ephemeral storage for
 
 An OpenEBS Storage comprises of an Frontend-Container that exposes storage via iSCSI, TCMU etc., and can be launched along side your application container. Each Frontend Container can be then associated with one or more Backend-Containers that will persist the data, providing redundancy and high-availability. 
 
-![Jiva Overview Diagram](https://github.com/openebs/openebs/blob/master/docs/images/JivaExample.png?raw=true)
+![Jiva Overview Diagram](https://github.com/openebs/openebs/blob/master/documentation/source/_static/JivaExample.png)
 
 The following instructions will help you to quickly setup an OpenEBS iSCSI volume with 2 backend containers that can be used for your Persistent Storage needs. To enable redundancy, the backend containers have to be run on different hosts. 
 
