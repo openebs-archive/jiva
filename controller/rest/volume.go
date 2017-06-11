@@ -32,6 +32,30 @@ func (s *Server) GetVolume(rw http.ResponseWriter, req *http.Request) error {
 	return nil
 }
 
+func (s *Server) GetVolumeStats(rw http.ResponseWriter, req *http.Request) error {
+	apiContext := api.GetApiContext(req)
+	//	id := mux.Vars(req)["id"]
+	stats := s.c.Stats()
+	volumeStats := &VolumeStats{
+		Resource:        client.Resource{Type: "stats"},
+		RevisionCounter: stats.RevisionCounter,
+		ReplicaCounter:  stats.ReplicaCounter,
+		SCSIIOCount:     stats.SCSIIOCount,
+
+		ReadIOPS:         stats.ReadIOPS,
+		ReadThroughput:   stats.ReadThroughput,
+		ReadLatency:      stats.ReadLatency,
+		AvgReadBlockSize: stats.AvgReadBlockSize,
+
+		WriteIOPS:         stats.WriteIOPS,
+		WriteThroughput:   stats.WriteThroughput,
+		WriteLatency:      stats.WriteLatency,
+		AvgWriteBlockSize: stats.AvgWriteBlockSize,
+	}
+	apiContext.Write(volumeStats)
+	return nil
+}
+
 func (s *Server) ShutdownVolume(rw http.ResponseWriter, req *http.Request) error {
 	apiContext := api.GetApiContext(req)
 	id := mux.Vars(req)["id"]

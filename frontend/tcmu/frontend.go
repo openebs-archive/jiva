@@ -33,6 +33,7 @@ func New() types.Frontend {
 type Tcmu struct {
 	volume string
 	isUp   bool
+	stats  map[int]int64
 }
 
 func (t *Tcmu) Startup(name string, frontendIP string, size, sectorSize int64, rw types.ReaderWriterAt) error {
@@ -68,6 +69,10 @@ func (t *Tcmu) State() types.State {
 		return types.StateUp
 	}
 	return types.StateDown
+}
+
+func (t *Tcmu) Stats() types.Stats {
+	return types.Stats{}
 }
 
 func PreEnableTcmu(volume string, size, sectorSize int64) error {

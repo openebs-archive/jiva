@@ -76,15 +76,34 @@ type RegReplica struct {
 	RepCount int64
 }
 
+type IOStats struct {
+	IOPS        int64
+	Throughput  int64
+	Latency     float32
+	AvBlockSize float32
+}
 type Stats struct {
 	RevisionCounter int64
 	ReplicaCounter  int64
+	SCSIIOCount     map[int]int64
+
+	ReadIOPS         int64
+	ReadThroughput   int64
+	ReadLatency      int64
+	AvgReadBlockSize int64
+
+	WriteIOPS         int64
+	WriteThroughput   int64
+	WriteLatency      int64
+	AvgWriteBlockSize int64
 }
 
+type Interface interface{}
 type Frontend interface {
 	Startup(name string, frontendIP string, size, sectorSize int64, rw ReaderWriterAt) error
 	Shutdown() error
 	State() State
+	Stats() Stats
 }
 
 type DataProcessor interface {

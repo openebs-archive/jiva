@@ -70,3 +70,7 @@ func (d *Device) State() types.State {
 	}
 	return types.StateDown
 }
+
+func (d *Device) Stats() types.Stats {
+	return types.Stats{}
+}

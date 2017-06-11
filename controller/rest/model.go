@@ -46,6 +46,23 @@ type SnapshotOutput struct {
 	client.Resource
 }
 
+type VolumeStats struct {
+	client.Resource
+	RevisionCounter int64         `json:"RevisionCounter"`
+	ReplicaCounter  int64         `json:"ReplicaCounter"`
+	SCSIIOCount     map[int]int64 `json:"SCSIIOCount"`
+
+	ReadIOPS         int64 `json:"ReadIOPS"`
+	ReadThroughput   int64 `json:"ReadThroughput"`
+	ReadLatency      int64 `json:"ReadLatency"`
+	AvgReadBlockSize int64 `json:"AvgReadBlockSize"`
+
+	WriteIOPS         int64 `json:"WriteIOPS"`
+	WriteThroughput   int64 `json:"WriteThroughput"`
+	WriteLatency      int64 `json:"WriteLatency"`
+	AvgWriteBlockSize int64 `json:"AvgWriteBlockSize"`
+}
+
 type SnapshotInput struct {
 	client.Resource
 	Name string `json:"name"`
@@ -151,6 +168,11 @@ func NewSchema() *client.Schemas {
 	f = replica.ResourceFields["mode"]
 	f.Update = true
 	replica.ResourceFields["mode"] = f
+
+	stats := schemas.AddType("stats", VolumeStats{})
+	f = stats.ResourceFields["Stats"]
+	f.Default = true
+	stats.ResourceFields["Stats"] = f
 
 	volumes := schemas.AddType("volume", Volume{})
 	volumes.ResourceActions = map[string]client.Action{

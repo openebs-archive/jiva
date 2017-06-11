@@ -2,12 +2,13 @@ package controller
 
 import (
 	"fmt"
-	"github.com/Sirupsen/logrus"
-	"github.com/rancher/longhorn/types"
-	"github.com/rancher/longhorn/util"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Sirupsen/logrus"
+	"github.com/rancher/longhorn/types"
+	"github.com/rancher/longhorn/util"
 )
 
 type Controller struct {
@@ -481,6 +482,17 @@ func (c *Controller) shutdownFrontend() error {
 		return c.frontend.Shutdown()
 	}
 	return nil
+}
+
+func (c *Controller) Stats() types.Stats {
+	// Make sure writing data won't be blocked
+	c.RLock()
+	defer c.RUnlock()
+
+	if c.frontend != nil {
+		return (types.Stats)(c.frontend.Stats())
+	}
+	return types.Stats{}
 }
 
 func (c *Controller) shutdownBackend() error {

@@ -29,6 +29,7 @@ type goTgt struct {
 	lhbsName     string
 	cfg          *config.Config
 	targetDriver port.SCSITargetService
+	stats        port.Stats
 }
 
 func (t *goTgt) Startup(name string, frontendIP string, size, sectorSize int64, rw types.ReaderWriterAt) error {
@@ -93,6 +94,13 @@ func (t *goTgt) State() types.State {
 		return types.StateUp
 	}
 	return types.StateDown
+}
+
+func (t *goTgt) Stats() types.Stats {
+	if !t.isUp {
+		return types.Stats{}
+	}
+	return (types.Stats)(t.targetDriver.Stats())
 }
 
 func (t *goTgt) startScsiTarget(cfg *config.Config) error {

@@ -87,6 +87,10 @@ func (t *Tgt) State() types.State {
 	return types.StateDown
 }
 
+func (t *Tgt) Stats() types.Stats {
+	return types.Stats{}
+}
+
 func (t *Tgt) getSocketPath() string {
 	if t.Volume == "" {
 		panic("Invalid volume name")
