@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	units "github.com/docker/go-units"
 	"github.com/rancher/longhorn/types"
 	"github.com/rancher/longhorn/util"
 	"github.com/rancher/sparse-tools/sparse"
@@ -252,6 +253,30 @@ func (r *Replica) SetRebuilding(rebuilding bool) error {
 		return err
 	}
 	r.info.Rebuilding = rebuilding
+	return nil
+}
+
+func (r *Replica) Resize(size string) error {
+	var sizeInBytes int64
+	chain, err := r.Chain()
+	if err != nil {
+		return err
+	}
+	if size != "" {
+		sizeInBytes, err = units.RAMInBytes(size)
+		if err != nil {
+			return err
+		}
+	}
+	if r.info.Size <= sizeInBytes {
+		return fmt.Errorf("Previous size %d is greater than %d", r.info.Size, sizeInBytes)
+	}
+	for _, file := range chain {
+		if err := syscall.Truncate(r.diskPath(file), sizeInBytes); err != nil {
+			return err
+		}
+	}
+	r.info.Size = sizeInBytes
 	return nil
 }
 

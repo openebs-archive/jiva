@@ -62,6 +62,16 @@ func (r *Remote) Snapshot(name string, userCreated bool, created string) error {
 		})
 }
 
+func (r *Remote) Resize(name string, size string) error {
+	logrus.Infof("Resize: %s to %s",
+		name, size)
+	return r.doAction("resize",
+		&map[string]interface{}{
+			"name": name,
+			"size": size,
+		})
+}
+
 func (r *Remote) doAction(action string, obj interface{}) error {
 	body := io.Reader(nil)
 	if obj != nil {

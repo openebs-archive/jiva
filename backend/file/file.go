@@ -27,6 +27,10 @@ func (f *Wrapper) Snapshot(name string, userCreated bool, created string) error 
 	return nil
 }
 
+func (f *Wrapper) Resize(name string, size string) error {
+	return nil
+}
+
 func (f *Wrapper) Size() (int64, error) {
 	stat, err := f.Stat()
 	if err != nil {

@@ -31,6 +31,7 @@ type Backend interface {
 	ReaderWriterAt
 	io.Closer
 	Snapshot(name string, userCreated bool, created string) error
+	Resize(name string, size string) error
 	Size() (int64, error)
 	SectorSize() (int64, error)
 	RemainSnapshots() (int, error)

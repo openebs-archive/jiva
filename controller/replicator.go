@@ -205,7 +205,34 @@ func (r *replicator) Snapshot(name string, userCreated bool, created string) err
 	}
 	return nil
 }
+func (r *replicator) Resize(name string, size string) error {
+	retErrorLock := sync.Mutex{}
+	retError := &BackendError{
+		Errors: map[string]error{},
+	}
+	wg := sync.WaitGroup{}
 
+	for addr, backend := range r.backends {
+		if backend.mode != types.ERR {
+			wg.Add(1)
+			go func(address string, backend types.Backend) {
+				if err := backend.Resize(name, size); err != nil {
+					retErrorLock.Lock()
+					retError.Errors[address] = err
+					retErrorLock.Unlock()
+				}
+				wg.Done()
+			}(addr, backend.backend)
+		}
+	}
+
+	wg.Wait()
+
+	if len(retError.Errors) != 0 {
+		return retError
+	}
+	return nil
+}
 func (r *replicator) Close() error {
 	var lastErr error
 	for _, backend := range r.backends {

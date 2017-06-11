@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	units "github.com/docker/go-units"
 	"github.com/rancher/longhorn/types"
 	"github.com/rancher/longhorn/util"
 )
@@ -171,6 +172,31 @@ func (c *Controller) Snapshot(name string) (string, error) {
 
 	created := util.Now()
 	return name, c.handleErrorNoLock(c.backend.Snapshot(name, true, created))
+}
+
+func (c *Controller) Resize(name string, size string) error {
+	var (
+		sizeInBytes int64
+		err         error
+	)
+	c.Lock()
+	defer c.Unlock()
+
+	if name != c.Name {
+		return fmt.Errorf("Volume name didn't match")
+	}
+	if size != "" {
+		sizeInBytes, err = units.RAMInBytes(size)
+		if err != nil {
+			return err
+		}
+	}
+	if sizeInBytes < c.size {
+		return fmt.Errorf("Size can only be increased, not reduced")
+	} else if sizeInBytes == c.size {
+		return fmt.Errorf("Volume size same as size mentioned")
+	}
+	return c.handleErrorNoLock(c.backend.Resize(name, size))
 }
 
 func (c *Controller) addReplicaNoLock(newBackend types.Backend, address string, snapshot bool) error {

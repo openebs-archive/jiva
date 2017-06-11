@@ -95,6 +95,28 @@ func (s *Server) RevertVolume(rw http.ResponseWriter, req *http.Request) error {
 	return s.GetVolume(rw, req)
 }
 
+func (s *Server) ResizeVolume(rw http.ResponseWriter, req *http.Request) error {
+	apiContext := api.GetApiContext(req)
+	id := mux.Vars(req)["id"]
+
+	v := s.getVolume(apiContext, id)
+	if v == nil {
+		rw.WriteHeader(http.StatusNotFound)
+		return nil
+	}
+
+	var input ResizeInput
+	if err := apiContext.Read(&input); err != nil {
+		return err
+	}
+
+	if err := s.c.Resize(input.Name, input.Size); err != nil {
+		return err
+	}
+
+	return s.GetVolume(rw, req)
+}
+
 func (s *Server) SnapshotVolume(rw http.ResponseWriter, req *http.Request) error {
 	apiContext := api.GetApiContext(req)
 	id := mux.Vars(req)["id"]

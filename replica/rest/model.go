@@ -58,6 +58,12 @@ type RemoveDiskInput struct {
 	Name string `json:"name"`
 }
 
+type ResizeInput struct {
+	client.Resource
+	Name string `json:"name"`
+	Size string `json:"size"`
+}
+
 type ReplaceDiskInput struct {
 	client.Resource
 	Target string `json:"target"`
@@ -106,8 +112,10 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 	case replica.Initial:
 		actions["start"] = true
 		actions["create"] = true
+		actions["resize"] = true
 	case replica.Open:
 		actions["start"] = true
+		actions["resize"] = true
 		actions["close"] = true
 		actions["setrebuilding"] = true
 		actions["snapshot"] = true
@@ -121,6 +129,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 	case replica.Closed:
 		actions["start"] = true
 		actions["open"] = true
+		actions["resize"] = true
 		actions["removedisk"] = true
 		actions["replacedisk"] = true
 		actions["revert"] = true
@@ -128,6 +137,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["setreplicacounter"] = true
 	case replica.Dirty:
 		actions["start"] = true
+		actions["resize"] = true
 		actions["setrebuilding"] = true
 		actions["close"] = true
 		actions["snapshot"] = true
@@ -139,6 +149,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["setreplicacounter"] = true
 	case replica.Rebuilding:
 		actions["start"] = true
+		actions["resize"] = true
 		actions["snapshot"] = true
 		actions["setrebuilding"] = true
 		actions["close"] = true

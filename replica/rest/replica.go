@@ -104,6 +104,16 @@ func (s *Server) OpenReplica(rw http.ResponseWriter, req *http.Request) error {
 	return s.doOp(req, s.s.Open())
 }
 
+func (s *Server) Resize(rw http.ResponseWriter, req *http.Request) error {
+	var input ResizeInput
+	apiContext := api.GetApiContext(req)
+	if err := apiContext.Read(&input); err != nil {
+		return err
+	}
+
+	return s.doOp(req, s.s.Resize(input.Size))
+}
+
 func (s *Server) RemoveDisk(rw http.ResponseWriter, req *http.Request) error {
 	var input RemoveDiskInput
 	apiContext := api.GetApiContext(req)

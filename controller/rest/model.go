@@ -73,6 +73,12 @@ type RevertInput struct {
 	Name string `json:"name"`
 }
 
+type ResizeInput struct {
+	client.Resource
+	Name string `json:"name"`
+	Size string `json:"size"`
+}
+
 type JournalInput struct {
 	client.Resource
 	Limit int `json:"limit"`
