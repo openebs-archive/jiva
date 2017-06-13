@@ -74,3 +74,7 @@ func (d *Device) State() types.State {
 func (d *Device) Stats() types.Stats {
 	return types.Stats{}
 }
+
+func (d *Device) Resize(size uint64) error {
+	return nil
+}

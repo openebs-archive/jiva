@@ -113,6 +113,7 @@ type Frontend interface {
 	Shutdown() error
 	State() State
 	Stats() Stats
+	Resize(uint64) error
 }
 
 type DataProcessor interface {

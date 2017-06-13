@@ -74,6 +74,7 @@ func (s *Server) Create(size int64) error {
 	defer s.Unlock()
 
 	state, _ := s.Status()
+
 	if state != Initial {
 		return nil
 	}

@@ -168,7 +168,6 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 	if err != nil {
 		return nil, err
 	}
-
 	if err := r.initRevisionCounter(); err != nil {
 		return nil, err
 	}
@@ -258,19 +257,28 @@ func (r *Replica) SetRebuilding(rebuilding bool) error {
 	return nil
 }
 
-func (r *Replica) Resize(size string) error {
+func (r *Replica) Resize(obj interface{}) error {
 	var sizeInBytes int64
 	chain, err := r.Chain()
 	if err != nil {
 		return err
 	}
-	if size != "" {
-		sizeInBytes, err = units.RAMInBytes(size)
-		if err != nil {
-			return err
+	switch obj.(type) {
+	case string:
+		if obj != "" {
+			sizeInBytes, err = units.RAMInBytes(obj.(string))
+			if err != nil {
+				return err
+			}
+		}
+	case int64:
+		if obj != 0 {
+			sizeInBytes = obj.(int64)
+		} else {
+			return nil
 		}
 	}
-	if r.info.Size <= sizeInBytes {
+	if r.info.Size > sizeInBytes {
 		return fmt.Errorf("Previous size %d is greater than %d", r.info.Size, sizeInBytes)
 	}
 	for _, file := range chain {
@@ -279,6 +287,9 @@ func (r *Replica) Resize(size string) error {
 		}
 	}
 	r.info.Size = sizeInBytes
+	if err := r.encodeToFile(&r.info, volumeMetaData); err != nil {
+		return err
+	}
 	return nil
 }
 

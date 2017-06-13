@@ -75,6 +75,9 @@ func (t *Tcmu) Stats() types.Stats {
 	return types.Stats{}
 }
 
+func (t *Tcmu) Resize(size uint64) error {
+	return nil
+}
 func PreEnableTcmu(volume string, size, sectorSize int64) error {
 	err := writeLines(path.Join(configDir, volume, "control"), []string{
 		fmt.Sprintf("dev_size=%d", size),

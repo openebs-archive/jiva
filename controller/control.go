@@ -308,7 +308,19 @@ func (c *Controller) Resize(name string, size string) error {
 	} else if sizeInBytes == c.size {
 		return fmt.Errorf("Volume size same as size mentioned")
 	}
-	return c.handleErrorNoLock(c.backend.Resize(name, size))
+	err = c.handleErrorNoLock(c.backend.Resize(name, size))
+	if err != nil {
+		return err
+	}
+
+	if c.frontend != nil {
+		err = c.frontend.Resize(uint64(sizeInBytes))
+		if err != nil {
+			return err
+		}
+	}
+	c.size = sizeInBytes
+	return nil
 }
 
 func (c *Controller) addQuorumReplicaNoLock(newBackend types.Backend, address string, snapshot bool) error {

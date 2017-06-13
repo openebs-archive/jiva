@@ -1,6 +1,8 @@
 package gotgt
 
 import (
+	"fmt"
+
 	"github.com/Sirupsen/logrus"
 
 	"github.com/rancher/longhorn/types"
@@ -101,6 +103,13 @@ func (t *goTgt) Stats() types.Stats {
 		return types.Stats{}
 	}
 	return (types.Stats)(t.targetDriver.Stats())
+}
+
+func (t *goTgt) Resize(size uint64) error {
+	if !t.isUp {
+		return fmt.Errorf("Volume is not up")
+	}
+	return t.targetDriver.Resize(size)
 }
 
 func (t *goTgt) startScsiTarget(cfg *config.Config) error {

@@ -91,6 +91,9 @@ func (t *Tgt) Stats() types.Stats {
 	return types.Stats{}
 }
 
+func (t *Tgt) Resize(size uint64) error {
+	return nil
+}
 func (t *Tgt) getSocketPath() string {
 	if t.Volume == "" {
 		panic("Invalid volume name")
