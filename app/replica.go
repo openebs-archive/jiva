@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -118,6 +119,21 @@ func startReplica(c *cli.Context) error {
 		}
 	}
 
+	if address == ":9502" {
+		host, _ := os.Hostname()
+		addrs, _ := net.LookupIP(host)
+		for _, addr := range addrs {
+			if ipv4 := addr.To4(); ipv4 != nil {
+				address = ipv4.String()
+				if address == "127.0.0.1" {
+					address = address + ":9502"
+					continue
+				}
+				address = address + ":9502"
+				break
+			}
+		}
+	}
 	controlAddress, dataAddress, syncAddress, err := util.ParseAddresses(address)
 	if err != nil {
 		return err
@@ -165,6 +181,9 @@ func startReplica(c *cli.Context) error {
 		}()
 	}
 	if frontendIP != "" {
+		if address == ":9502" {
+			address = "localhost:9502"
+		}
 		go AutoConfigureReplica(s, frontendIP, "tcp://"+address, replicaType)
 	}
 
