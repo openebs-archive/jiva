@@ -26,7 +26,7 @@ func ReplicaCmd() cli.Command {
 		Flags: []cli.Flag{
 			cli.StringFlag{
 				Name:  "listen",
-				Value: "localhost:9502",
+				Value: ":9502",
 			},
 			cli.StringFlag{
 				Name:  "frontendIP",
