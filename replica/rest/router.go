@@ -67,7 +67,7 @@ func NewRouter(s *Server) *mux.Router {
 		"revert":             s.RevertReplica,
 		"prepareremovedisk":  s.PrepareRemoveDisk,
 		"setrevisioncounter": s.SetRevisionCounter,
-		"setreplicacounter":  s.SetReplicaCounter,
+		"updatepeerdetails":  s.UpdatePeerDetails,
 	}
 
 	for name, action := range actions {

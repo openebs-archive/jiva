@@ -171,6 +171,40 @@ func find(list []string, item string) int {
 	return -1
 }
 
+func (t *Task) AddQuorumReplica(replicaAddress string) error {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+Register:
+	volume, err := t.client.GetVolume()
+	if err != nil {
+		return err
+	}
+	addr := strings.Split(replicaAddress, "://")
+	parts := strings.Split(addr[1], ":")
+	Replica, _ := replica.CreateTempReplica()
+
+	if volume.ReplicaCount == 0 {
+		revisionCount := Replica.GetRevisionCounter()
+		peerDetails, _ := Replica.GetPeerDetails()
+		replicaType := "quorum"
+		upTime := time.Since(Replica.ReplicaStartTime)
+		_ = t.client.Register(parts[0], revisionCount, peerDetails, replicaType, upTime)
+		select {
+		case <-ticker.C:
+			goto Register
+		case _ = <-replica.ActionChannel:
+		}
+	}
+
+	logrus.Infof("Adding quorum replica %s in WO mode", replicaAddress)
+	_, err = t.client.CreateQuorumReplica(replicaAddress)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (t *Task) AddReplica(replicaAddress string) error {
 	var action string
 	ticker := time.NewTicker(5 * time.Second)
@@ -186,9 +220,10 @@ Register:
 
 	if volume.ReplicaCount == 0 {
 		revisionCount := Replica.GetRevisionCounter()
-		replicaCount := Replica.GetPeerCounter()
+		peerDetails, _ := Replica.GetPeerDetails()
+		replicaType := "Backend"
 		upTime := time.Since(Replica.ReplicaStartTime)
-		t.client.Register(parts[0], revisionCount, replicaCount, upTime)
+		t.client.Register(parts[0], revisionCount, peerDetails, replicaType, upTime)
 		select {
 		case <-ticker.C:
 			goto Register

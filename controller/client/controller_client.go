@@ -107,6 +107,14 @@ func (c *ControllerClient) CreateReplica(address string) (*rest.Replica, error) 
 	return &resp, err
 }
 
+func (c *ControllerClient) CreateQuorumReplica(address string) (*rest.Replica, error) {
+	var resp rest.Replica
+	err := c.post("/quorumreplicas", &rest.Replica{
+		Address: address,
+	}, &resp)
+	return &resp, err
+}
+
 func (c *ControllerClient) DeleteReplica(address string) (*rest.Replica, error) {
 	reps, err := c.ListReplicas()
 	if err != nil {
@@ -179,12 +187,13 @@ func (c *ControllerClient) GetVolume() (*rest.Volume, error) {
 	return &volumes.Data[0], nil
 }
 
-func (c *ControllerClient) Register(address string, revisionCount int64, replicaCount int64, upTime time.Duration) error {
+func (c *ControllerClient) Register(address string, revisionCount int64, peerDetails types.PeerDetails, replicaType string, upTime time.Duration) error {
 	err := c.post("/register", &types.RegReplica{
-		Address:  address,
-		RevCount: revisionCount,
-		RepCount: replicaCount,
-		UpTime:   upTime,
+		Address:    address,
+		RevCount:   revisionCount,
+		PeerDetail: peerDetails,
+		RepType:    replicaType,
+		UpTime:     upTime,
 	}, nil)
 	return err
 }

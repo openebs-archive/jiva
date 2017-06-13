@@ -28,13 +28,14 @@ var StartTime time.Time
 type Server struct {
 	sync.RWMutex
 	r                 *Replica
+	ServerType        string
 	dir               string
 	defaultSectorSize int64
 	backing           *BackingFile
 	MonitorChannel    chan struct{}
 }
 
-func NewServer(dir string, backing *BackingFile, sectorSize int64) *Server {
+func NewServer(dir string, backing *BackingFile, sectorSize int64, serverType string) *Server {
 	ActionChannel = make(chan string, 5)
 	Dir = dir
 	StartTime = time.Now()
@@ -42,6 +43,7 @@ func NewServer(dir string, backing *BackingFile, sectorSize int64) *Server {
 		dir:               dir,
 		backing:           backing,
 		defaultSectorSize: sectorSize,
+		ServerType:        serverType,
 	}
 }
 
@@ -80,7 +82,7 @@ func (s *Server) Create(size int64) error {
 	sectorSize := s.getSectorSize()
 
 	logrus.Infof("Creating volume %s, size %d/%d", s.dir, size, sectorSize)
-	r, err := New(size, sectorSize, s.dir, s.backing)
+	r, err := New(size, sectorSize, s.dir, s.backing, s.ServerType)
 	if err != nil {
 		return err
 	}
@@ -101,9 +103,8 @@ func (s *Server) Open() error {
 	sectorSize := s.getSectorSize()
 
 	logrus.Infof("Opening volume %s, size %d/%d", s.dir, size, sectorSize)
-	r, err := New(size, sectorSize, s.dir, s.backing)
+	r, err := New(size, sectorSize, s.dir, s.backing, s.ServerType)
 	if err != nil {
-		fmt.Println("ERROR OPENING VOLUME")
 		return err
 	}
 	s.r = r
@@ -154,7 +155,7 @@ func (s *Server) Stats() *types.Stats {
 	r := s.r
 	return &types.Stats{
 		RevisionCounter: r.revisionCache,
-		ReplicaCounter:  r.peerCache,
+		ReplicaCounter:  r.peerCache.ReplicaCount,
 	}
 
 }
@@ -295,6 +296,19 @@ func (s *Server) WriteAt(buf []byte, offset int64) (int, error) {
 	return i, err
 }
 
+/*
+func (s *Server) Update() error {
+	s.RLock()
+	defer s.RUnlock()
+
+	if s.r == nil {
+		return fmt.Errorf("Volume no longer exist")
+	}
+	err := s.r.Update()
+	return err
+}
+*/
+
 func (s *Server) ReadAt(buf []byte, offset int64) (int, error) {
 	s.RLock()
 	defer s.RUnlock()
@@ -316,14 +330,15 @@ func (s *Server) SetRevisionCounter(counter int64) error {
 	return s.r.SetRevisionCounter(counter)
 }
 
-func (s *Server) SetReplicaCounter(counter int64) error {
+func (s *Server) UpdatePeerDetails(peerDetails types.PeerDetails) error {
+
 	s.Lock()
 	defer s.Unlock()
 
 	if s.r == nil {
 		return nil
 	}
-	return s.r.SetPeerCounter(counter)
+	return s.r.UpdatePeerDetails(peerDetails)
 }
 
 func (s *Server) PingResponse() error {

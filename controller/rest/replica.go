@@ -45,7 +45,7 @@ func (s *Server) RegisterReplica(rw http.ResponseWriter, req *http.Request) erro
 		return err
 	}
 
-	local := types.RegReplica{Address: regReplica.Address, RevCount: regReplica.RevCount, RepCount: regReplica.RepCount, UpTime: regReplica.UpTime}
+	local := types.RegReplica{Address: regReplica.Address, RevCount: regReplica.RevCount, PeerDetail: regReplica.PeerDetails, RepType: regReplica.RepType, UpTime: regReplica.UpTime}
 	if err := s.c.RegisterReplica(local); err != nil {
 		return err
 	}
@@ -68,8 +68,32 @@ func (s *Server) CreateReplica(rw http.ResponseWriter, req *http.Request) error 
 	return nil
 }
 
+func (s *Server) CreateQuorumReplica(rw http.ResponseWriter, req *http.Request) error {
+	var replica Replica
+	apiContext := api.GetApiContext(req)
+	if err := apiContext.Read(&replica); err != nil {
+		return err
+	}
+
+	if err := s.c.AddQuorumReplica(replica.Address); err != nil {
+		return err
+	}
+
+	apiContext.Write(s.getQuorumReplica(apiContext, replica.Address))
+	return nil
+}
+
 func (s *Server) getReplica(context *api.ApiContext, id string) *Replica {
 	for _, r := range s.c.ListReplicas() {
+		if r.Address == id {
+			return NewReplica(context, r.Address, r.Mode)
+		}
+	}
+	return nil
+}
+
+func (s *Server) getQuorumReplica(context *api.ApiContext, id string) *Replica {
+	for _, r := range s.c.ListQuorumReplicas() {
 		if r.Address == id {
 			return NewReplica(context, r.Address, r.Mode)
 		}

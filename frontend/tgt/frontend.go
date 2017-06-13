@@ -165,6 +165,10 @@ func (d DataProcessorWrapper) PingResponse() error {
 	return nil
 }
 
+func (d DataProcessorWrapper) Update() error {
+	return nil
+}
+
 func (t *Tgt) getDev() string {
 	return filepath.Join(DevPath, t.Volume)
 }

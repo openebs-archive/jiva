@@ -62,6 +62,10 @@ func (s *Server) readFromWire(ret chan<- error) {
 		go s.handleWrite(msg)
 	case TypePing:
 		go s.handlePing(msg)
+		/*
+			case TypeUpdate:
+				go s.handleUpdate(msg)
+		*/
 	}
 	ret <- nil
 }
@@ -102,6 +106,13 @@ func (s *Server) handlePing(msg *Message) {
 	err := s.data.PingResponse()
 	s.pushResponse(0, msg, err)
 }
+
+/*
+func (s *Server) handleUpdate(msg *Message) {
+	err := s.data.Update()
+	s.pushResponse(0, msg, err)
+}
+*/
 
 func (s *Server) pushResponse(count int, msg *Message, err error) {
 	msg.MagicVersion = MagicVersion

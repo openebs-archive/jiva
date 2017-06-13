@@ -10,6 +10,7 @@ const (
 	TypeEOF
 	TypeClose
 	TypePing
+	TypeUpdate
 
 	messageSize     = (32 + 32 + 32 + 64) / 8 //TODO: unused?
 	readBufferSize  = 8096

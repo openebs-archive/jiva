@@ -220,11 +220,15 @@ func (s *Server) SetRevisionCounter(rw http.ResponseWriter, req *http.Request) e
 	return s.doOp(req, s.s.SetRevisionCounter(input.Counter))
 }
 
-func (s *Server) SetReplicaCounter(rw http.ResponseWriter, req *http.Request) error {
-	var input ReplicaCounter
+func (s *Server) UpdatePeerDetails(rw http.ResponseWriter, req *http.Request) error {
+	var input PeerDetails
+	var details types.PeerDetails
 	apiContext := api.GetApiContext(req)
 	if err := apiContext.Read(&input); err != nil && err != io.EOF {
 		return err
 	}
-	return s.doOp(req, s.s.SetReplicaCounter(input.Counter))
+	details.ReplicaCount = input.ReplicaCount
+	details.QuorumReplicaCount = input.QuorumReplicaCount
+
+	return s.doOp(req, s.s.UpdatePeerDetails(details))
 }

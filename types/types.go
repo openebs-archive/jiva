@@ -37,7 +37,8 @@ type Backend interface {
 	RemainSnapshots() (int, error)
 	GetRevisionCounter() (int64, error)
 	SetRevisionCounter(counter int64) error
-	SetReplicaCounter(counter int64) error
+	UpdatePeerDetails(replicaCount int64, quorumReplicaCount int64) error
+	SetRebuilding(rebuilding bool) error
 	GetMonitorChannel() MonitorChannel
 	StopMonitoring()
 }
@@ -71,10 +72,11 @@ type Replica struct {
 }
 
 type RegReplica struct {
-	Address  string
-	UpTime   time.Duration
-	RevCount int64
-	RepCount int64
+	Address    string
+	UpTime     time.Duration
+	RevCount   int64
+	RepType    string
+	PeerDetail PeerDetails
 }
 
 type IOStats struct {
@@ -100,6 +102,12 @@ type Stats struct {
 }
 
 type Interface interface{}
+
+type PeerDetails struct {
+	ReplicaCount       int64
+	QuorumReplicaCount int64
+}
+
 type Frontend interface {
 	Startup(name string, frontendIP string, size, sectorSize int64, rw ReaderWriterAt) error
 	Shutdown() error
@@ -110,4 +118,5 @@ type Frontend interface {
 type DataProcessor interface {
 	ReaderWriterAt
 	PingResponse() error
+	//Update() error
 }

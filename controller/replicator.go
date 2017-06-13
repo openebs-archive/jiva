@@ -19,7 +19,9 @@ var (
 type replicator struct {
 	backendsAvailable bool
 	backends          map[string]backendWrapper
+	quorumBackends    map[string]backendWrapper
 	writerIndex       map[int]string
+	updaterIndex      map[int]string
 	readerIndex       map[int]string
 	readers           []io.ReaderAt
 	writer            io.WriterAt
@@ -48,6 +50,25 @@ func (b *BackendError) Error() string {
 	}
 }
 
+func (r *replicator) AddQuorumBackend(address string, backend types.Backend) {
+	if _, ok := r.quorumBackends[address]; ok {
+		return
+	}
+
+	logrus.Infof("Adding quorum backend: %s", address)
+
+	if r.quorumBackends == nil {
+		r.quorumBackends = map[string]backendWrapper{}
+	}
+
+	r.quorumBackends[address] = backendWrapper{
+		backend: backend,
+		mode:    types.WO,
+	}
+
+	r.buildReadWriters()
+}
+
 func (r *replicator) AddBackend(address string, backend types.Backend) {
 	if _, ok := r.backends[address]; ok {
 		return
@@ -57,6 +78,9 @@ func (r *replicator) AddBackend(address string, backend types.Backend) {
 
 	if r.backends == nil {
 		r.backends = map[string]backendWrapper{}
+	}
+	if r.quorumBackends == nil {
+		r.quorumBackends = map[string]backendWrapper{}
 	}
 
 	r.backends[address] = backendWrapper{
@@ -70,7 +94,10 @@ func (r *replicator) AddBackend(address string, backend types.Backend) {
 func (r *replicator) RemoveBackend(address string) {
 	backend, ok := r.backends[address]
 	if !ok {
-		return
+		backend, ok = r.quorumBackends[address]
+		if !ok {
+			return
+		}
 	}
 
 	logrus.Infof("Removing backend: %s", address)
@@ -125,7 +152,7 @@ func (r *replicator) WriteAt(p []byte, off int64) (int, error) {
 		}
 		if mErr, ok := err.(*MultiWriterError); ok {
 			errors = map[string]error{}
-			for index, err := range mErr.Errors {
+			for index, err := range mErr.ReplicaErrors {
 				if err != nil {
 					errors[r.writerIndex[index]] = err
 				}
@@ -141,6 +168,7 @@ func (r *replicator) buildReadWriters() {
 
 	readers := []io.ReaderAt{}
 	writers := []io.WriterAt{}
+	updaters := []io.WriterAt{}
 
 	for address, b := range r.backends {
 		if b.mode != types.ERR {
@@ -152,9 +180,16 @@ func (r *replicator) buildReadWriters() {
 			readers = append(readers, b.backend)
 		}
 	}
+	for address, b := range r.quorumBackends {
+		if b.mode != types.ERR {
+			r.updaterIndex[len(updaters)] = address
+			updaters = append(updaters, b.backend)
+		}
+	}
 
 	r.writer = &MultiWriterAt{
-		writers: writers,
+		writers:  writers,
+		updaters: updaters,
 	}
 	r.readers = readers
 
@@ -244,6 +279,15 @@ func (r *replicator) Close() error {
 		}
 	}
 
+	for _, backend := range r.quorumBackends {
+		if backend.mode == types.ERR {
+			continue
+		}
+		if err := backend.backend.Close(); err != nil {
+			lastErr = err
+		}
+	}
+
 	r.reset(true)
 
 	return lastErr
@@ -254,6 +298,7 @@ func (r *replicator) reset(full bool) {
 	r.writer = nil
 	r.writerIndex = map[int]string{}
 	r.readerIndex = map[int]string{}
+	r.updaterIndex = map[int]string{}
 
 	if full {
 		r.backends = nil
@@ -305,6 +350,55 @@ func (r *replicator) SetRevisionCounter(address string, counter int64) error {
 	return nil
 }
 
+func (r *replicator) SetQuorumRevisionCounter(address string, counter int64) error {
+	backend, ok := r.quorumBackends[address]
+	if !ok {
+		return fmt.Errorf("Cannot find backend %v", address)
+	}
+
+	if err := backend.backend.SetRevisionCounter(counter); err != nil {
+		return err
+	}
+
+	logrus.Infof("Set backend %s revision counter to %v", address, counter)
+
+	return nil
+}
+
+func (r *replicator) UpdatePeerDetails(replicaCount int64, quorumReplicaCount int64) error {
+
+	for _, backend := range r.backends {
+		if err := backend.backend.UpdatePeerDetails(replicaCount, quorumReplicaCount); err != nil {
+			return err
+		}
+	}
+
+	for _, backend := range r.quorumBackends {
+		if err := backend.backend.UpdatePeerDetails(replicaCount, quorumReplicaCount); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *replicator) SetRebuilding(address string, rebuilding bool) error {
+	backend, ok := r.backends[address]
+	if !ok {
+		backend, ok = r.quorumBackends[address]
+		if !ok {
+			return fmt.Errorf("Cannot find backend %v", address)
+		}
+	}
+
+	if err := backend.backend.SetRebuilding(rebuilding); err != nil {
+		return err
+	}
+
+	logrus.Infof("Set backend %s rebuilding %v", address, rebuilding)
+
+	return nil
+
+}
 func (r *replicator) GetRevisionCounter(address string) (int64, error) {
 	backend, ok := r.backends[address]
 	if !ok {
@@ -318,19 +412,4 @@ func (r *replicator) GetRevisionCounter(address string) (int64, error) {
 	logrus.Infof("Get backend %s revision counter %v", address, counter)
 
 	return counter, nil
-}
-
-func (r *replicator) SetReplicaCounter(address string, counter int64) error {
-	backend, ok := r.backends[address]
-	if !ok {
-		return fmt.Errorf("Cannot find backend %v", address)
-	}
-
-	if err := backend.backend.SetReplicaCounter(counter); err != nil {
-		return err
-	}
-
-	logrus.Infof("Set backend %s replica counter to %v", address, counter)
-
-	return nil
 }

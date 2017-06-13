@@ -15,10 +15,27 @@ var (
 	ErrRWTimeout   = errors.New("r/w timeout")
 	ErrPingTimeout = errors.New("Ping timeout")
 
-	opRetries      = 4
-	opReadTimeout  = 15 * time.Second // client read
-	opWriteTimeout = 15 * time.Second // client write
-	opPingTimeout  = 20 * time.Second
+	opRetries       = 4
+	opReadTimeout   = 15 * time.Second // client read
+	opWriteTimeout  = 15 * time.Second // client write
+	opPingTimeout   = 20 * time.Second
+	opUpdateTimeout = 15 * time.Second // client update
+)
+
+//SampleOp operation
+type SampleOp int
+
+const (
+	// OpNone unitialized operation
+	OpNone SampleOp = iota
+	// OpRead read from replica
+	OpRead
+	// OpWrite write to replica
+	OpWrite
+	// OpPing ping replica
+	OpPing
+	// OpUpdate update replica
+	OpUpdate
 )
 
 //Client replica client
@@ -61,6 +78,13 @@ func (c *Client) WriteAt(buf []byte, offset int64) (int, error) {
 	return c.operation(TypeWrite, buf, offset)
 }
 
+/*
+//Update Quorum replica client
+func (c *Client) Update() (int, error) {
+	return c.operation(TypeUpdate, nil, 0)
+}
+*/
+
 //SetError replica client transport error
 func (c *Client) SetError(err error) {
 	c.responses <- &Message{
@@ -95,7 +119,12 @@ func (c *Client) operation(op uint32, buf []byte, offset int64) (int, error) {
 				return time.After(opReadTimeout)
 			case TypeWrite:
 				return time.After(opWriteTimeout)
+				/*
+					case TypeUpdate:
+						return time.After(opUpdateTimeout)
+				*/
 			}
+
 			return time.After(opPingTimeout)
 		}(msg.Type)
 
@@ -172,11 +201,13 @@ func (c *Client) replyError(req *Message) {
 func (c *Client) handleRequest(req *Message) {
 	switch req.Type {
 	case TypeRead:
-		req.ID = journal.InsertPendingOp(time.Now(), c.TargetID(), journal.OpRead, len(req.Data))
+		req.ID = journal.InsertPendingOp(time.Now(), c.TargetID(), journal.SampleOp(OpRead), len(req.Data))
 	case TypeWrite:
-		req.ID = journal.InsertPendingOp(time.Now(), c.TargetID(), journal.OpWrite, len(req.Data))
+		req.ID = journal.InsertPendingOp(time.Now(), c.TargetID(), journal.SampleOp(OpWrite), len(req.Data))
 	case TypePing:
-		req.ID = journal.InsertPendingOp(time.Now(), c.TargetID(), journal.OpPing, 0)
+		req.ID = journal.InsertPendingOp(time.Now(), c.TargetID(), journal.SampleOp(OpPing), 0)
+	case TypeUpdate:
+		req.ID = journal.InsertPendingOp(time.Now(), c.TargetID(), journal.SampleOp(OpUpdate), 0)
 	}
 	if c.err != nil {
 		c.replyError(req)

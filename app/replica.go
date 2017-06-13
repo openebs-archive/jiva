@@ -43,6 +43,10 @@ func ReplicaCmd() cli.Command {
 				Name:  "size",
 				Usage: "Volume size in bytes or human readable 42kb, 42mb, 42gb",
 			},
+			cli.StringFlag{
+				Name:  "type",
+				Value: "",
+			},
 		},
 		Action: func(c *cli.Context) {
 			if err := startReplica(c); err != nil {
@@ -68,7 +72,7 @@ func CheckReplicaState(frontendIP string, replicaIP string) (string, error) {
 	return "", err
 }
 
-func AutoConfigureReplica(s *replica.Server, frontendIP string, address string) {
+func AutoConfigureReplica(s *replica.Server, frontendIP string, address string, replicaType string) {
 checkagain:
 	state, err := CheckReplicaState(frontendIP, address)
 	if err == nil && (state == "" || state == "ERR") {
@@ -79,7 +83,7 @@ checkagain:
 	}
 	s.Close()
 	AutoRmReplica(frontendIP, address)
-	AutoAddReplica(frontendIP, address)
+	AutoAddReplica(frontendIP, address, replicaType)
 	select {
 	case <-s.MonitorChannel:
 		goto checkagain
@@ -97,7 +101,8 @@ func startReplica(c *cli.Context) error {
 		return err
 	}
 
-	s := replica.NewServer(dir, backingFile, 512)
+	replicaType := c.String("type")
+	s := replica.NewServer(dir, backingFile, 512, replicaType)
 
 	address := c.String("listen")
 	frontendIP := c.String("frontendIP")
@@ -160,7 +165,7 @@ func startReplica(c *cli.Context) error {
 		}()
 	}
 	if frontendIP != "" {
-		go AutoConfigureReplica(s, frontendIP, "tcp://"+address)
+		go AutoConfigureReplica(s, frontendIP, "tcp://"+address, replicaType)
 	}
 
 	return <-resp

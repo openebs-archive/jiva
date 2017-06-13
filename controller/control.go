@@ -14,31 +14,41 @@ import (
 
 type Controller struct {
 	sync.RWMutex
-	Name               string
-	frontendIP         string
-	size               int64
-	sectorSize         int64
-	replicas           []types.Replica
-	factory            types.BackendFactory
-	backend            *replicator
-	frontend           types.Frontend
-	RegisteredReplicas map[string]types.RegReplica
-	MaxRevReplica      string
-	StartTime          time.Time
-	StartSignalled     bool
+	Name                     string
+	frontendIP               string
+	size                     int64
+	sectorSize               int64
+	replicas                 []types.Replica
+	replicaCount             int64
+	quorumReplicas           []types.Replica
+	quorumReplicaCount       int64
+	factory                  types.BackendFactory
+	backend                  *replicator
+	frontend                 types.Frontend
+	RegisteredReplicas       map[string]types.RegReplica
+	RegisteredQuorumReplicas map[string]types.RegReplica
+	MaxRevReplica            string
+	StartTime                time.Time
+	StartSignalled           bool
+	ReadOnly                 bool
 }
 
 func NewController(name string, frontendIP string, factory types.BackendFactory, frontend types.Frontend) *Controller {
 	c := &Controller{
-		factory:            factory,
-		Name:               name,
-		frontend:           frontend,
-		frontendIP:         frontendIP,
-		RegisteredReplicas: map[string]types.RegReplica{},
-		StartTime:          time.Now(),
+		factory:                  factory,
+		Name:                     name,
+		frontend:                 frontend,
+		frontendIP:               frontendIP,
+		RegisteredReplicas:       map[string]types.RegReplica{},
+		RegisteredQuorumReplicas: map[string]types.RegReplica{},
+		StartTime:                time.Now(),
 	}
 	c.reset()
 	return c
+}
+
+func (c *Controller) AddQuorumReplica(address string) error {
+	return c.addQuorumReplica(address, false)
 }
 
 func (c *Controller) AddReplica(address string) error {
@@ -68,6 +78,85 @@ func (c *Controller) canAdd(address string) (bool, error) {
 	return true, nil
 }
 
+func (c *Controller) getRWReplica() (*types.Replica, error) {
+	var (
+		rwReplica *types.Replica
+	)
+
+	for i := range c.replicas {
+		if c.replicas[i].Mode == types.RW {
+			rwReplica = &c.replicas[i]
+		}
+	}
+	if rwReplica == nil {
+		return nil, fmt.Errorf("Cannot find any healthy replica")
+	}
+
+	return rwReplica, nil
+}
+
+func (c *Controller) addQuorumReplica(address string, snapshot bool) error {
+	c.Lock()
+	if ok, err := c.canAdd(address); !ok {
+		c.Unlock()
+		return err
+	}
+	c.Unlock()
+
+	newBackend, err := c.factory.Create(address)
+	if err != nil {
+		return err
+	}
+
+	c.Lock()
+	defer c.Unlock()
+
+	err = c.addQuorumReplicaNoLock(newBackend, address, snapshot)
+	if err != nil {
+		return err
+	}
+
+	if err := c.backend.SetRebuilding(address, true); err != nil {
+		return fmt.Errorf("Failed to set rebuild : %v", true)
+	}
+	rwReplica, err := c.getRWReplica()
+	if err != nil {
+		return err
+	}
+
+	counter, err := c.backend.GetRevisionCounter(rwReplica.Address)
+	if err != nil || counter == -1 {
+		return fmt.Errorf("Failed to get revision counter of RW Replica %v: counter %v, err %v",
+			rwReplica.Address, counter, err)
+
+	}
+
+	if err := c.backend.SetQuorumRevisionCounter(address, counter); err != nil {
+		return fmt.Errorf("Fail to set revision counter for %v: %v", address, err)
+	}
+
+	if err := c.backend.UpdatePeerDetails(c.replicaCount, c.quorumReplicaCount); err != nil {
+		return fmt.Errorf("Fail to set revision counter for %v: %v", address, err)
+	}
+
+	if err := c.backend.SetRebuilding(address, false); err != nil {
+		return fmt.Errorf("Failed to set rebuild : %v", true)
+	}
+
+	if (len(c.replicas)+len(c.quorumReplicas) >= 2) && (c.ReadOnly == true) {
+		c.ReadOnly = false
+	}
+
+	/*
+		for _, temprep := range c.replicas {
+			if err := c.backend.SetQuorumReplicaCounter(temprep.Address, int64(len(c.replicas))); err != nil {
+				return fmt.Errorf("Fail to set replica counter for %v: %v", address, err)
+			}
+		}
+	*/
+	return nil
+}
+
 func (c *Controller) addReplica(address string, snapshot bool) error {
 	c.Lock()
 	if ok, err := c.canAdd(address); !ok {
@@ -84,7 +173,11 @@ func (c *Controller) addReplica(address string, snapshot bool) error {
 	c.Lock()
 	defer c.Unlock()
 
-	return c.addReplicaNoLock(newBackend, address, snapshot)
+	err = c.addReplicaNoLock(newBackend, address, snapshot)
+	if (len(c.replicas)+len(c.quorumReplicas) >= 2) && (c.ReadOnly == true) {
+		c.ReadOnly = false
+	}
+	return err
 }
 
 func (c *Controller) signalToAdd() {
@@ -92,16 +185,29 @@ func (c *Controller) signalToAdd() {
 }
 
 func (c *Controller) registerReplica(register types.RegReplica) error {
-
-	var (
-		revisionConflict int64
-		revCount         int64
-	)
-
 	c.Lock()
 	defer c.Unlock()
 
+	_, ok := c.RegisteredReplicas[register.Address]
+	if !ok {
+		_, ok = c.RegisteredQuorumReplicas[register.Address]
+		if ok {
+			return nil
+		}
+	}
+	if c.quorumReplicaCount < register.PeerDetail.QuorumReplicaCount {
+		c.quorumReplicaCount = register.PeerDetail.QuorumReplicaCount
+	}
+	if c.replicaCount < register.PeerDetail.ReplicaCount {
+		c.replicaCount = register.PeerDetail.ReplicaCount
+	}
+
+	if register.RepType == "quorum" {
+		c.RegisteredQuorumReplicas[register.Address] = register
+		return nil
+	}
 	c.RegisteredReplicas[register.Address] = register
+
 	if len(c.replicas) > 0 {
 		return nil
 	}
@@ -121,38 +227,44 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 		c.MaxRevReplica = register.Address
 	}
 
-	if c.RegisteredReplicas[c.MaxRevReplica].RepCount == int64(len(c.RegisteredReplicas)) {
+	if ((int64)(len(c.RegisteredReplicas)) >= c.replicaCount/2) && ((int64)(len(c.RegisteredReplicas)+len(c.RegisteredQuorumReplicas)) > (c.quorumReplicaCount+c.replicaCount)/2) {
 		c.signalToAdd()
 		c.StartSignalled = true
 		return nil
 	}
-	if c.RegisteredReplicas[c.MaxRevReplica].RepCount == 0 {
+
+	if c.RegisteredReplicas[c.MaxRevReplica].PeerDetail.ReplicaCount == 0 {
 		c.signalToAdd()
 		c.StartSignalled = true
 		return nil
 	}
-	//TODO Improve on this logic for HA
-	if register.UpTime > time.Since(c.StartTime) && (c.StartSignalled == false || c.MaxRevReplica == register.Address) {
-		c.signalToAdd()
-		c.StartSignalled = true
-		return nil
-	}
-	if len(c.RegisteredReplicas) >= 2 {
-		for _, tmprep := range c.RegisteredReplicas {
-			if revCount == 0 {
-				revCount = tmprep.RevCount
-			} else {
-				if revCount != tmprep.RevCount {
-					revisionConflict = 1
-				}
-			}
-		}
-		if revisionConflict == 0 {
+
+	/*
+		//TODO Improve on this logic for HA
+		if register.UpTime > time.Since(c.StartTime) && (c.StartSignalled == false || c.MaxRevReplica == register.Address) {
 			c.signalToAdd()
 			c.StartSignalled = true
 			return nil
 		}
-	}
+	*/
+	/*
+		if len(c.RegisteredReplicas) >= 2 {
+			for _, tmprep := range c.RegisteredReplicas {
+				if revCount == 0 {
+					revCount = tmprep.RevCount
+				} else {
+					if revCount != tmprep.RevCount {
+						revisionConflict = 1
+					}
+				}
+			}
+			if revisionConflict == 0 {
+				c.signalToAdd()
+				c.StartSignalled = true
+				return nil
+			}
+		}
+	*/
 	return nil
 }
 
@@ -199,6 +311,44 @@ func (c *Controller) Resize(name string, size string) error {
 	return c.handleErrorNoLock(c.backend.Resize(name, size))
 }
 
+func (c *Controller) addQuorumReplicaNoLock(newBackend types.Backend, address string, snapshot bool) error {
+	if ok, err := c.canAdd(address); !ok {
+		return err
+	}
+
+	if snapshot {
+		uuid := util.UUID()
+		created := util.Now()
+
+		if remain, err := c.backend.RemainSnapshots(); err != nil {
+			return err
+		} else if remain <= 0 {
+			return fmt.Errorf("Too many snapshots created")
+		}
+
+		if err := c.backend.Snapshot(uuid, false, created); err != nil {
+			newBackend.Close()
+			return err
+		}
+		if err := newBackend.Snapshot(uuid, false, created); err != nil {
+			newBackend.Close()
+			return err
+		}
+	}
+
+	c.quorumReplicas = append(c.quorumReplicas, types.Replica{
+		Address: address,
+		Mode:    types.WO,
+	})
+	c.quorumReplicaCount++
+
+	c.backend.AddQuorumBackend(address, newBackend)
+
+	go c.monitoring(address, newBackend)
+
+	return nil
+}
+
 func (c *Controller) addReplicaNoLock(newBackend types.Backend, address string, snapshot bool) error {
 	if ok, err := c.canAdd(address); !ok {
 		return err
@@ -228,6 +378,7 @@ func (c *Controller) addReplicaNoLock(newBackend types.Backend, address string, 
 		Address: address,
 		Mode:    types.WO,
 	})
+	c.replicaCount++
 
 	c.backend.AddBackend(address, newBackend)
 
@@ -242,6 +393,11 @@ func (c *Controller) hasReplica(address string) bool {
 			return true
 		}
 	}
+	for _, i := range c.quorumReplicas {
+		if i.Address == address {
+			return true
+		}
+	}
 	return false
 }
 
@@ -252,7 +408,6 @@ func (c *Controller) RemoveReplica(address string) error {
 	if !c.hasReplica(address) {
 		return nil
 	}
-
 	for i, r := range c.replicas {
 		if r.Address == address {
 			if len(c.replicas) == 1 && c.frontend.State() == types.StateUp {
@@ -276,11 +431,30 @@ func (c *Controller) RemoveReplica(address string) error {
 		}
 	}
 
+	for i, r := range c.quorumReplicas {
+		if r.Address == address {
+			for regrep := range c.RegisteredQuorumReplicas {
+				if strings.Contains(address, regrep) {
+					delete(c.RegisteredQuorumReplicas, regrep)
+				}
+			}
+			c.quorumReplicas = append(c.quorumReplicas[:i], c.quorumReplicas[i+1:]...)
+			c.backend.RemoveBackend(r.Address)
+		}
+	}
+
+	if len(c.replicas)+len(c.quorumReplicas) < 2 {
+		c.ReadOnly = true
+	}
 	return nil
 }
 
 func (c *Controller) ListReplicas() []types.Replica {
 	return c.replicas
+}
+
+func (c *Controller) ListQuorumReplicas() []types.Replica {
+	return c.quorumReplicas
 }
 
 func (c *Controller) SetReplicaMode(address string, mode types.Mode) error {
@@ -294,7 +468,6 @@ func (c *Controller) SetReplicaMode(address string, mode types.Mode) error {
 	default:
 		return fmt.Errorf("Can not set to mode %s", mode)
 	}
-
 	c.setReplicaModeNoLock(address, mode)
 	return nil
 }
@@ -306,6 +479,19 @@ func (c *Controller) setReplicaModeNoLock(address string, mode types.Mode) {
 				logrus.Infof("Set replica %v to mode %v", address, mode)
 				r.Mode = mode
 				c.replicas[i] = r
+				c.backend.SetMode(address, mode)
+			} else {
+				logrus.Infof("Ignore set replica %v to mode %v due to it's ERR",
+					address, mode)
+			}
+		}
+	}
+	for i, r := range c.quorumReplicas {
+		if r.Address == address {
+			if r.Mode != types.ERR {
+				logrus.Infof("Set replica %v to mode %v", address, mode)
+				r.Mode = mode
+				c.quorumReplicas[i] = r
 				c.backend.SetMode(address, mode)
 			} else {
 				logrus.Infof("Ignore set replica %v to mode %v due to it's ERR",
@@ -411,12 +597,29 @@ func (c *Controller) Start(addresses ...string) error {
 			c.factory.SignalToAdd(regrep, "add")
 		}
 	}
+	for regrep := range c.RegisteredQuorumReplicas {
+		sendSignal = 1
+		for _, tmprep := range c.quorumReplicas {
+			if strings.Contains(tmprep.Address, regrep) {
+				sendSignal = 0
+				break
+			}
+		}
+		if sendSignal == 1 {
+			c.factory.SignalToAdd(regrep, "add")
+		}
+	}
 
 	return nil
 }
 
 func (c *Controller) WriteAt(b []byte, off int64) (int, error) {
 	c.RLock()
+	if c.ReadOnly == true {
+		err := fmt.Errorf("Mode: ReadOnly")
+		c.RUnlock()
+		return 0, err
+	}
 	if off < 0 || off+int64(len(b)) > c.size {
 		err := fmt.Errorf("EOF: Write of %v bytes at offset %v is beyond volume size %v", len(b), off, c.size)
 		c.RUnlock()
@@ -492,6 +695,7 @@ func (c *Controller) handleError(err error) error {
 
 func (c *Controller) reset() {
 	c.replicas = []types.Replica{}
+	c.quorumReplicas = []types.Replica{}
 	c.backend = &replicator{}
 }
 

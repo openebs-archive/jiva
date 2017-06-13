@@ -31,11 +31,16 @@ func addReplica(c *cli.Context) error {
 	task := sync.NewTask(url)
 	return task.AddReplica(replica)
 }
-func AutoAddReplica(frontendIP string, replica string) error {
+func AutoAddReplica(frontendIP string, replica string, replicaType string) error {
+	var err error
 	url := "http://" + frontendIP + ":9501"
 	task := sync.NewTask(url)
 	for {
-		err := task.AddReplica(replica)
+		if replicaType == "quorum" {
+			err = task.AddQuorumReplica(replica)
+		} else {
+			err = task.AddReplica(replica)
+		}
 		if err != nil {
 			time.Sleep(2 * time.Second)
 			continue

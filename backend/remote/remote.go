@@ -71,6 +71,10 @@ func (r *Remote) Resize(name string, size string) error {
 			"size": size,
 		})
 }
+func (r *Remote) SetRebuilding(rebuilding bool) error {
+	logrus.Infof("SetRebuilding: %v", rebuilding)
+	return r.doAction("setrebuilding", &map[string]bool{"rebuilding": rebuilding})
+}
 
 func (r *Remote) doAction(action string, obj interface{}) error {
 	body := io.Reader(nil)
@@ -147,9 +151,13 @@ func (r *Remote) SetRevisionCounter(counter int64) error {
 	return r.doAction("setrevisioncounter", &map[string]int64{"counter": counter})
 }
 
-func (r *Remote) SetReplicaCounter(counter int64) error {
-	logrus.Infof("Set replica counter of %s to : %v", r.name, counter)
-	return r.doAction("setreplicacounter", &map[string]int64{"counter": counter})
+func (r *Remote) UpdatePeerDetails(replicaCount int64, quorumReplicaCount int64) error {
+	logrus.Infof("Update peer details of %s ", r.name)
+	return r.doAction("updatepeerdetails",
+		&map[string]interface{}{
+			"replicacount":       replicaCount,
+			"quorumreplicacount": quorumReplicaCount,
+		})
 }
 
 func (r *Remote) info() (rest.Replica, error) {
