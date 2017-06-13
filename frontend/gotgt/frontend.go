@@ -2,6 +2,8 @@ package gotgt
 
 import (
 	"fmt"
+	"net"
+	"os"
 
 	"github.com/Sirupsen/logrus"
 
@@ -38,6 +40,20 @@ func (t *goTgt) Startup(name string, frontendIP string, size, sectorSize int64, 
 	/*if err := t.Shutdown(); err != nil {
 		return err
 	}*/
+
+	if frontendIP == "" {
+		host, _ := os.Hostname()
+		addrs, _ := net.LookupIP(host)
+		for _, addr := range addrs {
+			if ipv4 := addr.To4(); ipv4 != nil {
+				frontendIP = ipv4.String()
+				if frontendIP == "127.0.0.1" {
+					continue
+				}
+				break
+			}
+		}
+	}
 
 	t.tgtName = "iqn.2016-09.com.openebs.jiva:" + name
 	t.lhbsName = "RemBs:" + name
