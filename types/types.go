@@ -109,7 +109,7 @@ type PeerDetails struct {
 }
 
 type Frontend interface {
-	Startup(name string, frontendIP string, size, sectorSize int64, rw ReaderWriterAt) error
+	Startup(name string, frontendIP string, clusterIP string, size, sectorSize int64, rw ReaderWriterAt) error
 	Shutdown() error
 	State() State
 	Stats() Stats

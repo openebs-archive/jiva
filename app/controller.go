@@ -39,6 +39,10 @@ func ControllerCmd() cli.Command {
 				Name:  "frontendIP",
 				Value: "",
 			},
+			cli.StringFlag{
+				Name:  "clusterIP",
+				Value: "",
+			},
 			cli.StringSliceFlag{
 				Name:  "enable-backend",
 				Value: (*cli.StringSlice)(&[]string{"tcp"}),
@@ -56,7 +60,7 @@ func ControllerCmd() cli.Command {
 }
 
 func startController(c *cli.Context) error {
-	var frontendIP string
+	var frontendIP, clusterIP string
 	var controlListener string
 	if c.NArg() == 0 {
 		return errors.New("volume name is required")
@@ -72,6 +76,7 @@ func startController(c *cli.Context) error {
 	frontendName := c.String("frontend")
 	if frontendName == "gotgt" {
 		frontendIP = c.String("frontendIP")
+		clusterIP = c.String("clusterIP")
 	}
 	controlListener = c.String("listen")
 	factories := map[string]types.BackendFactory{}
@@ -95,7 +100,7 @@ func startController(c *cli.Context) error {
 		frontend = f
 	}
 
-	control := controller.NewController(name, frontendIP, dynamic.New(factories), frontend)
+	control := controller.NewController(name, frontendIP, clusterIP, dynamic.New(factories), frontend)
 	server := rest.NewServer(control)
 	router := http.Handler(rest.NewRouter(server))
 

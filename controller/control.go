@@ -16,6 +16,7 @@ type Controller struct {
 	sync.RWMutex
 	Name                     string
 	frontendIP               string
+	clusterIP                string
 	size                     int64
 	sectorSize               int64
 	replicas                 []types.Replica
@@ -33,12 +34,13 @@ type Controller struct {
 	ReadOnly                 bool
 }
 
-func NewController(name string, frontendIP string, factory types.BackendFactory, frontend types.Frontend) *Controller {
+func NewController(name string, frontendIP string, clusterIP string, factory types.BackendFactory, frontend types.Frontend) *Controller {
 	c := &Controller{
 		factory:                  factory,
 		Name:                     name,
 		frontend:                 frontend,
 		frontendIP:               frontendIP,
+		clusterIP:                clusterIP,
 		RegisteredReplicas:       map[string]types.RegReplica{},
 		RegisteredQuorumReplicas: map[string]types.RegReplica{},
 		StartTime:                time.Now(),
@@ -515,7 +517,7 @@ func (c *Controller) setReplicaModeNoLock(address string, mode types.Mode) {
 
 func (c *Controller) startFrontend() error {
 	if len(c.replicas) > 0 && c.frontend != nil {
-		if err := c.frontend.Startup(c.Name, c.frontendIP, c.size, c.sectorSize, c); err != nil {
+		if err := c.frontend.Startup(c.Name, c.frontendIP, c.clusterIP, c.size, c.sectorSize, c); err != nil {
 			// FATAL
 			logrus.Fatalf("Failed to start up frontend: %v", err)
 			// This will never be reached

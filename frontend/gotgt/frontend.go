@@ -31,12 +31,13 @@ type goTgt struct {
 
 	tgtName      string
 	lhbsName     string
+	clusterIP    string
 	cfg          *config.Config
 	targetDriver port.SCSITargetService
 	stats        port.Stats
 }
 
-func (t *goTgt) Startup(name string, frontendIP string, size, sectorSize int64, rw types.ReaderWriterAt) error {
+func (t *goTgt) Startup(name string, frontendIP string, clusterIP string, size, sectorSize int64, rw types.ReaderWriterAt) error {
 	/*if err := t.Shutdown(); err != nil {
 		return err
 	}*/
@@ -87,6 +88,7 @@ func (t *goTgt) Startup(name string, frontendIP string, size, sectorSize int64, 
 	t.Size = size
 	t.SectorSize = int(sectorSize)
 	t.rw = rw
+	t.clusterIP = clusterIP
 	if err := t.startScsiTarget(t.cfg); err != nil {
 		return err
 	}
@@ -138,6 +140,7 @@ func (t *goTgt) startScsiTarget(cfg *config.Config) error {
 	}
 	scsi.InitSCSILUMapEx(t.tgtName, t.Volume, 1, 1, uint64(t.Size), uint64(t.SectorSize), t.rw)
 	t.targetDriver.NewTarget(t.tgtName, cfg)
+	t.targetDriver.SetClusterIP(t.clusterIP)
 	go t.targetDriver.Run()
 
 	logrus.Infof("SCSI device created")
