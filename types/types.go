@@ -92,12 +92,12 @@ type Stats struct {
 
 	ReadIOPS         int64
 	ReadThroughput   int64
-	ReadLatency      int64
+	ReadLatency      time.Duration
 	AvgReadBlockSize int64
 
 	WriteIOPS         int64
 	WriteThroughput   int64
-	WriteLatency      int64
+	WriteLatency      time.Duration
 	AvgWriteBlockSize int64
 }
 

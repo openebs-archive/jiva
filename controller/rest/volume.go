@@ -2,7 +2,9 @@ package rest
 
 import (
 	"net/http"
+	"strconv"
 
+	units "github.com/docker/go-units"
 	"github.com/gorilla/mux"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
@@ -42,15 +44,15 @@ func (s *Server) GetVolumeStats(rw http.ResponseWriter, req *http.Request) error
 		ReplicaCounter:  stats.ReplicaCounter,
 		SCSIIOCount:     stats.SCSIIOCount,
 
-		ReadIOPS:         stats.ReadIOPS,
-		ReadThroughput:   stats.ReadThroughput,
-		ReadLatency:      stats.ReadLatency,
-		AvgReadBlockSize: stats.AvgReadBlockSize,
+		ReadIOPS:         strconv.FormatInt(stats.ReadIOPS, 10),
+		ReadThroughput:   units.HumanSize(float64(stats.ReadThroughput)),
+		ReadLatency:      (stats.ReadLatency).String(),
+		AvgReadBlockSize: units.HumanSize(float64(stats.AvgReadBlockSize)),
 
-		WriteIOPS:         stats.WriteIOPS,
-		WriteThroughput:   stats.WriteThroughput,
-		WriteLatency:      stats.WriteLatency,
-		AvgWriteBlockSize: stats.AvgWriteBlockSize,
+		WriteIOPS:         strconv.FormatInt(stats.WriteIOPS, 10),
+		WriteThroughput:   units.HumanSize(float64(stats.WriteThroughput)),
+		WriteLatency:      (stats.WriteLatency).String(),
+		AvgWriteBlockSize: units.HumanSize(float64(stats.AvgWriteBlockSize)),
 	}
 	apiContext.Write(volumeStats)
 	return nil
