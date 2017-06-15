@@ -85,20 +85,19 @@ type IOStats struct {
 	Latency     float32
 	AvBlockSize float32
 }
+
 type Stats struct {
 	RevisionCounter int64
 	ReplicaCounter  int64
 	SCSIIOCount     map[int]int64
 
-	ReadIOPS         int64
-	ReadThroughput   int64
-	ReadLatency      time.Duration
-	AvgReadBlockSize int64
+	ReadIOPS            int64
+	TotalReadTime       int64
+	TotalReadBlockCount int64
 
-	WriteIOPS         int64
-	WriteThroughput   int64
-	WriteLatency      time.Duration
-	AvgWriteBlockSize int64
+	WriteIOPS            int64
+	TotalWriteTime       int64
+	TotalWriteBlockCount int64
 }
 
 type Interface interface{}

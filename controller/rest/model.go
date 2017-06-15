@@ -52,15 +52,13 @@ type VolumeStats struct {
 	ReplicaCounter  int64         `json:"ReplicaCounter"`
 	SCSIIOCount     map[int]int64 `json:"SCSIIOCount"`
 
-	ReadIOPS         string `json:"ReadIOPS"`
-	ReadThroughput   string `json:"ReadThroughput"`
-	ReadLatency      string `json:"ReadLatency"`
-	AvgReadBlockSize string `json:"AvgReadBlockSize"`
+	ReadIOPS            string `json:"ReadIOPS"`
+	TotalReadTime       string `json:"TotalReadTime"`
+	TotalReadBlockCount string `json:"TotalReadBlockCount"`
 
-	WriteIOPS         string `json:"WriteIOPS"`
-	WriteThroughput   string `json:"WriteThroughput"`
-	WriteLatency      string `json:"WriteLatency"`
-	AvgWriteBlockSize string `json:"AvgWriteBlockSize"`
+	WriteIOPS            string `json:"WriteIOPS"`
+	TotalWriteTime       string `json:"TotalWriteTime"`
+	TotalWriteBlockCount string `json:"TotatWriteBlockCount"`
 }
 
 type SnapshotInput struct {

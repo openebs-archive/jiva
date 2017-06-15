@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strconv"
 
-	units "github.com/docker/go-units"
 	"github.com/gorilla/mux"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
@@ -36,7 +35,6 @@ func (s *Server) GetVolume(rw http.ResponseWriter, req *http.Request) error {
 
 func (s *Server) GetVolumeStats(rw http.ResponseWriter, req *http.Request) error {
 	apiContext := api.GetApiContext(req)
-	//	id := mux.Vars(req)["id"]
 	stats := s.c.Stats()
 	volumeStats := &VolumeStats{
 		Resource:        client.Resource{Type: "stats"},
@@ -44,15 +42,13 @@ func (s *Server) GetVolumeStats(rw http.ResponseWriter, req *http.Request) error
 		ReplicaCounter:  stats.ReplicaCounter,
 		SCSIIOCount:     stats.SCSIIOCount,
 
-		ReadIOPS:         strconv.FormatInt(stats.ReadIOPS, 10),
-		ReadThroughput:   units.HumanSize(float64(stats.ReadThroughput)),
-		ReadLatency:      (stats.ReadLatency).String(),
-		AvgReadBlockSize: units.HumanSize(float64(stats.AvgReadBlockSize)),
+		ReadIOPS:            strconv.FormatInt(stats.ReadIOPS, 10),
+		TotalReadTime:       strconv.FormatInt(stats.TotalReadTime, 10),
+		TotalReadBlockCount: strconv.FormatInt(stats.TotalReadBlockCount, 10),
 
-		WriteIOPS:         strconv.FormatInt(stats.WriteIOPS, 10),
-		WriteThroughput:   units.HumanSize(float64(stats.WriteThroughput)),
-		WriteLatency:      (stats.WriteLatency).String(),
-		AvgWriteBlockSize: units.HumanSize(float64(stats.AvgWriteBlockSize)),
+		WriteIOPS:            strconv.FormatInt(stats.WriteIOPS, 10),
+		TotalWriteTime:       strconv.FormatInt(stats.TotalWriteTime, 10),
+		TotalWriteBlockCount: strconv.FormatInt(stats.TotalWriteBlockCount, 10),
 	}
 	apiContext.Write(volumeStats)
 	return nil
