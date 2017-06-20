@@ -1,14 +1,17 @@
 # Makefile for building jiva docker image
 # 
 # Reference Guide - https://www.gnu.org/software/make/manual/make.html
-
+#
 
 #
 # Internal variables or constants.
 # NOTE - These will be executed when any make target is invoked.
 #
+
 IS_GO_INSTALLED           := $(shell which go >> /dev/null 2>&1; echo $$?)
 IS_DOCKER_INSTALLED       := $(shell which docker >> /dev/null 2>&1; echo $$?)
+
+TARGETS := $(shell ls scripts)
 
 help:
 	@echo ""
@@ -35,27 +38,30 @@ _build_check_docker:
 		&& exit 1; \
 		fi;
 
-deps: _build_check_go _build_check_docker
+
+.dapper:
+	@echo Downloading dapper
+	@curl -sL https://releases.rancher.com/dapper/latest/dapper-`uname -s`-`uname -m` > .dapper.tmp
+	@@chmod +x .dapper.tmp
+	@./.dapper.tmp -v
+	@mv .dapper.tmp .dapper
+
+$(TARGETS): .dapper
+	./.dapper $@
+
+trash: .dapper
+	./.dapper -m bind trash
+
+trash-keep: .dapper
+	./.dapper -m bind trash -k
+
+
+deps: _build_check_go _build_check_docker trash
 	@echo ""
 	@echo "INFO:\tverifying dependencies for jiva ..."
 
 _install_trash:
 	go get -u github.com/rancher/trash
-
-_fetch_longhorn:
-	mkdir -p $(GOPATH)/src/github.com/openebs
-	@if [ ! -d $(GOPATH)/src/github.com/openebs/longhorn ]; \
-		then \
-	          cd $(GOPATH)/src/github.com/openebs && git clone https://github.com/openebs/longhorn.git; \
-		fi;
-	cd $(GOPATH)/src/github.com/openebs/longhorn && git fetch && git branch -r && git checkout Pre-release && trash .
-
-_customize_longhorn:
-	cp -R package/* $(GOPATH)/src/github.com/openebs/longhorn/package/
-	cp -R buildscripts/* $(GOPATH)/src/github.com/openebs/longhorn/scripts/
-
-_build_longhorn:
-	cd $(GOPATH)/src/github.com/openebs/longhorn && make
 
 _run_ci:
 	@echo ""
@@ -66,19 +72,19 @@ _run_ci:
 _push_image:
 	cd $(GOPATH)/src/github.com/openebs/longhorn && ./scripts/push
 
-
 #
 # Will build the go based binaries
 # The binaries will be placed at $GOPATH/bin/
 #
-build: deps _install_trash _fetch_longhorn _customize_longhorn _build_longhorn _run_ci _push_image
+# build: deps _install_trash _fetch_longhorn _customize_longhorn _build_longhorn _run_ci _push_image
+#
 
+build: deps _install_trash ci _run_ci _push_image
 
 #
 # This is done to avoid conflict with a file of same name as the targets
 # mentioned in this makefile.
 #
-.PHONY: help deps build
+
+.PHONY: help deps build $(TARGETS)
 .DEFAULT_GOAL := build
-
-

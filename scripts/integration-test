@@ -1,0 +1,79 @@
+#!/bin/bash
+set -e
+
+# Don't want to kill longhorn in another namespace for now
+#
+#killall longhorn ssync || true
+#
+#running=""
+#for i in `seq 10`
+#do
+#	running=`ps aux|grep longhorn|grep -v grep || true`
+#	if [ -z "$running" ]
+#	then
+#		break
+#	fi
+#	echo Wait one more second for longhorn process to stop
+#	sleep 1
+#done
+#if [ "$running" ]
+#then
+#	echo Failed to wait for longhorn process stop
+#	echo $running
+#	exit -1
+#fi
+
+temp=$(mktemp -d)
+temp2=$(mktemp -d)
+temp3=$(mktemp -d)
+temp4=$(mktemp -d)
+trap "rm -rf $temp $temp2 $temp3 $temp4" EXIT
+
+cd $(dirname $0)/..
+
+if [ ! -x ./bin/longhorn ]; then
+    ./scripts/build
+fi
+
+
+if [ -d '/host/dev' ]
+then
+	mount --rbind /host/dev /dev
+fi
+
+./bin/longhorn controller --frontend tgt --enable-backend file test-volume_1.0 &
+pid_controller=$!
+./bin/longhorn replica $temp &
+pid_replica1=$!
+./bin/longhorn replica --listen localhost:9505 $temp2 &
+pid_replica2=$!
+
+# replica with 4MB backing file
+backing_file=backing_file.raw
+backing_qcow2=backing_file.qcow2
+cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w $((1024 * 4096)) | head -n 1 > $backing_file
+truncate -s 4M $backing_file
+
+qemu-img convert -f raw -O qcow2 $backing_file $backing_qcow2
+cp $backing_qcow2 $temp3
+cp $backing_qcow2 $temp4
+
+./bin/longhorn replica --listen localhost:9602 --backing-file $backing_qcow2 $temp3 &
+pid_backing_replica1=$!
+./bin/longhorn replica --listen localhost:9605 --backing-file $backing_qcow2 $temp4 &
+pid_backing_replica2=$!
+
+# make sure everything is running before continue integration test
+ps $pid_controller
+ps $pid_replica1
+ps $pid_replica2
+ps $pid_backing_replica1
+ps $pid_backing_replica2
+
+trap "kill $pid_controller $pid_replica1 $pid_replica2 $pid_backing_replica1 $pid_backing_replica2" EXIT
+
+cd integration
+find -depth -name __pycache__ -o -name "*.pyc" -exec rm -rf {} \;
+if [ -z "$NO_TEST" ]; then
+    tox "$@"
+fi
