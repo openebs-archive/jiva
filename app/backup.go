@@ -5,7 +5,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
-	"github.com/rancher/longhorn/sync"
+	"github.com/openebs/jiva/sync"
 )
 
 func BackupCmd() cli.Command {

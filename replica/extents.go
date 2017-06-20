@@ -2,7 +2,7 @@ package replica
 
 import (
 	"github.com/frostschutz/go-fibmap"
-	"github.com/rancher/longhorn/types"
+	"github.com/openebs/jiva/types"
 )
 
 type UsedGenerator struct {

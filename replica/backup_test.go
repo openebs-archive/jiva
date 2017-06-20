@@ -5,7 +5,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/rancher/longhorn/util"
+	"github.com/openebs/jiva/util"
 	. "gopkg.in/check.v1"
 )
 

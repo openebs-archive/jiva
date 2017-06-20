@@ -18,7 +18,7 @@ def test_basic_rw(dev):  # NOQA
         common.verify_data(dev, offset, data)
 
 
-# See also BUG: https://github.com/rancher/longhorn/issues/131
+# See also BUG: https://github.com/openebs/jiva/issues/131
 def test_beyond_boundary(dev):  # NOQA
     # check write at the boundary
     data = common.random_string(128)

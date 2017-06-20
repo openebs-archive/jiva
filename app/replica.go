@@ -13,11 +13,11 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/docker/go-units"
-	"github.com/rancher/longhorn/controller/client"
-	"github.com/rancher/longhorn/replica"
-	"github.com/rancher/longhorn/replica/rest"
-	"github.com/rancher/longhorn/replica/rpc"
-	"github.com/rancher/longhorn/util"
+	"github.com/openebs/jiva/controller/client"
+	"github.com/openebs/jiva/replica"
+	"github.com/openebs/jiva/replica/rest"
+	"github.com/openebs/jiva/replica/rpc"
+	"github.com/openebs/jiva/util"
 )
 
 func ReplicaCmd() cli.Command {

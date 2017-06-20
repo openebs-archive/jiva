@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/frostschutz/go-fibmap"
-	"github.com/rancher/longhorn/types"
+	"github.com/openebs/jiva/types"
 )
 
 type diffDisk struct {

@@ -11,8 +11,8 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/docker/docker/pkg/reexec"
-	"github.com/rancher/longhorn/app"
-	"github.com/rancher/longhorn/backup"
+	"github.com/openebs/jiva/app"
+	"github.com/openebs/jiva/backup"
 	"github.com/rancher/sparse-tools/cli/sfold"
 	"github.com/rancher/sparse-tools/cli/ssync"
 )

@@ -9,10 +9,10 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
-	"github.com/rancher/longhorn/replica"
-	replicaClient "github.com/rancher/longhorn/replica/client"
-	"github.com/rancher/longhorn/sync"
-	"github.com/rancher/longhorn/util"
+	"github.com/openebs/jiva/replica"
+	replicaClient "github.com/openebs/jiva/replica/client"
+	"github.com/openebs/jiva/sync"
+	"github.com/openebs/jiva/util"
 )
 
 const VolumeHeadName = "volume-head"

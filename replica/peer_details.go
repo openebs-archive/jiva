@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/rancher/longhorn/types"
+	"github.com/openebs/jiva/types"
 	"github.com/rancher/sparse-tools/sparse"
 )
 

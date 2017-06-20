@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/rancher/longhorn/controller/rest"
-	"github.com/rancher/longhorn/types"
+	"github.com/openebs/jiva/controller/rest"
+	"github.com/openebs/jiva/types"
 )
 
 type ControllerClient struct {

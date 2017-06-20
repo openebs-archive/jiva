@@ -12,8 +12,8 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 
-	"github.com/rancher/longhorn/replica"
-	"github.com/rancher/longhorn/util"
+	"github.com/openebs/jiva/replica"
+	"github.com/openebs/jiva/util"
 	"github.com/yasker/backupstore"
 )
 

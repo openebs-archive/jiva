@@ -8,8 +8,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	units "github.com/docker/go-units"
-	"github.com/rancher/longhorn/types"
-	"github.com/rancher/longhorn/util"
+	"github.com/openebs/jiva/types"
+	"github.com/openebs/jiva/util"
 )
 
 type Controller struct {

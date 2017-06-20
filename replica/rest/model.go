@@ -3,9 +3,9 @@ package rest
 import (
 	"strconv"
 
+	"github.com/openebs/jiva/replica"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
-	"github.com/rancher/longhorn/replica"
 )
 
 type Replica struct {

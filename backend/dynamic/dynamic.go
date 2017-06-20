@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/rancher/longhorn/types"
+	"github.com/openebs/jiva/types"
 )
 
 type Factory struct {

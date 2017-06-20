@@ -8,7 +8,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
-	"github.com/rancher/longhorn/sync/agent"
+	"github.com/openebs/jiva/sync/agent"
 )
 
 func SyncAgentCmd() cli.Command {

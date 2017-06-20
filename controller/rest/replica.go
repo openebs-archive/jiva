@@ -4,9 +4,9 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/openebs/jiva/types"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
-	"github.com/rancher/longhorn/types"
 )
 
 func (s *Server) ListReplicas(rw http.ResponseWriter, req *http.Request) error {

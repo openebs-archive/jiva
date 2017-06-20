@@ -1,7 +1,7 @@
 package app
 
 import (
-	"github.com/rancher/longhorn/frontend/gotgt"
+	"github.com/openebs/jiva/frontend/gotgt"
 )
 
 func init() {

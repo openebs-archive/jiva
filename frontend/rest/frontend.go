@@ -6,7 +6,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/handlers"
-	"github.com/rancher/longhorn/types"
+	"github.com/openebs/jiva/types"
 )
 
 var (

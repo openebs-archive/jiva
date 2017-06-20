@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/rancher/longhorn/replica/client"
-	"github.com/rancher/longhorn/types"
-	"github.com/rancher/longhorn/util"
+	"github.com/openebs/jiva/replica/client"
+	"github.com/openebs/jiva/types"
+	"github.com/openebs/jiva/util"
 )
 
 func (c *Controller) Revert(name string) error {

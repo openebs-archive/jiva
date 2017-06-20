@@ -4,10 +4,10 @@ import (
 	"encoding/base64"
 	"time"
 
+	"github.com/openebs/jiva/controller"
+	"github.com/openebs/jiva/types"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
-	"github.com/rancher/longhorn/controller"
-	"github.com/rancher/longhorn/types"
 )
 
 type Replica struct {

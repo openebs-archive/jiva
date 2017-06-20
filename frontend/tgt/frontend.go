@@ -9,9 +9,9 @@ import (
 
 	"github.com/Sirupsen/logrus"
 
-	"github.com/rancher/longhorn/rpc"
-	"github.com/rancher/longhorn/types"
-	"github.com/rancher/longhorn/util"
+	"github.com/openebs/jiva/rpc"
+	"github.com/openebs/jiva/types"
+	"github.com/openebs/jiva/util"
 )
 
 const (

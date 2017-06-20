@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/rancher/longhorn/controller/client"
-	"github.com/rancher/longhorn/controller/rest"
-	"github.com/rancher/longhorn/replica"
-	replicaClient "github.com/rancher/longhorn/replica/client"
+	"github.com/openebs/jiva/controller/client"
+	"github.com/openebs/jiva/controller/rest"
+	"github.com/openebs/jiva/replica"
+	replicaClient "github.com/openebs/jiva/replica/client"
 )
 
 var (

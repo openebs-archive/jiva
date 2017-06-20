@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/rancher/longhorn/replica"
-	"github.com/rancher/longhorn/rpc"
+	"github.com/openebs/jiva/replica"
+	"github.com/openebs/jiva/rpc"
 )
 
 type Server struct {

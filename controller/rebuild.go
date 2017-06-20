@@ -5,8 +5,8 @@ import (
 	"reflect"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/rancher/longhorn/replica/client"
-	"github.com/rancher/longhorn/types"
+	"github.com/openebs/jiva/replica/client"
+	"github.com/openebs/jiva/types"
 )
 
 func getReplicaChain(address string) ([]string, error) {

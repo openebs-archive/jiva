@@ -5,8 +5,8 @@ import (
 	_ "net/http/pprof" /* for profiling */
 
 	"github.com/gorilla/mux"
+	"github.com/openebs/jiva/replica/rest"
 	"github.com/rancher/go-rancher/api"
-	"github.com/rancher/longhorn/replica/rest"
 )
 
 func NewRouter(s *Server) *mux.Router {

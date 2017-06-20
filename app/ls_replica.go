@@ -7,8 +7,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
-	"github.com/rancher/longhorn/controller/client"
-	replicaClient "github.com/rancher/longhorn/replica/client"
+	"github.com/openebs/jiva/controller/client"
+	replicaClient "github.com/openebs/jiva/replica/client"
 )
 
 func LsReplicaCmd() cli.Command {

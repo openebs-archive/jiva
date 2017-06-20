@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/rancher/longhorn/types"
+	"github.com/openebs/jiva/types"
 )
 
 var (
