@@ -14,6 +14,6 @@ fi
 
 cp ../bin/longhorn* .
 cp /usr/src/tgt/pkg/tgt_*.deb .
-docker build -t ${REPO}/longhorn:${TAG} .
+docker build -t ${REPO}/jiva:${TAG} .
 
-echo Built ${REPO}/longhorn:${TAG}
+echo Built ${REPO}/jiva:${TAG}
