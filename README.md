@@ -60,13 +60,13 @@ host#1$ sudo docker run -d --network="host" -P --expose 3260 --expose 9501 --nam
 Create the backend container on host#1, for demo-vol1 with data stored in /mnt/store1
 
 ```
-docker run -d --network="host" -P --expose 9502-9504 --expose 9700-9800 -v /mnt/stor1:/stor1 --name sp-be1 <openebs/jiva> launch replica --frontendIP 172.18.200.101 --listen 172.18.200.102:9502 --size 10G /stor1
+docker run -d --network="host" -P --expose 9502-9504 --expose 9700-9800 -v /mnt/store1:/stor1 --name sp-be1 openebs/jiva launch replica --frontendIP 172.18.200.101 --listen 172.18.200.102:9502 --size 10G /stor1
 ```
     
 Create the backend container on host#2, for demo-vol1 with data stored in /mnt/store1
 
 ```
-docker run -d --network="host" -P --expose 9502-9504 --expose 9700-9800 -v /mnt/stor2:/stor2 --name sp-be2 <openebs/jiva> launch replica --frontendIP 172.18.200.101 --listen 172.18.200.103:9502 --size 10G /stor2
+docker run -d --network="host" -P --expose 9502-9504 --expose 9700-9800 -v /mnt/store2:/stor2 --name sp-be2 openebs/jiva launch replica --frontendIP 172.18.200.101 --listen 172.18.200.103:9502 --size 10G /stor2
 ```
 
 ### Using the iSCSI volume
