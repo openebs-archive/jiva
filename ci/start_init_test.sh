@@ -1,6 +1,6 @@
 #!/bin/bash
 
-JI=$(sudo docker images | grep jiva | awk '{print $1":"$2}')
+JI=$(sudo docker images | grep openebs/jiva | awk '{print $1":"$2}')
 echo "Run CI tests on $JI"
 
 mkdir /tmp/vol1
