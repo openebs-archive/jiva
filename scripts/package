@@ -9,7 +9,7 @@ TAG=${TAG:-${VERSION}}
 REPO=${REPO:-openebs}
 
 if [ ! -x ../bin/longhorn ]; then
-    ../scripts/build
+    ../scripts/build_binaries
 fi
 
 cp ../bin/longhorn* .

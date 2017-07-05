@@ -3,7 +3,7 @@ set -e
 
 cd $(dirname $0)
 
-./build
+./build_binaries
 ./test
 ./validate
 #./integration-test

@@ -32,7 +32,7 @@ trap "rm -rf $temp $temp2 $temp3 $temp4" EXIT
 cd $(dirname $0)/..
 
 if [ ! -x ./bin/longhorn ]; then
-    ./scripts/build
+    ./scripts/build_binaries
 fi
 
 
