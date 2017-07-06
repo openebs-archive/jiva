@@ -1,0 +1,10 @@
+#!/bin/bash
+set -e
+
+cd $(dirname $0)
+
+./build_binaries
+./test
+./validate
+#./integration-test
+./package

@@ -1,0 +1,3 @@
+#!/bin/bash
+
+cp $(which longhorn) $(which launch-with-vm-backing-file) /cmd

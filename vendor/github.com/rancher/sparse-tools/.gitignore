@@ -1,0 +1,13 @@
+/.dapper
+/bin
+*.swp
+/.trash-cache
+
+.vscode
+#delve invocation binaries
+debug
+debug.test
+
+#go build binaries
+ssync/ssync
+sfold/sfold
