@@ -146,6 +146,33 @@ func (r *Remote) GetRevisionCounter() (int64, error) {
 	return replica.RevisionCounter, nil
 }
 
+func (r *Remote) GetVolUsage() (types.VolUsage, error) {
+	var Details rest.VolUsage
+	var volUsage types.VolUsage
+
+	req, err := http.NewRequest("GET", r.replicaURL+"/volusage", nil)
+	if err != nil {
+		return volUsage, err
+	}
+
+	resp, err := r.httpClient.Do(req)
+	if err != nil {
+		return volUsage, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return volUsage, fmt.Errorf("Bad status: %d %s", resp.StatusCode, resp.Status)
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&Details)
+	volUsage.UsedLogicalBlocks, _ = strconv.ParseInt(Details.UsedLogicalBlocks, 10, 64)
+	volUsage.UsedBlocks, _ = strconv.ParseInt(Details.UsedBlocks, 10, 64)
+	volUsage.SectorSize, _ = strconv.ParseInt(Details.SectorSize, 10, 64)
+
+	return volUsage, err
+}
+
 func (r *Remote) SetRevisionCounter(counter int64) error {
 	logrus.Infof("Set revision counter of %s to : %v", r.name, counter)
 	return r.doAction("setrevisioncounter", &map[string]int64{"counter": counter})

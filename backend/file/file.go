@@ -51,6 +51,10 @@ func (f *Wrapper) GetRevisionCounter() (int64, error) {
 	return 1, nil
 }
 
+func (f *Wrapper) GetVolUsage() (types.VolUsage, error) {
+	return types.VolUsage{}, nil
+}
+
 func (f *Wrapper) SetRevisionCounter(counter int64) error {
 	return nil
 }
