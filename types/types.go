@@ -36,6 +36,7 @@ type Backend interface {
 	SectorSize() (int64, error)
 	RemainSnapshots() (int, error)
 	GetRevisionCounter() (int64, error)
+	GetVolUsage() (VolUsage, error)
 	SetRevisionCounter(counter int64) error
 	UpdatePeerDetails(replicaCount int64, quorumReplicaCount int64) error
 	SetRebuilding(rebuilding bool) error
@@ -46,6 +47,12 @@ type Backend interface {
 type BackendFactory interface {
 	Create(address string) (Backend, error)
 	SignalToAdd(string, string) error
+}
+
+type VolUsage struct {
+	UsedLogicalBlocks int64
+	UsedBlocks        int64
+	SectorSize        int64
 }
 
 type Controller interface {
@@ -98,6 +105,10 @@ type Stats struct {
 	WriteIOPS            int64
 	TotalWriteTime       int64
 	TotalWriteBlockCount int64
+
+	UsedLogicalBlocks int64
+	UsedBlocks        int64
+	SectorSize        int64
 }
 
 type Interface interface{}

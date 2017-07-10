@@ -12,7 +12,9 @@ type diffDisk struct {
 	rmLock sync.Mutex
 	// mapping of sector to index in the files array. a value of 0 is special meaning
 	// we don't know the location yet.
-	location []byte
+	location          []byte
+	UsedLogicalBlocks int64
+	UsedBlocks        int64
 	// list of files in child, parent, grandparent, etc order.
 	// index 0 is nil and index 1 is the active write layer
 	files      []types.DiffDisk
@@ -102,6 +104,12 @@ func (d *diffDisk) fullWriteAt(buf []byte, offset int64) (int, error) {
 
 	// Regardless of err mark bytes as written
 	for i := int64(0); i < sectors; i++ {
+		if val := d.location[startSector+i]; val == 0 {
+			d.UsedLogicalBlocks++
+			d.UsedBlocks++
+		} else if val != target {
+			d.UsedBlocks++
+		}
 		d.location[startSector+i] = target
 	}
 

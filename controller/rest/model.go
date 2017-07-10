@@ -59,6 +59,10 @@ type VolumeStats struct {
 	WriteIOPS            string `json:"WriteIOPS"`
 	TotalWriteTime       string `json:"TotalWriteTime"`
 	TotalWriteBlockCount string `json:"TotatWriteBlockCount"`
+
+	UsedLogicalBlocks string `json:"UsedLogicalBlocks"`
+	UsedBlocks        string `json:"UsedBlocks"`
+	SectorSize        string `json:"SectorSize"`
 }
 
 type SnapshotInput struct {

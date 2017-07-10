@@ -10,18 +10,20 @@ import (
 
 type Replica struct {
 	client.Resource
-	Dirty           bool                        `json:"dirty"`
-	Rebuilding      bool                        `json:"rebuilding"`
-	Head            string                      `json:"head"`
-	Parent          string                      `json:"parent"`
-	Size            string                      `json:"size"`
-	SectorSize      int64                       `json:"sectorSize"`
-	State           string                      `json:"state"`
-	Chain           []string                    `json:"chain"`
-	Disks           map[string]replica.DiskInfo `json:"disks"`
-	RemainSnapshots int                         `json:"remainsnapshots"`
-	RevisionCounter int64                       `json:"revisioncounter"`
-	ReplicaCounter  int64                       `json:"replicacounter"`
+	Dirty             bool                        `json:"dirty"`
+	Rebuilding        bool                        `json:"rebuilding"`
+	Head              string                      `json:"head"`
+	Parent            string                      `json:"parent"`
+	Size              string                      `json:"size"`
+	SectorSize        int64                       `json:"sectorSize"`
+	State             string                      `json:"state"`
+	Chain             []string                    `json:"chain"`
+	Disks             map[string]replica.DiskInfo `json:"disks"`
+	RemainSnapshots   int                         `json:"remainsnapshots"`
+	RevisionCounter   int64                       `json:"revisioncounter"`
+	ReplicaCounter    int64                       `json:"replicacounter"`
+	UsedLogicalBlocks string                      `json:"usedlogicalblocks"`
+	UsedBlocks        string                      `json:"usedblocks"`
 }
 
 type Stats struct {
@@ -56,6 +58,13 @@ type SnapshotInput struct {
 type RemoveDiskInput struct {
 	client.Resource
 	Name string `json:"name"`
+}
+
+type VolUsage struct {
+	client.Resource
+	UsedLogicalBlocks string `json:"usedlogicalblocks"`
+	UsedBlocks        string `json:"usedblocks"`
+	SectorSize        string `json:"sectorSize"`
 }
 
 type ResizeInput struct {

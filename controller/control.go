@@ -728,15 +728,21 @@ func (c *Controller) shutdownFrontend() error {
 	return nil
 }
 
-func (c *Controller) Stats() types.Stats {
+func (c *Controller) Stats() (types.Stats, error) {
+	var err error
 	// Make sure writing data won't be blocked
 	c.RLock()
 	defer c.RUnlock()
 
 	if c.frontend != nil {
-		return (types.Stats)(c.frontend.Stats())
+		stats := (types.Stats)(c.frontend.Stats())
+		volUsage, err := c.backend.GetVolUsage()
+		stats.UsedLogicalBlocks = volUsage.UsedLogicalBlocks
+		stats.UsedBlocks = volUsage.UsedBlocks
+		stats.SectorSize = volUsage.SectorSize
+		return stats, err
 	}
-	return types.Stats{}
+	return types.Stats{}, err
 }
 
 func (c *Controller) shutdownBackend() error {

@@ -158,8 +158,12 @@ func (s *Server) Stats() *types.Stats {
 		RevisionCounter: r.revisionCache,
 		ReplicaCounter:  r.peerCache.ReplicaCount,
 	}
-
 }
+
+func (s *Server) GetUsage() (*types.VolUsage, error) {
+	return s.r.GetUsage()
+}
+
 func (s *Server) SetRebuilding(rebuilding bool) error {
 	s.Lock()
 	defer s.Unlock()
