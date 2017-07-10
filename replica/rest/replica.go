@@ -41,6 +41,10 @@ func (s *Server) GetReplicaStats(apiContext *api.ApiContext) *types.Stats {
 	return s.s.Stats()
 }
 
+func (s *Server) GetUsage(apiContext *api.ApiContext) (*types.VolUsage, error) {
+	return s.s.GetUsage()
+}
+
 func (s *Server) GetStats(rw http.ResponseWriter, req *http.Request) error {
 	var stats *types.Stats
 	apiContext := api.GetApiContext(req)
@@ -56,7 +60,25 @@ func (s *Server) GetStats(rw http.ResponseWriter, req *http.Request) error {
 		RevisionCounter: stats.RevisionCounter,
 		ReplicaCounter:  stats.ReplicaCounter,
 	}
+	apiContext.Write(resp)
+	return nil
+}
 
+func (s *Server) GetVolUsage(rw http.ResponseWriter, req *http.Request) error {
+	apiContext := api.GetApiContext(req)
+	usage, _ := s.GetUsage(apiContext)
+
+	resp := &VolUsage{
+		Resource: client.Resource{
+			Type:    "replica",
+			Id:      "1",
+			Actions: map[string]string{},
+			Links:   map[string]string{},
+		},
+		UsedLogicalBlocks: strconv.FormatInt(usage.UsedLogicalBlocks, 10),
+		UsedBlocks:        strconv.FormatInt(usage.UsedBlocks, 10),
+		SectorSize:        strconv.FormatInt(usage.SectorSize, 10),
+	}
 	apiContext.Write(resp)
 	return nil
 }

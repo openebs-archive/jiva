@@ -12,6 +12,7 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/Sirupsen/logrus"
 	units "github.com/docker/go-units"
@@ -210,6 +211,7 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 	r.insertBackingFile()
 	r.ReplicaType = replicaType
 
+	PreloadLunMap(&r.volume)
 	return r, r.writeVolumeMetaData(true, r.info.Rebuilding)
 }
 
@@ -255,6 +257,14 @@ func (r *Replica) SetRebuilding(rebuilding bool) error {
 	}
 	r.info.Rebuilding = rebuilding
 	return nil
+}
+
+func (r *Replica) GetUsage() (*types.VolUsage, error) {
+	return &types.VolUsage{
+		UsedLogicalBlocks: r.volume.UsedLogicalBlocks,
+		UsedBlocks:        r.volume.UsedBlocks,
+		SectorSize:        r.volume.sectorSize,
+	}, nil
 }
 
 func (r *Replica) Resize(obj interface{}) error {
@@ -773,6 +783,12 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 		if err := r.encodeToFile(r.diskData[newSnapName], newSnapName+metadataSuffix); err != nil {
 			return err
 		}
+		size := int64(unsafe.Sizeof(r.diskData[newSnapName]))
+		if size%defaultSectorSize == 0 {
+			r.volume.UsedBlocks += size / defaultSectorSize
+		} else {
+			r.volume.UsedBlocks += (size/defaultSectorSize + 1)
+		}
 
 		r.updateChildDisk(oldHead, newSnapName)
 		r.activeDiskData[len(r.activeDiskData)-1].Name = newSnapName
@@ -846,11 +862,9 @@ func (r *Replica) openLiveChain() error {
 		if err != nil {
 			return err
 		}
-
 		r.volume.files = append(r.volume.files, f)
 		r.activeDiskData = append(r.activeDiskData, r.diskData[parent])
 	}
-
 	return nil
 }
 
@@ -871,12 +885,23 @@ func (r *Replica) readMetadata() (bool, error) {
 				return false, err
 			}
 			r.volume.sectorSize = defaultSectorSize
+			if file.Size()%defaultSectorSize == 0 {
+				r.volume.UsedBlocks += file.Size() / defaultSectorSize
+			} else {
+				r.volume.UsedBlocks += (file.Size()/defaultSectorSize + 1)
+			}
 		} else if strings.HasSuffix(file.Name(), metadataSuffix) {
 			if err := r.readDiskData(file.Name()); err != nil {
 				return false, err
 			}
+			if file.Size()%defaultSectorSize == 0 {
+				r.volume.UsedBlocks += file.Size() / defaultSectorSize
+			} else {
+				r.volume.UsedBlocks += (file.Size()/defaultSectorSize + 1)
+			}
 		}
 	}
+	r.volume.UsedBlocks += 2 // One each for peer.details and revision.counter
 
 	return len(r.diskData) > 0, nil
 }

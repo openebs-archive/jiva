@@ -305,6 +305,23 @@ func (r *replicator) reset(full bool) {
 	}
 }
 
+func (r *replicator) GetVolUsage() (types.VolUsage, error) {
+	var (
+		err      error
+		volUsage types.VolUsage
+	)
+	for _, backend := range r.backends {
+		if backend.mode == types.ERR {
+			continue
+		}
+		if volUsage, err = backend.backend.GetVolUsage(); err != nil {
+			continue
+		}
+		return volUsage, err
+	}
+	return types.VolUsage{}, err
+}
+
 type backendWrapper struct {
 	backend types.Backend
 	mode    types.Mode

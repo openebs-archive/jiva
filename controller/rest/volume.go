@@ -35,7 +35,7 @@ func (s *Server) GetVolume(rw http.ResponseWriter, req *http.Request) error {
 
 func (s *Server) GetVolumeStats(rw http.ResponseWriter, req *http.Request) error {
 	apiContext := api.GetApiContext(req)
-	stats := s.c.Stats()
+	stats, _ := s.c.Stats()
 	volumeStats := &VolumeStats{
 		Resource:        client.Resource{Type: "stats"},
 		RevisionCounter: stats.RevisionCounter,
@@ -49,6 +49,10 @@ func (s *Server) GetVolumeStats(rw http.ResponseWriter, req *http.Request) error
 		WriteIOPS:            strconv.FormatInt(stats.WriteIOPS, 10),
 		TotalWriteTime:       strconv.FormatInt(stats.TotalWriteTime, 10),
 		TotalWriteBlockCount: strconv.FormatInt(stats.TotalWriteBlockCount, 10),
+
+		UsedLogicalBlocks: strconv.FormatInt(stats.UsedLogicalBlocks, 10),
+		UsedBlocks:        strconv.FormatInt(stats.UsedBlocks, 10),
+		SectorSize:        strconv.FormatInt(stats.SectorSize, 10),
 	}
 	apiContext.Write(volumeStats)
 	return nil
