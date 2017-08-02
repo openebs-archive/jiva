@@ -2,6 +2,7 @@ package rest
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/openebs/jiva/types"
@@ -39,13 +40,17 @@ func (s *Server) GetReplica(rw http.ResponseWriter, req *http.Request) error {
 }
 
 func (s *Server) RegisterReplica(rw http.ResponseWriter, req *http.Request) error {
-	var regReplica RegReplica
+	var (
+		regReplica    RegReplica
+		localRevCount int64
+	)
 	apiContext := api.GetApiContext(req)
 	if err := apiContext.Read(&regReplica); err != nil {
 		return err
 	}
 
-	local := types.RegReplica{Address: regReplica.Address, RevCount: regReplica.RevCount, PeerDetail: regReplica.PeerDetails, RepType: regReplica.RepType, UpTime: regReplica.UpTime}
+	localRevCount, _ = strconv.ParseInt(regReplica.RevCount, 10, 64)
+	local := types.RegReplica{Address: regReplica.Address, RevCount: localRevCount, PeerDetail: regReplica.PeerDetails, RepType: regReplica.RepType, UpTime: regReplica.UpTime}
 	if err := s.c.RegisterReplica(local); err != nil {
 		return err
 	}

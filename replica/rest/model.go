@@ -20,7 +20,7 @@ type Replica struct {
 	Chain             []string                    `json:"chain"`
 	Disks             map[string]replica.DiskInfo `json:"disks"`
 	RemainSnapshots   int                         `json:"remainsnapshots"`
-	RevisionCounter   int64                       `json:"revisioncounter"`
+	RevisionCounter   string                      `json:"revisioncounter"`
 	ReplicaCounter    int64                       `json:"replicacounter"`
 	UsedLogicalBlocks string                      `json:"usedlogicalblocks"`
 	UsedBlocks        string                      `json:"usedblocks"`
@@ -28,8 +28,8 @@ type Replica struct {
 
 type Stats struct {
 	client.Resource
-	ReplicaCounter  int64 `json:"replicacounter"`
-	RevisionCounter int64 `json:"revisioncounter"`
+	ReplicaCounter  int64  `json:"replicacounter"`
+	RevisionCounter string `json:"revisioncounter"`
 }
 
 type CreateInput struct {
@@ -91,7 +91,7 @@ type PrepareRemoveDiskOutput struct {
 
 type RevisionCounter struct {
 	client.Resource
-	Counter int64 `json:"counter"`
+	Counter string `json:"counter"`
 }
 
 type ReplicaCounter struct {
@@ -193,7 +193,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		r.Chain, _ = rep.DisplayChain()
 		r.Disks = rep.ListDisks()
 		r.RemainSnapshots = rep.GetRemainSnapshotCounts()
-		r.RevisionCounter = rep.GetRevisionCounter()
+		r.RevisionCounter = strconv.FormatInt(rep.GetRevisionCounter(), 10)
 	}
 
 	return r
