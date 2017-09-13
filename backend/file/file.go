@@ -59,7 +59,7 @@ func (f *Wrapper) SetRevisionCounter(counter int64) error {
 	return nil
 }
 
-func (f *Wrapper) UpdatePeerDetails(replicaCount int64, quorumReplicaCount int64) error {
+func (f *Wrapper) UpdatePeerDetails(replicaCount int, quorumReplicaCount int) error {
 	return nil
 }
 

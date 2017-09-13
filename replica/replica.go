@@ -126,6 +126,12 @@ func CreateTempReplica() (*Replica, error) {
 	return r, nil
 }
 
+func CreateTempServer() (*Server, error) {
+	return &Server{
+		dir: Dir,
+	}, nil
+}
+
 func ReadInfo(dir string) (Info, error) {
 	var info Info
 	err := (&Replica{dir: dir}).unmarshalFile(volumeMetaData, &info)

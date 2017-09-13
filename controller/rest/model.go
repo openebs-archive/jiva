@@ -97,6 +97,7 @@ type RegReplica struct {
 	RevCount    string            `json:"RevCount"`
 	PeerDetails types.PeerDetails `json:"PeerDetails"`
 	RepType     string            `json:"RepType"`
+	RepState    string            `json:"RepState"`
 	UpTime      time.Duration     `json:"UpTime"`
 }
 

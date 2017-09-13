@@ -20,9 +20,9 @@ type Controller struct {
 	size                     int64
 	sectorSize               int64
 	replicas                 []types.Replica
-	replicaCount             int64
+	replicaCount             int
 	quorumReplicas           []types.Replica
-	quorumReplicaCount       int64
+	quorumReplicaCount       int
 	factory                  types.BackendFactory
 	backend                  *replicator
 	frontend                 types.Frontend
@@ -220,6 +220,10 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 			return nil
 		}
 	}
+	fmt.Println("STATE =", register.RepState)
+	if register.RepState == "rebuilding" {
+		return nil
+	}
 
 	if c.MaxRevReplica == "" {
 		c.MaxRevReplica = register.Address
@@ -229,13 +233,13 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 		c.MaxRevReplica = register.Address
 	}
 
-	if ((int64)(len(c.RegisteredReplicas)) >= c.replicaCount/2) && ((int64)(len(c.RegisteredReplicas)+len(c.RegisteredQuorumReplicas)) > (c.quorumReplicaCount+c.replicaCount)/2) {
+	if ((len(c.RegisteredReplicas)) >= c.replicaCount/2) && ((len(c.RegisteredReplicas) + len(c.RegisteredQuorumReplicas)) > (c.quorumReplicaCount+c.replicaCount)/2) {
 		c.signalToAdd()
 		c.StartSignalled = true
 		return nil
 	}
 
-	if c.RegisteredReplicas[c.MaxRevReplica].PeerDetail.ReplicaCount == 0 {
+	if c.RegisteredReplicas[c.MaxRevReplica].PeerDetail.ReplicaCount <= 1 {
 		c.signalToAdd()
 		c.StartSignalled = true
 		return nil
@@ -392,7 +396,6 @@ func (c *Controller) addReplicaNoLock(newBackend types.Backend, address string, 
 		Address: address,
 		Mode:    types.WO,
 	})
-	c.replicaCount++
 
 	c.backend.AddBackend(address, newBackend)
 

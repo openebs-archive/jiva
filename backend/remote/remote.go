@@ -180,7 +180,7 @@ func (r *Remote) SetRevisionCounter(counter int64) error {
 	return r.doAction("setrevisioncounter", &map[string]string{"counter": localRevCount})
 }
 
-func (r *Remote) UpdatePeerDetails(replicaCount int64, quorumReplicaCount int64) error {
+func (r *Remote) UpdatePeerDetails(replicaCount int, quorumReplicaCount int) error {
 	logrus.Infof("Update peer details of %s ", r.name)
 	return r.doAction("updatepeerdetails",
 		&map[string]interface{}{

@@ -101,8 +101,8 @@ type ReplicaCounter struct {
 
 type PeerDetails struct {
 	client.Resource
-	ReplicaCount       int64 `json:"replicacount"`
-	QuorumReplicaCount int64 `json:"quorumreplicacount"`
+	ReplicaCount       int `json:"replicacount"`
+	QuorumReplicaCount int `json:"quorumreplicacount"`
 }
 
 type Action struct {
