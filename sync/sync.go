@@ -265,11 +265,8 @@ Register:
 		return err
 	}
 
-	if err := t.reloadAndVerify(replicaAddress, toClient); err != nil {
-		return err
-	}
+	return t.reloadAndVerify(replicaAddress, toClient)
 
-	return nil
 }
 
 func (t *Task) checkAndResetFailedRebuild(address string) error {
@@ -308,10 +305,7 @@ func (t *Task) reloadAndVerify(address string, repClient *replicaClient.ReplicaC
 		return err
 	}
 
-	if err := repClient.SetRebuilding(false); err != nil {
-		return err
-	}
-	return nil
+	return repClient.SetRebuilding(false)
 }
 
 func (t *Task) syncFiles(fromClient *replicaClient.ReplicaClient, toClient *replicaClient.ReplicaClient, disks []string) error {
