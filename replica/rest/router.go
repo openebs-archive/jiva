@@ -1,12 +1,12 @@
 package rest
 
 import (
-	"net/http"
-	_ "net/http/pprof" /* for profiling */
-
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
+	"net/http"
+	_ "net/http/pprof" /* for profiling */
 )
 
 func HandleError(s *client.Schemas, t func(http.ResponseWriter, *http.Request) error) http.Handler {
@@ -52,6 +52,7 @@ func NewRouter(s *Server) *mux.Router {
 	router.Methods("GET").Path("/v1/replicas/{id}").Handler(f(schemas, s.GetReplica))
 	router.Methods("GET").Path("/v1/replicas/{id}/volusage").Handler(f(schemas, s.GetVolUsage))
 	router.Methods("DELETE").Path("/v1/replicas/{id}").Handler(f(schemas, s.DeleteReplica))
+	router.Handle("/metrics", promhttp.Handler())
 
 	// Actions
 	actions := map[string]func(http.ResponseWriter, *http.Request) error{
