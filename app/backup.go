@@ -121,11 +121,7 @@ func rmBackup(c *cli.Context) error {
 		return fmt.Errorf("Missing required parameter backup")
 	}
 
-	if err := task.RmBackup(backup); err != nil {
-		return err
-	}
-
-	return nil
+	return task.RmBackup(backup)
 }
 
 func restoreBackup(c *cli.Context) error {
@@ -137,11 +133,7 @@ func restoreBackup(c *cli.Context) error {
 		return fmt.Errorf("Missing required parameter backup")
 	}
 
-	if err := task.RestoreBackup(backup); err != nil {
-		return err
-	}
-
-	return nil
+	return task.RestoreBackup(backup)
 }
 
 func inspectBackup(c *cli.Context) error {

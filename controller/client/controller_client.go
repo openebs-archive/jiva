@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -187,13 +188,14 @@ func (c *ControllerClient) GetVolume() (*rest.Volume, error) {
 	return &volumes.Data[0], nil
 }
 
-func (c *ControllerClient) Register(address string, revisionCount int64, peerDetails types.PeerDetails, replicaType string, upTime time.Duration) error {
-	err := c.post("/register", &types.RegReplica{
-		Address:    address,
-		RevCount:   revisionCount,
-		PeerDetail: peerDetails,
-		RepType:    replicaType,
-		UpTime:     upTime,
+func (c *ControllerClient) Register(address string, revisionCount int64, peerDetails types.PeerDetails, replicaType string, upTime time.Duration, state string) error {
+	err := c.post("/register", &rest.RegReplica{
+		Address:     address,
+		RevCount:    strconv.FormatInt(revisionCount, 10),
+		PeerDetails: peerDetails,
+		RepType:     replicaType,
+		UpTime:      upTime,
+		RepState:    state,
 	}, nil)
 	return err
 }

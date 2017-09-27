@@ -143,7 +143,8 @@ func (r *Remote) GetRevisionCounter() (int64, error) {
 	if replica.State != "open" && replica.State != "dirty" {
 		return 0, fmt.Errorf("Invalid state %v for getting revision counter", replica.State)
 	}
-	return replica.RevisionCounter, nil
+	counter, _ := strconv.ParseInt(replica.RevisionCounter, 10, 64)
+	return counter, nil
 }
 
 func (r *Remote) GetVolUsage() (types.VolUsage, error) {
@@ -175,10 +176,11 @@ func (r *Remote) GetVolUsage() (types.VolUsage, error) {
 
 func (r *Remote) SetRevisionCounter(counter int64) error {
 	logrus.Infof("Set revision counter of %s to : %v", r.name, counter)
-	return r.doAction("setrevisioncounter", &map[string]int64{"counter": counter})
+	localRevCount := strconv.FormatInt(counter, 10)
+	return r.doAction("setrevisioncounter", &map[string]string{"counter": localRevCount})
 }
 
-func (r *Remote) UpdatePeerDetails(replicaCount int64, quorumReplicaCount int64) error {
+func (r *Remote) UpdatePeerDetails(replicaCount int, quorumReplicaCount int) error {
 	logrus.Infof("Update peer details of %s ", r.name)
 	return r.doAction("updatepeerdetails",
 		&map[string]interface{}{

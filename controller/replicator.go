@@ -382,7 +382,7 @@ func (r *replicator) SetQuorumRevisionCounter(address string, counter int64) err
 	return nil
 }
 
-func (r *replicator) UpdatePeerDetails(replicaCount int64, quorumReplicaCount int64) error {
+func (r *replicator) UpdatePeerDetails(replicaCount int, quorumReplicaCount int) error {
 
 	for _, backend := range r.backends {
 		if err := backend.backend.UpdatePeerDetails(replicaCount, quorumReplicaCount); err != nil {

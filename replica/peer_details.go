@@ -31,10 +31,7 @@ func (r *Replica) writePeerDetails(peerDetails types.PeerDetails) error {
 	if r.peerFile == nil {
 		return fmt.Errorf("BUG: peer file wasn't initialized")
 	}
-	if err := r.encodeToFile(&peerDetails, peerDetailsFile); err != nil {
-		return err
-	}
-	return nil
+	return r.encodeToFile(&peerDetails, peerDetailsFile)
 }
 
 func (r *Replica) openPeerFile(isCreate bool) error {

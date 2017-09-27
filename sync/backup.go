@@ -93,10 +93,7 @@ func (t *Task) RmBackup(backup string) error {
 		return fmt.Errorf("Cannot find a suitable replica for remove backup")
 	}
 
-	if err := t.rmBackup(replica, backup); err != nil {
-		return err
-	}
-	return nil
+	return t.rmBackup(replica, backup)
 }
 
 func (t *Task) rmBackup(replicaInController *rest.Replica, backup string) error {

@@ -38,7 +38,7 @@ type Backend interface {
 	GetRevisionCounter() (int64, error)
 	GetVolUsage() (VolUsage, error)
 	SetRevisionCounter(counter int64) error
-	UpdatePeerDetails(replicaCount int64, quorumReplicaCount int64) error
+	UpdatePeerDetails(replicaCount int, quorumReplicaCount int) error
 	SetRebuilding(rebuilding bool) error
 	GetMonitorChannel() MonitorChannel
 	StopMonitoring()
@@ -83,6 +83,7 @@ type RegReplica struct {
 	UpTime     time.Duration
 	RevCount   int64
 	RepType    string
+	RepState   string
 	PeerDetail PeerDetails
 }
 
@@ -114,8 +115,8 @@ type Stats struct {
 type Interface interface{}
 
 type PeerDetails struct {
-	ReplicaCount       int64
-	QuorumReplicaCount int64
+	ReplicaCount       int
+	QuorumReplicaCount int
 }
 
 type Frontend interface {

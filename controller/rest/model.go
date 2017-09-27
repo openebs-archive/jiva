@@ -94,9 +94,10 @@ type PrepareRebuildOutput struct {
 type RegReplica struct {
 	client.Resource
 	Address     string            `json:"Address"`
-	RevCount    int64             `json:"RevCount"`
+	RevCount    string            `json:"RevCount"`
 	PeerDetails types.PeerDetails `json:"PeerDetails"`
 	RepType     string            `json:"RepType"`
+	RepState    string            `json:"RepState"`
 	UpTime      time.Duration     `json:"UpTime"`
 }
 

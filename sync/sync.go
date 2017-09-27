@@ -182,13 +182,15 @@ Register:
 	addr := strings.Split(replicaAddress, "://")
 	parts := strings.Split(addr[1], ":")
 	Replica, _ := replica.CreateTempReplica()
+	server, _ := replica.CreateTempServer()
 
 	if volume.ReplicaCount == 0 {
 		revisionCount := Replica.GetRevisionCounter()
 		peerDetails, _ := Replica.GetPeerDetails()
 		replicaType := "quorum"
 		upTime := time.Since(Replica.ReplicaStartTime)
-		_ = t.client.Register(parts[0], revisionCount, peerDetails, replicaType, upTime)
+		state, _ := server.PrevStatus()
+		_ = t.client.Register(parts[0], revisionCount, peerDetails, replicaType, upTime, string(state))
 		select {
 		case <-ticker.C:
 			goto Register
@@ -207,6 +209,7 @@ Register:
 
 func (t *Task) AddReplica(replicaAddress string) error {
 	var action string
+
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 Register:
@@ -217,13 +220,14 @@ Register:
 	addr := strings.Split(replicaAddress, "://")
 	parts := strings.Split(addr[1], ":")
 	Replica, _ := replica.CreateTempReplica()
-
+	server, _ := replica.CreateTempServer()
 	if volume.ReplicaCount == 0 {
 		revisionCount := Replica.GetRevisionCounter()
 		peerDetails, _ := Replica.GetPeerDetails()
 		replicaType := "Backend"
 		upTime := time.Since(Replica.ReplicaStartTime)
-		t.client.Register(parts[0], revisionCount, peerDetails, replicaType, upTime)
+		state, _ := server.PrevStatus()
+		t.client.Register(parts[0], revisionCount, peerDetails, replicaType, upTime, string(state))
 		select {
 		case <-ticker.C:
 			goto Register
@@ -261,11 +265,8 @@ Register:
 		return err
 	}
 
-	if err := t.reloadAndVerify(replicaAddress, toClient); err != nil {
-		return err
-	}
+	return t.reloadAndVerify(replicaAddress, toClient)
 
-	return nil
 }
 
 func (t *Task) checkAndResetFailedRebuild(address string) error {
@@ -304,10 +305,7 @@ func (t *Task) reloadAndVerify(address string, repClient *replicaClient.ReplicaC
 		return err
 	}
 
-	if err := repClient.SetRebuilding(false); err != nil {
-		return err
-	}
-	return nil
+	return repClient.SetRebuilding(false)
 }
 
 func (t *Task) syncFiles(fromClient *replicaClient.ReplicaClient, toClient *replicaClient.ReplicaClient, disks []string) error {

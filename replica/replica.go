@@ -126,6 +126,12 @@ func CreateTempReplica() (*Replica, error) {
 	return r, nil
 }
 
+func CreateTempServer() (*Server, error) {
+	return &Server{
+		dir: Dir,
+	}, nil
+}
+
 func ReadInfo(dir string) (Info, error) {
 	var info Info
 	err := (&Replica{dir: dir}).unmarshalFile(volumeMetaData, &info)
@@ -297,10 +303,7 @@ func (r *Replica) Resize(obj interface{}) error {
 		}
 	}
 	r.info.Size = sizeInBytes
-	if err := r.encodeToFile(&r.info, volumeMetaData); err != nil {
-		return err
-	}
-	return nil
+	return r.encodeToFile(&r.info, volumeMetaData)
 }
 
 func (r *Replica) Reload() (*Replica, error) {
@@ -336,11 +339,7 @@ func (r *Replica) RemoveDiffDisk(name string) error {
 		return err
 	}
 
-	if err := r.rmDisk(name); err != nil {
-		return err
-	}
-
-	return nil
+	return r.rmDisk(name)
 }
 
 func (r *Replica) hardlinkDisk(target, source string) error {

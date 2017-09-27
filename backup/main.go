@@ -238,10 +238,7 @@ func doBackupDelete(c *cli.Context) error {
 	}
 	backupURL = UnescapeURL(backupURL)
 
-	if err := backupstore.DeleteDeltaBlockBackup(backupURL); err != nil {
-		return err
-	}
-	return nil
+	return backupstore.DeleteDeltaBlockBackup(backupURL)
 }
 
 func cmdBackupRestore(c *cli.Context) {
@@ -269,10 +266,7 @@ func doBackupRestore(c *cli.Context) error {
 		return err
 	}
 
-	if err := createNewSnapshotMetafile(toFile + ".meta"); err != nil {
-		return err
-	}
-	return nil
+	return createNewSnapshotMetafile(toFile + ".meta")
 }
 
 func createNewSnapshotMetafile(file string) error {

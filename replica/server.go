@@ -152,11 +152,29 @@ func (s *Server) Status() (State, Info) {
 		return Open, info
 	}
 }
+
+func (s *Server) PrevStatus() (State, Info) {
+	info, err := ReadInfo(s.dir)
+	if os.IsNotExist(err) {
+		return Initial, Info{}
+	} else if err != nil {
+		return Error, Info{}
+	}
+	switch {
+	case info.Rebuilding:
+		return Rebuilding, info
+	case info.Dirty:
+		return Dirty, info
+	}
+
+	return Closed, info
+}
+
 func (s *Server) Stats() *types.Stats {
 	r := s.r
 	return &types.Stats{
 		RevisionCounter: r.revisionCache,
-		ReplicaCounter:  r.peerCache.ReplicaCount,
+		ReplicaCounter:  int64(r.peerCache.ReplicaCount),
 	}
 }
 

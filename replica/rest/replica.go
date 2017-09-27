@@ -57,7 +57,7 @@ func (s *Server) GetStats(rw http.ResponseWriter, req *http.Request) error {
 			Actions: map[string]string{},
 			Links:   map[string]string{},
 		},
-		RevisionCounter: stats.RevisionCounter,
+		RevisionCounter: strconv.FormatInt(stats.RevisionCounter, 10),
 		ReplicaCounter:  stats.ReplicaCounter,
 	}
 	apiContext.Write(resp)
@@ -239,7 +239,8 @@ func (s *Server) SetRevisionCounter(rw http.ResponseWriter, req *http.Request) e
 	if err := apiContext.Read(&input); err != nil && err != io.EOF {
 		return err
 	}
-	return s.doOp(req, s.s.SetRevisionCounter(input.Counter))
+	counter, _ := strconv.ParseInt(input.Counter, 10, 64)
+	return s.doOp(req, s.s.SetRevisionCounter(counter))
 }
 
 func (s *Server) UpdatePeerDetails(rw http.ResponseWriter, req *http.Request) error {
