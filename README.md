@@ -2,28 +2,30 @@
 
 [![Build Status](https://travis-ci.org/openebs/jiva.svg?branch=master)](https://travis-ci.org/openebs/jiva)
 
-Jiva is a Docker image for creating OpenEBS Volumes. OpenEBS Volume provide block storage to your application containers. OpenEBS Volume - is itself launched as a container, making OpenEBS a true Container Native Storage for Containers.  
+Jiva is a Docker image for creating OpenEBS Volumes. OpenEBS Volume provides block storage to your application containers. OpenEBS Volume - is itself launched as a container, making OpenEBS a true Container Native Storage for Containers.
 
 
-A OpenEBS Volume comprises of:
-- One *Controller* (or Frontend-Container) that exposes storage via iSCSI, TCMU etc., and can be launched along side your application container. 
+A OpenEBS Volume is comprised of:
+- One *Controller* (or Frontend-Container) that exposes storage via iSCSI, TCMU etc., and can be launched alongside your application container.
 - One or more *Replicas* (or Backend-Containers) that will persist the data, providing redundancy and high-availability. The Replica container will save the data into the storage (disks) attached to your docker hosts.
 
 ![Jiva Overview Diagram](https://github.com/openebs/openebs/blob/master/documentation/source/_static/JivaExample.png)
 
-Both controller and replica can be launched using this same image *openebs/jiva*, by passing different launch arguments. The controller expects the volume details like - name and size, where as the replica will require the controller to which it is attached, and the mount path - where it has to store the data. 
+Both Controller and Replica can be launched using this same image, *openebs/jiva*, by passing different launch arguments. The Controller expects volume details like name and size. The Replica will require the Controller to which it is attached and the mount path where it stores the data.
 
-The scheduling of the controller and replica containers of OpenEBS Volume is managed by *maya* that integrates itself into Container Orchestrators like Kubernetes, Docker Swarm, Mesos or Nomad. OpenEBS v0.4.0, provides integration into Kubernetes Clusters. Please follow [OpenEBS documentation](http://openebs.readthedocs.io/en/latest/), if you are using Kubernetes. 
+The scheduling of the Controller and Replica containers of OpenEBS Volume is managed by *maya* that integrates itself into Container Orchestrators like Kubernetes, Docker Swarm, Mesos or Nomad. OpenEBS v0.4.0, provides integration into Kubernetes Clusters. Please follow [OpenEBS documentation](http://openebs.readthedocs.io/en/latest/), if you are using Kubernetes.
 
-For other types of Container Orchestrators like Docker Swarm, Mesos, Nomad, etc., the following instructions will help you to quickly setup an OpenEBS Volume (exposed via iSCSI) with 2 replicas. To enable redundancy, the replicas have to be run on different hosts.
+For other types of Container Orchestrators like Docker Swarm, Mesos, Nomad, etc., the following instructions will help you to quickly setup an OpenEBS Volume (exposed via iSCSI) with 2 Replicas. To enable redundancy, the Replicas have to be run on different hosts.
 
 ### Prerequisites
 
-#### Setup the storage network. 
+#### Setup the storage network.
 
-To launch a OpenEBS Volume with 2 replica, you will require three IPs one for the controller (where iSCSI service will be started) and 2 for the replicas. This example uses static IPs with host networking mode, but you can set this up using your preferred network plugin, that allows multi-host networking.
+To launch a OpenEBS Volume with 2 Replicas, 3 IPs will be required. 1 for the Controller (where the iSCSI service will be started) and 2 for the Replicas. This example uses static IPs with host networking mode which can be setup using your preferred network plugin that allows multi-host networking.
 
-Let us say that 172.18.200.0/24 is accessible across different docker hosts ( host#1, host#2). 
+For Example:
+
+Let us say that 172.18.200.0/24 is accessible across different docker hosts ( host#1, host#2).
 
 Create the static IPs on host#1, where you can create Controller and Replica-1.
 
@@ -42,7 +44,7 @@ host#2$ sudo ip addr add 172.18.200.103/24 dev eth0
 .
 #### Setup the storage disks
 
-The backend containers will need to provided with the storage (directory) where the data will be persisted. The directory should be accessible via the containers.  One host1 and host2, setup create a directory on the disk that has sufficient space for holding the volume. (Again, these operations are taken care by the Storage Orchestrator - Maya, if you are using Kubernetes). 
+The backend containers will need to provided with the storage (directory) where the data will be persisted. The directory should be accessible via the containers.  One host1 and host2, setup create a directory on the disk that has sufficient space for holding the volume. (Again, these operations are taken care by the Storage Orchestrator - Maya, if you are using Kubernetes).
 
 ```
 host#1$ mkdir /mnt/store1
@@ -55,25 +57,25 @@ host#2$ mkdir /mnt/store2
 .
 ### Launch Controller
 
-Create a controller on host#1, that will create *demo-vol1* with capacity of 10G. 
+Create a Controller on host#1, that will create *demo-vol1* with capacity of 10G.
 
 ```
-host#1$ sudo docker run -d --network="host" -P --expose 3260 --expose 9501 --name ctrl openebs/jiva launch controller --frontend gotgt --frontendIP 172.18.200.101 demo-vol1 10G
+host#1$ sudo docker run -d --network="host" -P --expose 3260 --expose 9501 --name ctrl openebs/jiva launch Controller --frontend gotgt --frontendIP 172.18.200.101 demo-vol1 10G
 ```
-  
+
 .
 ### Launch Replica
 
 Create the Replica on host#1, for demo-vol1 with data stored in /mnt/store1
 
 ```
-docker run -d --network="host" -P --expose 9502-9504 --expose 9700-9800 -v /mnt/stor1:/stor1 --name replica-1 <openebs/jiva> launch replica --frontendIP 172.18.200.101 --listen 172.18.200.102:9502 --size 10G /stor1
+docker run -d --network="host" -P --expose 9502-9504 --expose 9700-9800 -v /mnt/stor1:/stor1 --name Replica-1 <openebs/jiva> launch Replica --frontendIP 172.18.200.101 --listen 172.18.200.102:9502 --size 10G /stor1
 ```
-.   
+.
 Create the backend container on host#2, for demo-vol1 with data stored in /mnt/store1
 
 ```
-docker run -d --network="host" -P --expose 9502-9504 --expose 9700-9800 -v /mnt/stor2:/stor2 --name replica-2 <openebs/jiva> launch replica --frontendIP 172.18.200.101 --listen 172.18.200.103:9502 --size 10G /stor2
+docker run -d --network="host" -P --expose 9502-9504 --expose 9700-9800 -v /mnt/stor2:/stor2 --name Replica-2 <openebs/jiva> launch Replica --frontendIP 172.18.200.101 --listen 172.18.200.103:9502 --size 10G /stor2
 ```
 .
 ### Using the iSCSI volume
