@@ -85,3 +85,7 @@ IQN : iqn.2016-09.com.openebs.jiva:demo-vol1
 
 
 *For further info, checkout http://openebs.readthedocs.io/en/latest/ or join the slack# http://slack.openebs.io*
+
+## Inspiration and Credit
+
+[Rancher Longhorn](https://github.com/rancher/longhorn), which helped with the significant portion of the code inthis repo, helped us to validate that Storage Controllers can be run as microservices and they can be coded in Go. The iSCSI functionality is derived from [gostor/gotgt](https://github.com/gostor/gotgt). 
