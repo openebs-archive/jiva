@@ -1,12 +1,12 @@
 package rest
 
 import (
-	"net/http"
-	_ "net/http/pprof" /* for profiling */
-
 	"github.com/gorilla/mux"
 	"github.com/openebs/jiva/replica/rest"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rancher/go-rancher/api"
+	"net/http"
+	_ "net/http/pprof" /* for profiling */
 )
 
 func NewRouter(s *Server) *mux.Router {
@@ -40,6 +40,7 @@ func NewRouter(s *Server) *mux.Router {
 	router.Methods("POST").Path("/v1/replicas/{id}").Queries("action", "verifyrebuild").Handler(f(schemas, s.VerifyRebuildReplica))
 	router.Methods("DELETE").Path("/v1/replicas/{id}").Handler(f(schemas, s.DeleteReplica))
 	router.Methods("PUT").Path("/v1/replicas/{id}").Handler(f(schemas, s.UpdateReplica))
+	router.Handle("/metrics", promhttp.Handler())
 
 	// Journal
 	router.Methods("POST").Path("/v1/journal").Handler(f(schemas, s.ListJournal))
