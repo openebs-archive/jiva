@@ -6,28 +6,28 @@ Jiva is a Docker image for creating OpenEBS Volumes. OpenEBS Volume provides blo
 
 
 A OpenEBS Volume is comprised of:
-- One *Controller* (or Frontend-Container) that exposes storage via iSCSI, TCMU etc., and can be launched alongside your application container.
-- One or more *Replicas* (or Backend-Containers) that will persist the data, providing redundancy and high-availability. The Replica container will save the data into the storage (disks) attached to your docker hosts.
+- One *controller* (or Frontend-Container) that exposes storage via iSCSI, TCMU etc., and can be launched alongside your application container.
+- One or more *replicas* (or Backend-Containers) that will persist the data, providing redundancy and high-availability. The replica container will save the data into the storage (disks) attached to your docker hosts.
 
 ![Jiva Overview Diagram](https://github.com/openebs/openebs/blob/master/documentation/source/_static/JivaExample.png)
 
-Both Controller and Replica can be launched using this same image, *openebs/jiva*, by passing different launch arguments. The Controller expects volume details like name and size. The Replica will require the Controller to which it is attached and the mount path where it stores the data.
+Both controller and replica can be launched using this same image, *openebs/jiva*, by passing different launch arguments. The controller expects volume details like name and size. The replica will require the controller to which it is attached and the mount path where it stores the data.
 
-The scheduling of the Controller and Replica containers of OpenEBS Volume is managed by *maya* that integrates itself into Container Orchestrators like Kubernetes, Docker Swarm, Mesos or Nomad. OpenEBS v0.4.0, provides integration into Kubernetes Clusters. Please follow [OpenEBS documentation](http://openebs.readthedocs.io/en/latest/), if you are using Kubernetes.
+The scheduling of the controller and replica containers of OpenEBS Volume is managed by *maya* that integrates itself into Container Orchestrators like Kubernetes, Docker Swarm, Mesos or Nomad. OpenEBS v0.4.0, provides integration into Kubernetes Clusters. Please follow [OpenEBS documentation](http://openebs.readthedocs.io/en/latest/), if you are using Kubernetes.
 
-For other types of Container Orchestrators like Docker Swarm, Mesos, Nomad, etc., the following instructions will help you to quickly setup an OpenEBS Volume (exposed via iSCSI) with 2 Replicas. To enable redundancy, the Replicas have to be run on different hosts.
+For other types of Container Orchestrators like Docker Swarm, Mesos, Nomad, etc., the following instructions will help you to quickly setup an OpenEBS Volume (exposed via iSCSI) with 2 replicas. To enable redundancy, the replicas have to be run on different hosts.
 
 ### Prerequisites
 
 #### Setup the storage network.
 
-To launch a OpenEBS Volume with 2 Replicas, 3 IPs will be required. 1 for the Controller (where the iSCSI service will be started) and 2 for the Replicas. This example uses static IPs with host networking mode which can be setup using your preferred network plugin that allows multi-host networking.
+To launch a OpenEBS Volume with 2 replicas, 3 IPs will be required. 1 for the controller (where the iSCSI service will be started) and 2 for the replicas. This example uses static IPs with host networking mode which can be setup using your preferred network plugin that allows multi-host networking.
 
 For Example:
 
 Let us say that 172.18.200.0/24 is accessible across different docker hosts ( host#1, host#2).
 
-Create the static IPs on host#1, where you can create Controller and Replica-1.
+Create the static IPs on host#1, where you can create controller and replica-1.
 
 ```
 host#1$ sudo ip addr add 172.18.200.101/24 dev eth0
@@ -35,7 +35,7 @@ host#1$ sudo ip addr add 172.18.200.102/24 dev eth0
 ```
 .
 
-Create the static IP on host#2, where you can create Replica-2
+Create the static IP on host#2, where you can create replica-2
 
 ```
 host#2$ sudo ip addr add 172.18.200.103/24 dev eth0
@@ -55,27 +55,27 @@ host#2$ mkdir /mnt/store2
 ```
 
 .
-### Launch Controller
+### Launch controller
 
-Create a Controller on host#1, that will create *demo-vol1* with capacity of 10G.
+Create a controller on host#1, that will create *demo-vol1* with capacity of 10G.
 
 ```
-host#1$ sudo docker run -d --network="host" -P --expose 3260 --expose 9501 --name ctrl openebs/jiva launch Controller --frontend gotgt --frontendIP 172.18.200.101 demo-vol1 10G
+host#1$ sudo docker run -d --network="host" -P --expose 3260 --expose 9501 --name ctrl openebs/jiva launch controller --frontend gotgt --frontendIP 172.18.200.101 demo-vol1 10G
 ```
 
 .
-### Launch Replica
+### Launch replica
 
-Create the Replica on host#1, for demo-vol1 with data stored in /mnt/store1
+Create the replica on host#1, for demo-vol1 with data stored in /mnt/store1
 
 ```
-docker run -d --network="host" -P --expose 9502-9504 --expose 9700-9800 -v /mnt/stor1:/stor1 --name Replica-1 <openebs/jiva> launch Replica --frontendIP 172.18.200.101 --listen 172.18.200.102:9502 --size 10G /stor1
+docker run -d --network="host" -P --expose 9502-9504 --expose 9700-9800 -v /mnt/stor1:/stor1 --name replica-1 <openebs/jiva> launch replica --frontendIP 172.18.200.101 --listen 172.18.200.102:9502 --size 10G /stor1
 ```
 .
 Create the backend container on host#2, for demo-vol1 with data stored in /mnt/store1
 
 ```
-docker run -d --network="host" -P --expose 9502-9504 --expose 9700-9800 -v /mnt/stor2:/stor2 --name Replica-2 <openebs/jiva> launch Replica --frontendIP 172.18.200.101 --listen 172.18.200.103:9502 --size 10G /stor2
+docker run -d --network="host" -P --expose 9502-9504 --expose 9700-9800 -v /mnt/stor2:/stor2 --name replica-2 <openebs/jiva> launch replica --frontendIP 172.18.200.101 --listen 172.18.200.103:9502 --size 10G /stor2
 ```
 .
 ### Using the iSCSI volume
@@ -90,4 +90,4 @@ IQN : iqn.2016-09.com.openebs.jiva:demo-vol1
 
 ## Inspiration and Credit
 
-[Rancher Longhorn](https://github.com/rancher/longhorn), which helped with the significant portion of the code inthis repo, helped us to validate that Storage Controllers can be run as microservices and they can be coded in Go. The iSCSI functionality is derived from [gostor/gotgt](https://github.com/gostor/gotgt). 
+[Rancher Longhorn](https://github.com/rancher/longhorn), which helped with the significant portion of the code inthis repo, helped us to validate that Storage controllers can be run as microservices and they can be coded in Go. The iSCSI functionality is derived from [gostor/gotgt](https://github.com/gostor/gotgt).
