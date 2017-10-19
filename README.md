@@ -21,7 +21,18 @@ For other types of Container Orchestrators like Docker Swarm, Mesos, Nomad, etc.
 
 ## Building from source code
 
-`make`
+### Prerequisites:
+
+Requires *curl* and *docker* to be installed on your build machine. 
+
+### Build
+
+`make build`
+
+- Downloads *dapper* using curl
+- Downloads *trash* using go get for dependency management
+- Triggers a build using *dapper* - wrapper around docker.
+
 
 ## Running in standalone
 
