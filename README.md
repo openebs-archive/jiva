@@ -19,6 +19,12 @@ OpenEBS v0.4.0, provides integration into Kubernetes Clusters. Please follow [Op
 
 For other types of Container Orchestrators like Docker Swarm, Mesos, Nomad, etc., the following instructions will help you to quickly setup an OpenEBS Volume (exposed via iSCSI) with 2 replicas. To enable redundancy, the replicas have to be run on different hosts.
 
+## Building from source code
+
+`make`
+
+## Running in standalone
+
 ### Prerequisites
 
 #### Setup the storage network.
