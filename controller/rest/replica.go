@@ -13,6 +13,8 @@ import (
 )
 
 var (
+	// OpenEBSJivaRegestrationRequestDuration gets the response time of the
+	// requested api.
 	OpenEBSJivaRegestrationRequestDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "openebs_jiva_registration_request_duration_seconds",
@@ -23,7 +25,7 @@ var (
 		// endpoint "/v1/volume"
 		[]string{"code", "method"},
 	)
-	// Count the no of request Since a request has been made on /v1/volume
+	// OpenEBSJivaRegestrationRequestCounter Count the no of request Since a request has been made on /v1/volume
 	OpenEBSJivaRegestrationRequestCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "openebs_jiva_registration_requests_total",
