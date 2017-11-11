@@ -53,6 +53,7 @@ func (s *Server) GetVolumeStats(rw http.ResponseWriter, req *http.Request) error
 		UsedLogicalBlocks: strconv.FormatInt(stats.UsedLogicalBlocks, 10),
 		UsedBlocks:        strconv.FormatInt(stats.UsedBlocks, 10),
 		SectorSize:        strconv.FormatInt(stats.SectorSize, 10),
+		Size:              strconv.FormatInt(s.c.GetSize(), 10),
 	}
 	apiContext.Write(volumeStats)
 	return nil

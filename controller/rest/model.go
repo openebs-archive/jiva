@@ -6,6 +6,7 @@ import (
 
 	"github.com/openebs/jiva/controller"
 	"github.com/openebs/jiva/types"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
 )
@@ -63,6 +64,7 @@ type VolumeStats struct {
 	UsedLogicalBlocks string `json:"UsedLogicalBlocks"`
 	UsedBlocks        string `json:"UsedBlocks"`
 	SectorSize        string `json:"SectorSize"`
+	Size              string `json:"Size"`
 }
 
 type SnapshotInput struct {
@@ -207,7 +209,9 @@ func NewSchema() *client.Schemas {
 }
 
 type Server struct {
-	c *controller.Controller
+	c               *controller.Controller
+	RequestDuration *prometheus.HistogramVec
+	RequestCounter  *prometheus.CounterVec
 }
 
 func NewServer(c *controller.Controller) *Server {

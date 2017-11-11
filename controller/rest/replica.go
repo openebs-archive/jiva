@@ -3,12 +3,46 @@ package rest
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/openebs/jiva/types"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
 )
+
+var (
+	// OpenEBSJivaRegestrationRequestDuration gets the response time of the
+	// requested api.
+	OpenEBSJivaRegestrationRequestDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "openebs_jiva_registration_request_duration_seconds",
+			Help:    "Request response time of the /v1/register to register replicas.",
+			Buckets: []float64{0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.5, 1, 2.5, 5, 10},
+		},
+		// code is http code and method is http method returned by
+		// endpoint "/v1/volume"
+		[]string{"code", "method"},
+	)
+	// OpenEBSJivaRegestrationRequestCounter Count the no of request Since a request has been made on /v1/volume
+	OpenEBSJivaRegestrationRequestCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "openebs_jiva_registration_requests_total",
+			Help: "Total number of /v1/register requests to register replicas.",
+		},
+		[]string{"code", "method"},
+	)
+)
+
+// init registers Prometheus metrics.It's good to register these varibles here
+// otherwise you need to register it before you are going to use it. So you will
+// have to register it everytime unnecessarily, instead initialize it once and
+// use anywhere at anytime through the code.
+func init() {
+	prometheus.MustRegister(OpenEBSJivaRegestrationRequestDuration)
+	prometheus.MustRegister(OpenEBSJivaRegestrationRequestCounter)
+}
 
 func (s *Server) ListReplicas(rw http.ResponseWriter, req *http.Request) error {
 	apiContext := api.GetApiContext(req)
@@ -43,14 +77,39 @@ func (s *Server) RegisterReplica(rw http.ResponseWriter, req *http.Request) erro
 	var (
 		regReplica    RegReplica
 		localRevCount int64
+		code          int
 	)
+	start := time.Now()
 	apiContext := api.GetApiContext(req)
+	s.RequestDuration = OpenEBSJivaRegestrationRequestDuration
+	s.RequestCounter = OpenEBSJivaRegestrationRequestCounter
+
 	if err := apiContext.Read(&regReplica); err != nil {
 		return err
 	}
 
 	localRevCount, _ = strconv.ParseInt(regReplica.RevCount, 10, 64)
-	local := types.RegReplica{Address: regReplica.Address, RevCount: localRevCount, PeerDetail: regReplica.PeerDetails, RepType: regReplica.RepType, UpTime: regReplica.UpTime, RepState: regReplica.RepState}
+	local := types.RegReplica{
+		Address:    regReplica.Address,
+		RevCount:   localRevCount,
+		PeerDetail: regReplica.PeerDetails,
+		RepType:    regReplica.RepType,
+		UpTime:     regReplica.UpTime,
+		RepState:   regReplica.RepState,
+	}
+	code = http.StatusOK
+	rw.WriteHeader(code)
+	defer func() {
+		// This will Display the metrics something similar to
+		// the examples given below
+		// exp: openebs_jiva_registration_request_duration_seconds{code="200", method="POST"}
+		s.RequestDuration.WithLabelValues(strconv.Itoa(code), req.Method).Observe(time.Since(start).Seconds())
+
+		// This will Display the metrics something similar to
+		// the examples given below
+		// exp: openebs_jiva_registration_requests_total{code="200", method="POST"}
+		s.RequestCounter.WithLabelValues(strconv.Itoa(code), req.Method).Inc()
+	}()
 	return s.c.RegisterReplica(local)
 
 }

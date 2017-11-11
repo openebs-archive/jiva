@@ -34,6 +34,10 @@ type Controller struct {
 	ReadOnly                 bool
 }
 
+func (c *Controller) GetSize() int64 {
+	return c.size
+}
+
 func NewController(name string, frontendIP string, clusterIP string, factory types.BackendFactory, frontend types.Frontend) *Controller {
 	c := &Controller{
 		factory:                  factory,
