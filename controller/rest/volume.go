@@ -3,6 +3,7 @@ package rest
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/rancher/go-rancher/api"
@@ -54,6 +55,8 @@ func (s *Server) GetVolumeStats(rw http.ResponseWriter, req *http.Request) error
 		UsedBlocks:        strconv.FormatInt(stats.UsedBlocks, 10),
 		SectorSize:        strconv.FormatInt(stats.SectorSize, 10),
 		Size:              strconv.FormatInt(s.c.GetSize(), 10),
+		UpTime:            time.Since(s.c.StartTime).Seconds(),
+		Name:              s.c.Name,
 	}
 	apiContext.Write(volumeStats)
 	return nil
