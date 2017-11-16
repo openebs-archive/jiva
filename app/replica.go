@@ -2,11 +2,14 @@ package app
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"syscall"
 	"time"
 
@@ -92,6 +95,11 @@ checkagain:
 }
 
 func startReplica(c *cli.Context) error {
+	var (
+		volSize            int64
+		isValidSizeDecimal = regexp.MustCompile(`^(\d+(\.\d+)*) ?([kKmMgGtTpP])?[bB]?$`)
+		isValidSizeBinary  = regexp.MustCompile(`^(\d+(\.\d+)*) ?([kKmMgGtTpP][iI])?$`)
+	)
 	if c.NArg() != 1 {
 		return errors.New("directory name is required")
 	}
@@ -109,12 +117,23 @@ func startReplica(c *cli.Context) error {
 	frontendIP := c.String("frontendIP")
 	size := c.String("size")
 	if size != "" {
-		size, err := units.RAMInBytes(size)
-		if err != nil {
-			return err
+		if isValidSizeDecimal.MatchString(size) {
+			volSize, err = units.FromHumanSize(size)
+			if err != nil {
+				return err
+			}
+		} else if isValidSizeBinary.MatchString(size) {
+			size = strings.TrimSuffix(size, "i")
+			volSize, err = units.RAMInBytes(size)
+			if err != nil {
+				return err
+			}
+		} else {
+			fmt.Println("invalid size: ", size, "\nPlease use standard notations (For exp: m/mi/M/Mi, g/gi/G/Gi)")
+			return nil
 		}
 
-		if err := s.Create(size); err != nil {
+		if err = s.Create(volSize); err != nil {
 			return err
 		}
 	}
