@@ -20,9 +20,24 @@ import (
 	"github.com/openebs/jiva/replica"
 	"github.com/openebs/jiva/replica/rest"
 	"github.com/openebs/jiva/replica/rpc"
+	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
 )
 
+var (
+	SizeNotation = types.SizeType{
+		IsValidDecimal: regexp.MustCompile(`^(\d+(\.\d+)*) ?([kKmMgGtTpP])?[bB]?$`),
+		IsValidBinary:  regexp.MustCompile(`^(\d+(\.\d+)*) ?([kKmMgGtTpP][iI])?$`),
+	}
+	volSize int64
+)
+
+func IsBinary(size string) bool {
+	return SizeNotation.IsValidBinary.MatchString(size)
+}
+func IsDecimal(size string) bool {
+	return SizeNotation.IsValidDecimal.MatchString(size)
+}
 func ReplicaCmd() cli.Command {
 	return cli.Command{
 		Name:      "replica",
@@ -95,34 +110,32 @@ checkagain:
 }
 
 func startReplica(c *cli.Context) error {
-	var (
-		volSize            int64
-		isValidSizeDecimal = regexp.MustCompile(`^(\d+(\.\d+)*) ?([kKmMgGtTpP])?[bB]?$`)
-		isValidSizeBinary  = regexp.MustCompile(`^(\d+(\.\d+)*) ?([kKmMgGtTpP][iI])?$`)
-	)
+
 	if c.NArg() != 1 {
 		return errors.New("directory name is required")
 	}
 
 	dir := c.Args()[0]
 	backingFile, err := openBackingFile(c.String("backing-file"))
+
 	if err != nil {
 		return err
 	}
 
 	replicaType := c.String("type")
+
 	s := replica.NewServer(dir, backingFile, 512, replicaType)
 
 	address := c.String("listen")
 	frontendIP := c.String("frontendIP")
 	size := c.String("size")
 	if size != "" {
-		if isValidSizeDecimal.MatchString(size) {
+		if IsDecimal(size) {
 			volSize, err = units.FromHumanSize(size)
 			if err != nil {
 				return err
 			}
-		} else if isValidSizeBinary.MatchString(size) {
+		} else if IsBinary(size) {
 			size = strings.TrimSuffix(size, "i")
 			volSize, err = units.RAMInBytes(size)
 			if err != nil {

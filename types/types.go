@@ -2,6 +2,7 @@ package types
 
 import (
 	"io"
+	"regexp"
 	"time"
 )
 
@@ -13,6 +14,11 @@ const (
 	StateUp   = State("Up")
 	StateDown = State("Down")
 )
+
+type SizeType struct {
+	IsValidDecimal *regexp.Regexp
+	IsValidBinary  *regexp.Regexp
+}
 
 type ReaderWriterAt interface {
 	io.ReaderAt
