@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -109,6 +110,9 @@ func startReplica(c *cli.Context) error {
 	frontendIP := c.String("frontendIP")
 	size := c.String("size")
 	if size != "" {
+		//Units bails with an error size is provided with i, like Gi
+		//The following will convert - G, Gi, GiB into G
+		size = strings.Split(size, "i")[0]
 		size, err := units.RAMInBytes(size)
 		if err != nil {
 			return err
