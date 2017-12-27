@@ -26,6 +26,8 @@ then
     docker push openebs/jiva:${RELEASE_TAG}; 
     docker tag ${IMAGEID} openebs/jiva:latest
     docker push openebs/jiva:latest;
+    docker tag ${IMAGEID} openebs/jiva:ci
+    docker push openebs/jiva:ci;
   fi;
 else
   echo "No docker credentials provided. Skip uploading openebs/jiva:${VERSION} to docker hub"; 
