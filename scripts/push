@@ -12,7 +12,9 @@ then
   docker login -u "${DNAME}" -p "${DPASS}"; 
   #Push the development build images to jiva-ci docker hub repository
   docker tag ${IMAGEID} openebs/jiva-ci:${VERSION}
-  docker push openebs/jiva-ci:${VERSION} ; 
+  docker push openebs/jiva-ci:${VERSION};
+  docker tag ${IMAGEID} openebs/jiva:ci
+  docker push openebs/jiva:ci;
   if [ ! -z "${TRAVIS_TAG}" ] || [ ! -z "${RELEASE_TAG}" ]; 
   then
     #Push the release tag image to jiva docker hub repository
@@ -26,8 +28,6 @@ then
     docker push openebs/jiva:${RELEASE_TAG}; 
     docker tag ${IMAGEID} openebs/jiva:latest
     docker push openebs/jiva:latest;
-    docker tag ${IMAGEID} openebs/jiva:ci
-    docker push openebs/jiva:ci;
   fi;
 else
   echo "No docker credentials provided. Skip uploading openebs/jiva:${VERSION} to docker hub"; 
