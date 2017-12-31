@@ -10,8 +10,7 @@ import (
 	"github.com/openebs/jiva/types"
 
 	"github.com/openebs/gotgt/pkg/config"
-	"github.com/openebs/gotgt/pkg/port"
-	"github.com/openebs/gotgt/pkg/port/iscsit"
+	_ "github.com/openebs/gotgt/pkg/port/iscsit" /* init lib */
 	"github.com/openebs/gotgt/pkg/scsi"
 	_ "github.com/openebs/gotgt/pkg/scsi/backingstore" /* init lib */
 )
@@ -33,8 +32,8 @@ type goTgt struct {
 	lhbsName     string
 	clusterIP    string
 	cfg          *config.Config
-	targetDriver port.SCSITargetService
-	stats        port.Stats
+	targetDriver scsi.SCSITargetDriver
+	stats        scsi.Stats
 }
 
 func (t *goTgt) Startup(name string, frontendIP string, clusterIP string, size, sectorSize int64, rw types.ReaderWriterAt) error {
@@ -131,14 +130,14 @@ func (t *goTgt) Resize(size uint64) error {
 }
 
 func (t *goTgt) startScsiTarget(cfg *config.Config) error {
-	scsiTarget := scsi.NewSCSITargetService()
 	var err error
-	t.targetDriver, err = iscsit.NewISCSITargetService(scsiTarget)
+	scsi.InitSCSILUMapEx(t.tgtName, t.Volume, 1, 0, uint64(t.Size), uint64(t.SectorSize), t.rw)
+	scsiTarget := scsi.NewSCSITargetService()
+	t.targetDriver, err = scsi.NewTargetDriver("iscsi", scsiTarget)
 	if err != nil {
 		logrus.Errorf("iscsi target driver error")
 		return err
 	}
-	scsi.InitSCSILUMapEx(t.tgtName, t.Volume, 1, 1, uint64(t.Size), uint64(t.SectorSize), t.rw)
 	t.targetDriver.NewTarget(t.tgtName, cfg)
 	t.targetDriver.SetClusterIP(t.clusterIP)
 	go t.targetDriver.Run()
