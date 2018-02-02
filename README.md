@@ -79,7 +79,7 @@ host#2$ mkdir /mnt/store2
 Create a controller on host#1, that will create *demo-vol1* with capacity of 10G.
 
 ```
-host#1$ sudo docker run -d --network="host" -P --expose 3260 --expose 9501 --name ctrl openebs/jiva launch controller --frontend gotgt --frontendIP 172.18.200.101 demo-vol1 10G
+host#1$ sudo docker run -d --net host -P --expose 3260 --expose 9501 --name ctrl openebs/jiva launch controller --frontend gotgt --frontendIP 172.18.200.101 demo-vol1 10G
 ```
 
 .
