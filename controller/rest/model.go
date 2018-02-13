@@ -138,6 +138,7 @@ func NewReplica(context *api.ApiContext, address string, mode types.Mode) *Repli
 	}
 	r.Actions["preparerebuild"] = context.UrlBuilder.ActionLink(r.Resource, "preparerebuild")
 	r.Actions["verifyrebuild"] = context.UrlBuilder.ActionLink(r.Resource, "verifyrebuild")
+	r.Actions["verifyrebuildclone"] = context.UrlBuilder.ActionLink(r.Resource, "verifyrebuildclone")
 	return r
 }
 

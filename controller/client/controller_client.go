@@ -155,10 +155,13 @@ func (c *ControllerClient) GetReplica(address string) (*rest.Replica, error) {
 	return resp, err
 }
 
-func (c *ControllerClient) VerifyRebuildReplica(address string) error {
+func (c *ControllerClient) VerifyRebuildReplica(address string, replicaType string) error {
 	replica, err := c.GetReplica(address)
 	if err != nil {
 		return err
+	}
+	if replicaType == "clone" {
+		return c.post(replica.Actions["verifyrebuildclone"], &replica, nil)
 	}
 	return c.post(replica.Actions["verifyrebuild"], &replica, nil)
 }

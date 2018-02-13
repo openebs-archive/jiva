@@ -46,7 +46,7 @@ func (c *Controller) getCurrentAndRWReplica(address string) (*types.Replica, *ty
 	return current, rwReplica, nil
 }
 
-func (c *Controller) VerifyRebuildReplica(address string) error {
+func (c *Controller) VerifyRebuildReplica(address string, replicaType string) error {
 	// Prevent snapshot happenes at the same time, as well as prevent
 	// writing from happening since we're updating revision counter
 	c.Lock()
@@ -99,7 +99,9 @@ func (c *Controller) VerifyRebuildReplica(address string) error {
 	if len(c.quorumReplicas) > c.quorumReplicaCount {
 		c.quorumReplicaCount = len(c.quorumReplicas)
 	}
-	c.backend.UpdatePeerDetails(c.replicaCount, c.quorumReplicaCount)
+	if replicaType != "clone" {
+		c.backend.UpdatePeerDetails(c.replicaCount, c.quorumReplicaCount)
+	}
 	return nil
 }
 

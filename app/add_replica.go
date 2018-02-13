@@ -38,6 +38,8 @@ func AutoAddReplica(frontendIP string, replica string, replicaType string) error
 	for {
 		if replicaType == "quorum" {
 			err = task.AddQuorumReplica(replica)
+		} else if replicaType == "clone" {
+			err = task.AddCloneReplica(replica)
 		} else {
 			err = task.AddReplica(replica)
 		}
