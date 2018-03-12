@@ -59,7 +59,7 @@ if [ "$x"!="" ]; then
         hash1=$(sudo md5sum file1 | awk '{print $1}')
         sudo cp file1 /mnt/store
         hash2=$(sudo md5sum /mnt/store/file1 | awk '{print $1}')
-        if [ $hash1 == $hash2 ]; then echo "DI Test: PASS"
+        if [ $hash1 == $hash2 ]; then echo "DI Test: PASSED"
         else 
             echo "DI Test: FAILED"; exit 1
         fi
@@ -68,6 +68,10 @@ if [ "$x"!="" ]; then
         sudo mkdir -p /mnt/store/data
         sudo chown 777 /mnt/store/data
         sudo docker run -v /mnt/store/data:/datadir1 openebs/tests-vdbench:latest
+        if [ $? -eq 0 ]; then echo "VDbench Test: PASSED"
+        else
+            echo "VDbench Test: FAILED";exit 1
+        fi
 
         # TEST#3: Run the libiscsi compliance suite on Jiva Vol
         sudo mkdir /mnt/logs 
