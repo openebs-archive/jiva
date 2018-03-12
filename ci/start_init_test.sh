@@ -64,10 +64,15 @@ if [ "$x"!="" ]; then
             echo "DI Test: FAILED"; exit 1
         fi
 
-        #TEST#2: Perform a random I/O workload test on Jiva Vol
+        # TEST#2: Perform a random I/O workload test on Jiva Vol
         sudo mkdir -p /mnt/store/data
         sudo chown 777 /mnt/store/data
         sudo docker run -v /mnt/store/data:/datadir1 openebs/tests-vdbench:latest
+
+        # TEST#3: Run the libiscsi compliance suite on Jiva Vol
+        sudo mkdir /mnt/logs 
+        sudo docker run -v /mnt/logs:/mnt/logs --net host ksatchit/libiscsi /bin/bash -c "./testiscsi.sh --ctrl-svc-ip 172.18.0.2"
+
 else 
         echo "Unable to detect iSCSI device, login failed"; exit 1
 fi 
