@@ -75,7 +75,7 @@ if [ "$x"!="" ]; then
 
         # TEST#3: Run the libiscsi compliance suite on Jiva Vol
         sudo mkdir /mnt/logs 
-        sudo docker run -v /mnt/logs:/mnt/logs --net host ksatchit/libiscsi /bin/bash -c "./testiscsi.sh --ctrl-svc-ip 172.18.0.2"
+        sudo docker run -v /mnt/logs:/mnt/logs --net host openebs/tests-libiscsi /bin/bash -c "./testiscsi.sh --ctrl-svc-ip 172.18.0.2"
         tp=$(grep "PASSED" $(find /mnt/logs -name SUMMARY.log) | wc -l)
         tf=$(grep "FAILED" $(find /mnt/logs -name SUMMARY.log) | wc -l)
         if [ $tp -ge 146 ] && [ $tf -le 29 ]; then
