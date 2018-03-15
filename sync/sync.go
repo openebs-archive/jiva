@@ -207,6 +207,68 @@ Register:
 	return nil
 }
 
+func (t *Task) AddCloneReplica(replicaAddress string) error {
+	var action string
+
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+Register:
+	volume, err := t.client.GetVolume()
+	if err != nil {
+		return err
+	}
+	addr := strings.Split(replicaAddress, "://")
+	parts := strings.Split(addr[1], ":")
+	Replica, _ := replica.CreateTempReplica()
+	server, _ := replica.CreateTempServer()
+	if volume.ReplicaCount == 0 {
+		revisionCount := Replica.GetRevisionCounter()
+		peerDetails, _ := Replica.GetPeerDetails()
+		replicaType := "Backend"
+		upTime := time.Since(Replica.ReplicaStartTime)
+		state, _ := server.PrevStatus()
+		t.client.Register(parts[0], revisionCount, peerDetails, replicaType, upTime, string(state))
+		select {
+		case <-ticker.C:
+			goto Register
+		case action = <-replica.ActionChannel:
+		}
+	}
+	if action == "start" {
+		return t.client.Start(replicaAddress)
+	}
+	if err := t.checkAndResetFailedRebuild(replicaAddress); err != nil {
+		return err
+	}
+
+	logrus.Infof("Adding replica %s in WO mode", replicaAddress)
+	_, err = t.client.CreateReplica(replicaAddress)
+	if err != nil {
+		return err
+	}
+
+	fromClient, toClient, err := t.getTransferClients(replicaAddress)
+	if err != nil {
+		return err
+	}
+
+	if err := toClient.SetRebuilding(true); err != nil {
+		return err
+	}
+
+	output, err := t.client.PrepareRebuild(rest.EncodeID(replicaAddress))
+	if err != nil {
+		return err
+	}
+
+	if err = t.syncFiles(fromClient, toClient, output.Disks); err != nil {
+		return err
+	}
+	replicaType := "clone"
+	return t.reloadAndVerify(replicaAddress, toClient, replicaType)
+
+}
+
 func (t *Task) AddReplica(replicaAddress string) error {
 	var action string
 
@@ -265,7 +327,7 @@ Register:
 		return err
 	}
 
-	return t.reloadAndVerify(replicaAddress, toClient)
+	return t.reloadAndVerify(replicaAddress, toClient, "")
 
 }
 
@@ -295,13 +357,13 @@ func (t *Task) checkAndResetFailedRebuild(address string) error {
 	return nil
 }
 
-func (t *Task) reloadAndVerify(address string, repClient *replicaClient.ReplicaClient) error {
+func (t *Task) reloadAndVerify(address string, repClient *replicaClient.ReplicaClient, replicaType string) error {
 	_, err := repClient.ReloadReplica()
 	if err != nil {
 		return err
 	}
 
-	if err := t.client.VerifyRebuildReplica(rest.EncodeID(address)); err != nil {
+	if err := t.client.VerifyRebuildReplica(rest.EncodeID(address), replicaType); err != nil {
 		return err
 	}
 

@@ -76,6 +76,7 @@ type State string
 type Replica struct {
 	Address string
 	Mode    Mode
+	Type    string
 }
 
 type RegReplica struct {
