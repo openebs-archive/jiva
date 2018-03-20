@@ -147,6 +147,17 @@ func (r *Remote) GetRevisionCounter() (int64, error) {
 	return counter, nil
 }
 
+func (r *Remote) GetCloneStatus() (string, error) {
+	replica, err := r.info()
+	if err != nil {
+		return "", err
+	}
+	if replica.State != "open" && replica.State != "dirty" {
+		return "", fmt.Errorf("Invalid state %v for getting revision counter", replica.State)
+	}
+	return replica.CloneStatus, nil
+}
+
 func (r *Remote) GetVolUsage() (types.VolUsage, error) {
 	var Details rest.VolUsage
 	var volUsage types.VolUsage

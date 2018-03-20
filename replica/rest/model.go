@@ -24,6 +24,7 @@ type Replica struct {
 	ReplicaCounter    int64                       `json:"replicacounter"`
 	UsedLogicalBlocks string                      `json:"usedlogicalblocks"`
 	UsedBlocks        string                      `json:"usedblocks"`
+	CloneStatus       string                      `json:"clonestatus"`
 }
 
 type Stats struct {
@@ -194,6 +195,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		r.Disks = rep.ListDisks()
 		r.RemainSnapshots = rep.GetRemainSnapshotCounts()
 		r.RevisionCounter = strconv.FormatInt(rep.GetRevisionCounter(), 10)
+		r.CloneStatus = rep.GetCloneStatus()
 	}
 
 	return r
