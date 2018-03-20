@@ -207,6 +207,83 @@ Register:
 	return nil
 }
 
+// CloneReplica starts the sync and rebuild process of a clone replica
+// after getting the stable RW replica from the existing running replicas.
+func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName string) error {
+	var (
+		fromReplica rest.Replica
+	)
+	for {
+		ControllerClient := client.NewControllerClient(url)
+		reps, err := ControllerClient.ListReplicas()
+		if err != nil {
+			return err
+		}
+
+		for _, rep := range reps {
+			if rep.Mode == "RW" {
+				fromReplica = rep
+				break
+			}
+		}
+
+		if fromReplica.Mode == "" {
+			return err
+		}
+
+		fromClient, err := replicaClient.NewReplicaClient(fromReplica.Address)
+		if err != nil {
+			return err
+
+		}
+
+		repl, err := fromClient.GetReplica()
+		if err != nil {
+			return err
+		}
+		chain := repl.Chain
+
+		logrus.Infof("Using replica %s as the source for rebuild ", fromReplica.Address)
+
+		toClient, err := replicaClient.NewReplicaClient(address)
+		if err != nil {
+			return err
+		}
+	resetRebuildingTrue:
+		logrus.Infof("Set Rebuild state: true")
+
+		if err := toClient.SetRebuilding(true); err != nil {
+			time.Sleep(2 * time.Second)
+			goto resetRebuildingTrue
+		}
+		for i, name := range chain {
+			if name == snapName+".img" {
+				chain = chain[i:]
+				break
+			}
+		}
+		if err = t.syncFiles(fromClient, toClient, chain[1:]); err != nil {
+			time.Sleep(2 * time.Second)
+			continue
+		}
+		_, err = toClient.ReloadReplica()
+		if err != nil {
+			return err
+		}
+
+		// set rebuilding state as false beacause we no longer
+		// wants to sync and reuild further.
+	resetRebuildingFalse:
+		logrus.Infof("Set Rebuild state: false")
+
+		if err := toClient.SetRebuilding(false); err != nil {
+			time.Sleep(2 * time.Second)
+			goto resetRebuildingFalse
+		}
+		return err
+	}
+}
+
 func (t *Task) AddReplica(replicaAddress string) error {
 	var action string
 

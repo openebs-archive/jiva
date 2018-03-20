@@ -58,6 +58,8 @@ type Replica struct {
 	peerLock  sync.Mutex
 	peerCache types.PeerDetails
 	peerFile  *sparse.DirectFileIoProcessor
+
+	cloneStatus string
 }
 
 type Info struct {
@@ -1043,6 +1045,24 @@ func (r *Replica) GetRemainSnapshotCounts() int {
 	defer r.RUnlock()
 
 	return maximumChainLength - len(r.activeDiskData)
+}
+
+// GetCloneStatus return the current status if clone
+func (r *Replica) GetCloneStatus() string {
+	r.RLock()
+	defer r.RUnlock()
+
+	return r.cloneStatus
+}
+
+// SetCloneStatus will set the status of clone replica as "completed" after
+// verifying the sync and rebuild
+func (r *Replica) SetCloneStatus(status string) error {
+	r.RLock()
+	defer r.RUnlock()
+	logrus.Infof("Setting clone status: %s", status)
+	r.cloneStatus = status
+	return nil
 }
 
 func (r *Replica) getDiskSize(disk string) int64 {

@@ -36,6 +36,7 @@ type Backend interface {
 	SectorSize() (int64, error)
 	RemainSnapshots() (int, error)
 	GetRevisionCounter() (int64, error)
+	GetCloneStatus() (string, error)
 	GetVolUsage() (VolUsage, error)
 	SetRevisionCounter(counter int64) error
 	UpdatePeerDetails(replicaCount int, quorumReplicaCount int) error
