@@ -216,7 +216,7 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 		ControllerClient := client.NewControllerClient(url)
 		reps, err := ControllerClient.ListReplicas()
 		if err != nil {
-			fmt.Errorf("Failed to get replica list from %s, retry after 2s", url)
+			logrus.Errorf("Failed to get replica list from %s, retry after 2s", url)
 			time.Sleep(2 * time.Second)
 			continue
 		}
@@ -229,7 +229,7 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 		}
 
 		if fromReplica.Mode == "" {
-			fmt.Errorf("No RW replica found at %s, retry after 2s", url)
+			logrus.Errorf("No RW replica found at %s, retry after 2s", url)
 			time.Sleep(2 * time.Second)
 			continue
 		}
@@ -265,7 +265,7 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 			return fmt.Errorf("Snapshot Not found at source")
 		}
 		if err = t.syncFiles(fromClient, toClient, chain); err != nil {
-			fmt.Errorf("Sync failed, retry after 2s")
+			logrus.Errorf("Sync failed, retry after 2s")
 			time.Sleep(2 * time.Second)
 			continue
 		}

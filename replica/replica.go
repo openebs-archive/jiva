@@ -325,10 +325,7 @@ func (r *Replica) UpdateCloneInfo(snapName string) error {
 		return err
 	}
 	r.diskData[r.info.Head].Parent = r.info.Parent
-	if err := r.encodeToFile(r.diskData[r.info.Head], r.info.Head+metadataSuffix); err != nil {
-		return err
-	}
-	return nil
+	return r.encodeToFile(r.diskData[r.info.Head], r.info.Head+metadataSuffix)
 }
 
 func (r *Replica) findDisk(name string) int {
@@ -1066,10 +1063,8 @@ func (r *Replica) SetCloneStatus(status string) error {
 	defer r.Unlock()
 	r.cloneStatus = status
 	r.info.CloneStatus = status
-	if err := r.encodeToFile(&r.info, volumeMetaData); err != nil {
-		return err
-	}
-	return nil
+
+	return r.encodeToFile(&r.info, volumeMetaData)
 }
 
 func (r *Replica) getDiskSize(disk string) int64 {
