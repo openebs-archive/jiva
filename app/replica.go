@@ -221,7 +221,9 @@ func startReplica(c *cli.Context) error {
 		logrus.Infof("Starting clone process\n")
 		status := s.Replica().GetCloneStatus()
 		if status != "completed" {
+			s.Replica().SetCloneStatus("inProgress")
 			if err = CloneReplica(s, "tcp://"+address, cloneIP, snapName); err != nil {
+				s.Replica().SetCloneStatus("error")
 				return err
 			}
 		}
