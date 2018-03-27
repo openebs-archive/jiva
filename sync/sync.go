@@ -207,6 +207,81 @@ Register:
 	return nil
 }
 
+func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName string) error {
+	var (
+		fromReplica rest.Replica
+		snapFound   bool
+	)
+	for {
+		ControllerClient := client.NewControllerClient(url)
+		reps, err := ControllerClient.ListReplicas()
+		if err != nil {
+			fmt.Errorf("Failed to get replica list from %s, retry after 2s", url)
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		for _, rep := range reps {
+			if rep.Mode == "RW" {
+				fromReplica = rep
+				break
+			}
+		}
+
+		if fromReplica.Mode == "" {
+			fmt.Errorf("No RW replica found at %s, retry after 2s", url)
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		fromClient, err := replicaClient.NewReplicaClient(fromReplica.Address)
+		if err != nil {
+			return fmt.Errorf("Failed to create fromClient %s", err)
+		}
+
+		repl, err := fromClient.GetReplica()
+		if err != nil {
+			return fmt.Errorf("fromClient.GetReplica() failed, %s", err)
+		}
+		chain := repl.Chain
+
+		logrus.Infof("Using replica %s as the source for rebuild ", fromReplica.Address)
+
+		toClient, err := replicaClient.NewReplicaClient(address)
+		if err != nil {
+			return fmt.Errorf("Failed to create toClient %s", err)
+		}
+		if err := toClient.SetRebuilding(true); err != nil {
+			return fmt.Errorf("Failed to setRebuilding = true, %s", err)
+		}
+		for i, name := range chain {
+			if name == "volume-snap-"+snapName+".img" {
+				snapFound = true
+				chain = chain[i:]
+				break
+			}
+		}
+		if snapFound == false {
+			return fmt.Errorf("Snapshot Not found at source")
+		}
+		if err = t.syncFiles(fromClient, toClient, chain); err != nil {
+			fmt.Errorf("Sync failed, retry after 2s")
+			time.Sleep(2 * time.Second)
+			continue
+		}
+		toClient.UpdateCloneInfo(snapName)
+
+		_, err = toClient.ReloadReplica()
+		if err != nil {
+			return fmt.Errorf("Failed to reload replica %s", err)
+		}
+		if err := toClient.SetRebuilding(false); err != nil {
+			return fmt.Errorf("Failed to setRebuilding = false")
+		}
+		return err
+	}
+}
+
 func (t *Task) AddReplica(replicaAddress string) error {
 	var action string
 

@@ -168,6 +168,17 @@ func (c *ReplicaClient) ReloadReplica() (rest.Replica, error) {
 	return replica, err
 }
 
+func (c *ReplicaClient) UpdateCloneInfo(snapName string) (rest.Replica, error) {
+	var replica rest.Replica
+
+	input := &rest.CloneUpdateInput{
+		SnapName: snapName,
+	}
+
+	err := c.post(c.address+"/replicas/1?action=updatecloneinfo", input, &replica)
+	return replica, err
+}
+
 func (c *ReplicaClient) LaunchReceiver(toFilePath string) (string, int, error) {
 	var running agent.Process
 	err := c.post(c.syncAgent+"/processes", &agent.Process{

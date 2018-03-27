@@ -583,6 +583,12 @@ func (c *Controller) Start(addresses ...string) error {
 		if err := c.addReplicaNoLock(newBackend, address, false); err != nil {
 			return err
 		}
+	getCloneStatus:
+		if status, _ := c.backend.GetCloneStatus(address); status != "completed" && status != "NA" {
+			fmt.Errorf("Waiting for replica to update CloneStatus to Completed/NA, retry after 2s")
+			time.Sleep(2 * time.Second)
+			goto getCloneStatus
+		}
 		// We will validate this later
 		c.setReplicaModeNoLock(address, types.RW)
 	}
