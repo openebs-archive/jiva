@@ -535,8 +535,12 @@ func (c *Controller) startFrontend() error {
 }
 
 func (c *Controller) Start(addresses ...string) error {
-	var expectedRevision int64
-	var sendSignal int
+	var (
+		expectedRevision int64
+		sendSignal       int
+		status           string
+		err1             error
+	)
 
 	c.Lock()
 	defer c.Unlock()
@@ -584,10 +588,15 @@ func (c *Controller) Start(addresses ...string) error {
 			return err
 		}
 	getCloneStatus:
-		if status, _ := c.backend.GetCloneStatus(address); status != "completed" && status != "NA" {
+		if status, err1 = c.backend.GetCloneStatus(address); err1 != nil {
+			return err1
+		}
+		if status == "" || status == "inProgress" {
 			logrus.Errorf("Waiting for replica to update CloneStatus to Completed/NA, retry after 2s")
 			time.Sleep(2 * time.Second)
 			goto getCloneStatus
+		} else if status == "error" {
+			return fmt.Errorf("Replica clone status returned error")
 		}
 		// We will validate this later
 		c.setReplicaModeNoLock(address, types.RW)

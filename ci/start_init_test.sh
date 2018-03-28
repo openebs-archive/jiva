@@ -20,12 +20,14 @@ sudo docker ps
 
 # Create a local mountpoint
 sudo mkdir -p /mnt/store
+sudo mkdir -p /mnt/store2
 
 # Cleanup existing iSCSI sessions
 sudo iscsiadm -m node -u
 sudo iscsiadm -m node -o delete
 
 # Discover Jiva iSCSI target and Login
+sleep 1
 sudo iscsiadm -m discovery -t st -p 172.18.0.2:3260
 sudo iscsiadm -m node -l
 
@@ -128,6 +130,7 @@ sudo docker ps
 curl http://172.18.0.5:9501/v1/volumes
 
 # Discover Jiva iSCSI target and Login
+sleep 5
 sudo iscsiadm -m discovery -t st -p 172.18.0.5:3260
 sudo iscsiadm -m node -l
 
@@ -141,7 +144,7 @@ i=0
 while [ -z $x ]; do
         sleep 4
         x=$(iscsiadm -m session -P 3 |grep -i "Attached scsi disk" | awk '{print $4}')
-        i=`expr $i+1`
+        i=`expr $i + 1`
         if [ $i -eq 5 ]; then
                 break
         else
@@ -151,10 +154,10 @@ done
 
 if [ "$x"!="" ]; then
 # Mount FS onto local mountpoint
-	sudo mount /dev/$x /mnt/store
+	sudo mount /dev/$x /mnt/store2
 
 	# TEST#1: Perform simple data-integrity check on Jiva Vol
-	hash3=$(sudo md5sum /mnt/store/file1 | awk '{print $1}')
+	hash3=$(sudo md5sum /mnt/store2/file1 | awk '{print $1}')
 	if [ $hash1 == $hash3 ]; then echo "DI Test: PASSED"
 	else
 		echo "DI Test: FAILED"; exit 1
