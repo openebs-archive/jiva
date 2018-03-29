@@ -152,9 +152,6 @@ func (r *Remote) GetCloneStatus() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if replica.State != "open" && replica.State != "dirty" {
-		return "", fmt.Errorf("Invalid state %v for getting revision counter", replica.State)
-	}
 	return replica.CloneStatus, nil
 }
 
