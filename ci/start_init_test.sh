@@ -68,7 +68,10 @@ if [ "$x"!="" ]; then
         fi
 
 	#Create a snapshot for testing clone feature
-	cd /mnt/store; sync;
+	cd /mnt/store; sync; sleep 5; sync; sleep 5; cd ~;
+	sudo blockdev --flushbufs /dev/$x
+	sudo hdparm -F /dev/$x
+	sleep 5
 	id=`curl http://172.18.0.2:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
 	curl -H "Content-Type: application/json" -X POST -d '{"name":"snap1"}' http://172.18.0.2:9501/v1/volumes/$id?action=snapshot
 
