@@ -18,7 +18,6 @@ import (
 	"github.com/openebs/jiva/replica"
 	"github.com/openebs/jiva/replica/rest"
 	"github.com/openebs/jiva/replica/rpc"
-	"github.com/openebs/jiva/sync"
 	"github.com/openebs/jiva/util"
 )
 
@@ -33,14 +32,6 @@ func ReplicaCmd() cli.Command {
 			},
 			cli.StringFlag{
 				Name:  "frontendIP",
-				Value: "",
-			},
-			cli.StringFlag{
-				Name:  "cloneIP",
-				Value: "",
-			},
-			cli.StringFlag{
-				Name:  "snapName",
 				Value: "",
 			},
 			cli.StringFlag{
@@ -101,19 +92,6 @@ checkagain:
 	}
 }
 
-func CloneReplica(s *replica.Server, address string, cloneIP string, snapName string) error {
-	var err error
-	url := "http://" + cloneIP + ":9501"
-	task := sync.NewTask(url)
-	if err = task.CloneReplica(url, address, cloneIP, snapName); err != nil {
-		return err
-	}
-	if s.Replica() != nil {
-		s.Replica().SetCloneStatus("completed")
-	}
-	return err
-}
-
 func startReplica(c *cli.Context) error {
 	if c.NArg() != 1 {
 		return errors.New("directory name is required")
@@ -130,8 +108,6 @@ func startReplica(c *cli.Context) error {
 
 	address := c.String("listen")
 	frontendIP := c.String("frontendIP")
-	cloneIP := c.String("cloneIP")
-	snapName := c.String("snapName")
 	size := c.String("size")
 	if size != "" {
 		//Units bails with an error size is provided with i, like Gi
@@ -213,24 +189,6 @@ func startReplica(c *cli.Context) error {
 			address = "localhost:9502"
 		}
 		go AutoConfigureReplica(s, frontendIP, "tcp://"+address, replicaType)
-	}
-	for s.Replica() == nil {
-		time.Sleep(2 * time.Second)
-	}
-	if replicaType == "clone" && snapName != "" {
-		logrus.Infof("Starting clone process\n")
-		status := s.Replica().GetCloneStatus()
-		if status != "completed" {
-			s.Replica().SetCloneStatus("inProgress")
-			if err = CloneReplica(s, "tcp://"+address, cloneIP, snapName); err != nil {
-				s.Replica().SetCloneStatus("error")
-				return err
-			}
-		}
-		s.Replica().SetCloneStatus("completed")
-		logrus.Infof("Clone process completed successfully\n")
-	} else {
-		s.Replica().SetCloneStatus("NA")
 	}
 
 	return <-resp

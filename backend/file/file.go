@@ -86,10 +86,6 @@ func (f *Wrapper) GetMonitorChannel() types.MonitorChannel {
 	return nil
 }
 
-func (f *Wrapper) GetCloneStatus() (string, error) {
-	return "", nil
-}
-
 func (f *Wrapper) PingResponse() error {
 	return nil
 }

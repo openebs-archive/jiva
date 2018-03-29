@@ -216,15 +216,6 @@ func (s *Server) ReloadReplica(rw http.ResponseWriter, req *http.Request) error 
 	return s.doOp(req, s.s.Reload())
 }
 
-func (s *Server) UpdateCloneInfo(rw http.ResponseWriter, req *http.Request) error {
-	var input CloneUpdateInput
-	apiContext := api.GetApiContext(req)
-	if err := apiContext.Read(&input); err != nil && err != io.EOF {
-		return err
-	}
-	return s.doOp(req, s.s.UpdateCloneInfo(input.SnapName))
-}
-
 func (s *Server) CloseReplica(rw http.ResponseWriter, req *http.Request) error {
 	return s.doOp(req, s.s.Close())
 }

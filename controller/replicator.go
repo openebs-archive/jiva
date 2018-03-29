@@ -430,18 +430,3 @@ func (r *replicator) GetRevisionCounter(address string) (int64, error) {
 
 	return counter, nil
 }
-
-func (r *replicator) GetCloneStatus(address string) (string, error) {
-	backend, ok := r.backends[address]
-	if !ok {
-		return "", fmt.Errorf("Cannot find backend %v", address)
-	}
-
-	status, err := backend.backend.GetCloneStatus()
-	if err != nil {
-		return "", err
-	}
-	logrus.Infof("Get backend %s clone status", address)
-
-	return status, nil
-}

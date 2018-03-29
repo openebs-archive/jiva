@@ -76,7 +76,6 @@ func (s *Server) Create(size int64) error {
 	state, _ := s.Status()
 
 	if state != Initial {
-		fmt.Println("STATE = ", state)
 		return nil
 	}
 
@@ -131,18 +130,6 @@ func (s *Server) Reload() error {
 	s.r = newReplica
 	oldReplica.Close()
 	return nil
-}
-
-func (s *Server) UpdateCloneInfo(snapName string) error {
-	s.Lock()
-	defer s.Unlock()
-
-	if s.r == nil {
-		return nil
-	}
-
-	logrus.Infof("Update Clone Info")
-	return s.r.UpdateCloneInfo(snapName)
 }
 
 func (s *Server) Status() (State, Info) {
@@ -331,6 +318,19 @@ func (s *Server) WriteAt(buf []byte, offset int64) (int, error) {
 	i, err := s.r.WriteAt(buf, offset)
 	return i, err
 }
+
+/*
+func (s *Server) Update() error {
+	s.RLock()
+	defer s.RUnlock()
+
+	if s.r == nil {
+		return fmt.Errorf("Volume no longer exist")
+	}
+	err := s.r.Update()
+	return err
+}
+*/
 
 func (s *Server) ReadAt(buf []byte, offset int64) (int, error) {
 	s.RLock()
