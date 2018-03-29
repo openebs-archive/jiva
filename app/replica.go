@@ -2,11 +2,13 @@ package app
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -18,9 +20,24 @@ import (
 	"github.com/openebs/jiva/replica"
 	"github.com/openebs/jiva/replica/rest"
 	"github.com/openebs/jiva/replica/rpc"
+	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
 )
 
+var (
+	SizeNotation = types.SizeType{
+		IsValidDecimal: regexp.MustCompile(`^(\d+(\.\d+)*) ?([kKmMgGtTpP])?[bB]?$`),
+		IsValidBinary:  regexp.MustCompile(`^(\d+(\.\d+)*) ?([kKmMgGtTpP][iI])?$`),
+	}
+	volSize int64
+)
+
+func IsBinary(size string) bool {
+	return SizeNotation.IsValidBinary.MatchString(size)
+}
+func IsDecimal(size string) bool {
+	return SizeNotation.IsValidDecimal.MatchString(size)
+}
 func ReplicaCmd() cli.Command {
 	return cli.Command{
 		Name:      "replica",
@@ -93,32 +110,43 @@ checkagain:
 }
 
 func startReplica(c *cli.Context) error {
+
 	if c.NArg() != 1 {
 		return errors.New("directory name is required")
 	}
 
 	dir := c.Args()[0]
 	backingFile, err := openBackingFile(c.String("backing-file"))
+
 	if err != nil {
 		return err
 	}
 
 	replicaType := c.String("type")
+
 	s := replica.NewServer(dir, backingFile, 512, replicaType)
 
 	address := c.String("listen")
 	frontendIP := c.String("frontendIP")
 	size := c.String("size")
 	if size != "" {
-		//Units bails with an error size is provided with i, like Gi
-		//The following will convert - G, Gi, GiB into G
-		size = strings.Split(size, "i")[0]
-		size, err := units.RAMInBytes(size)
-		if err != nil {
-			return err
+		if IsDecimal(size) {
+			volSize, err = units.FromHumanSize(size)
+			if err != nil {
+				return err
+			}
+		} else if IsBinary(size) {
+			size = strings.TrimSuffix(size, "i")
+			volSize, err = units.RAMInBytes(size)
+			if err != nil {
+				return err
+			}
+		} else {
+			fmt.Println("invalid size: ", size, "\nPlease use standard notations (For exp: m/mi/M/Mi, g/gi/G/Gi)")
+			return nil
 		}
 
-		if err := s.Create(size); err != nil {
+		if err = s.Create(volSize); err != nil {
 			return err
 		}
 	}
