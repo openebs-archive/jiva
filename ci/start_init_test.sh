@@ -72,6 +72,10 @@ if [ "$x"!="" ]; then
         else
             echo "VDbench Test: FAILED";exit 1
         fi
+	# Remove iSCSI session
+	sudo umount /mnt/store
+	sudo iscsiadm -m node -u
+	sudo iscsiadm -m node -o delete
 
         # TEST#3: Run the libiscsi compliance suite on Jiva Vol
         sudo mkdir /mnt/logs 
