@@ -58,6 +58,10 @@ type Replica struct {
 	peerLock  sync.Mutex
 	peerCache types.PeerDetails
 	peerFile  *sparse.DirectFileIoProcessor
+
+	cloneStatus   string
+	CloneSnapName string
+	Clone         bool
 }
 
 type Info struct {
@@ -68,6 +72,7 @@ type Info struct {
 	Parent          string
 	SectorSize      int64
 	BackingFileName string
+	CloneStatus     string
 	BackingFile     *BackingFile `json:"-"`
 }
 
@@ -211,7 +216,6 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 			return nil, err
 		}
 	}
-
 	r.info.Parent = r.diskData[r.info.Head].Parent
 
 	r.insertBackingFile()
@@ -313,6 +317,15 @@ func (r *Replica) Reload() (*Replica, error) {
 	}
 	newReplica.info.Dirty = r.info.Dirty
 	return newReplica, nil
+}
+
+func (r *Replica) UpdateCloneInfo(snapName string) error {
+	r.info.Parent = "volume-snap-" + snapName + ".img"
+	if err := r.encodeToFile(&r.info, volumeMetaData); err != nil {
+		return err
+	}
+	r.diskData[r.info.Head].Parent = r.info.Parent
+	return r.encodeToFile(r.diskData[r.info.Head], r.info.Head+metadataSuffix)
 }
 
 func (r *Replica) findDisk(name string) int {
@@ -856,11 +869,13 @@ func (r *Replica) openLiveChain() error {
 	}
 
 	for i := len(chain) - 1; i >= 0; i-- {
+
 		parent := chain[i]
 		f, err := r.openFile(parent, 0)
 		if err != nil {
 			return err
 		}
+
 		r.volume.files = append(r.volume.files, f)
 		r.activeDiskData = append(r.activeDiskData, r.diskData[parent])
 	}
@@ -900,6 +915,7 @@ func (r *Replica) readMetadata() (bool, error) {
 			}
 		}
 	}
+
 	r.volume.UsedBlocks += 2 // One each for peer.details and revision.counter
 
 	return len(r.diskData) > 0, nil
@@ -992,20 +1008,6 @@ func (r *Replica) WriteAt(buf []byte, offset int64) (int, error) {
 	return c, nil
 }
 
-/*
-func (r *Replica) Update() error {
-	if r.readOnly {
-		return fmt.Errorf("Can not write on read-only replica")
-	}
-
-	r.info.Dirty = true
-	if err := r.increaseRevisionCounter(); err != nil {
-		return err
-	}
-	return nil
-}
-*/
-
 func (r *Replica) ReadAt(buf []byte, offset int64) (int, error) {
 	r.RLock()
 	c, err := r.volume.ReadAt(buf, offset)
@@ -1043,6 +1045,26 @@ func (r *Replica) GetRemainSnapshotCounts() int {
 	defer r.RUnlock()
 
 	return maximumChainLength - len(r.activeDiskData)
+}
+
+func (r *Replica) GetCloneStatus() string {
+	var info Info
+	r.RLock()
+	defer r.RUnlock()
+	if err := r.unmarshalFile(volumeMetaData, &info); err != nil {
+		return ""
+	}
+
+	return info.CloneStatus
+}
+
+func (r *Replica) SetCloneStatus(status string) error {
+	r.Lock()
+	defer r.Unlock()
+	r.cloneStatus = status
+	r.info.CloneStatus = status
+
+	return r.encodeToFile(&r.info, volumeMetaData)
 }
 
 func (r *Replica) getDiskSize(disk string) int64 {

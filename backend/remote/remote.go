@@ -147,6 +147,14 @@ func (r *Remote) GetRevisionCounter() (int64, error) {
 	return counter, nil
 }
 
+func (r *Remote) GetCloneStatus() (string, error) {
+	replica, err := r.info()
+	if err != nil {
+		return "", err
+	}
+	return replica.CloneStatus, nil
+}
+
 func (r *Remote) GetVolUsage() (types.VolUsage, error) {
 	var Details rest.VolUsage
 	var volUsage types.VolUsage
