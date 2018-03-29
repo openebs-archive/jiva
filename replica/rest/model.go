@@ -24,6 +24,7 @@ type Replica struct {
 	ReplicaCounter    int64                       `json:"replicacounter"`
 	UsedLogicalBlocks string                      `json:"usedlogicalblocks"`
 	UsedBlocks        string                      `json:"usedblocks"`
+	CloneStatus       string                      `json:"clonestatus"`
 }
 
 type Stats struct {
@@ -53,6 +54,11 @@ type SnapshotInput struct {
 	Name        string `json:"name"`
 	UserCreated bool   `json:"usercreated"`
 	Created     string `json:"created"`
+}
+
+type CloneUpdateInput struct {
+	client.Resource
+	SnapName string `json:"snapname"`
 }
 
 type RemoveDiskInput struct {
@@ -128,6 +134,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["start"] = true
 		actions["create"] = true
 		actions["resize"] = true
+		actions["updatecloneinfo"] = true
 	case replica.Open:
 		actions["start"] = true
 		actions["resize"] = true
@@ -141,6 +148,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["revert"] = true
 		actions["prepareremovedisk"] = true
 		actions["setrevisioncounter"] = true
+		actions["updatecloneinfo"] = true
 		actions["setreplicacounter"] = true
 		actions["updatepeerdetails"] = true
 	case replica.Closed:
@@ -150,6 +158,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["removedisk"] = true
 		actions["replacedisk"] = true
 		actions["revert"] = true
+		actions["updatecloneinfo"] = true
 		actions["prepareremovedisk"] = true
 		actions["setreplicacounter"] = true
 	case replica.Dirty:
@@ -164,6 +173,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["revert"] = true
 		actions["prepareremovedisk"] = true
 		actions["setreplicacounter"] = true
+		actions["updatecloneinfo"] = true
 		actions["updatepeerdetails"] = true
 	case replica.Rebuilding:
 		actions["start"] = true
@@ -174,6 +184,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["reload"] = true
 		actions["setrevisioncounter"] = true
 		actions["setreplicacounter"] = true
+		actions["updatecloneinfo"] = true
 		actions["updatepeerdetails"] = true
 	case replica.Error:
 	}
@@ -194,6 +205,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		r.Disks = rep.ListDisks()
 		r.RemainSnapshots = rep.GetRemainSnapshotCounts()
 		r.RevisionCounter = strconv.FormatInt(rep.GetRevisionCounter(), 10)
+		r.CloneStatus = rep.GetCloneStatus()
 	}
 
 	return r
