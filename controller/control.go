@@ -149,7 +149,7 @@ func (c *Controller) addQuorumReplica(address string, snapshot bool) error {
 		return fmt.Errorf("Failed to set rebuild : %v", true)
 	}
 
-	if (len(c.replicas)+len(c.quorumReplicas) >= 2) && (c.ReadOnly == true) {
+	if (len(c.replicas)+len(c.quorumReplicas) > (c.replicaCount+c.quorumReplicaCount)/2) && (c.ReadOnly == true) {
 		c.ReadOnly = false
 	}
 
@@ -180,7 +180,7 @@ func (c *Controller) addReplica(address string, snapshot bool) error {
 	defer c.Unlock()
 
 	err = c.addReplicaNoLock(newBackend, address, snapshot)
-	if (len(c.replicas)+len(c.quorumReplicas) >= 2) && (c.ReadOnly == true) {
+	if (len(c.replicas)+len(c.quorumReplicas) > (c.replicaCount+c.quorumReplicaCount)/2) && (c.ReadOnly == true) {
 		c.ReadOnly = false
 	}
 	return err
@@ -464,7 +464,7 @@ func (c *Controller) RemoveReplica(address string) error {
 		}
 	}
 
-	if len(c.replicas)+len(c.quorumReplicas) < 2 {
+	if len(c.replicas)+len(c.quorumReplicas) <= (c.replicaCount+c.quorumReplicaCount)/2 {
 		c.ReadOnly = true
 	}
 	return nil
@@ -629,6 +629,9 @@ func (c *Controller) Start(addresses ...string) error {
 		if sendSignal == 1 {
 			c.factory.SignalToAdd(regrep, "add")
 		}
+	}
+	if (len(c.replicas)+len(c.quorumReplicas) > (c.replicaCount+c.quorumReplicaCount)/2) && (c.ReadOnly == true) {
+		c.ReadOnly = false
 	}
 
 	return nil

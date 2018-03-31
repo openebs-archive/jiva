@@ -176,7 +176,7 @@ func (s *Server) StartVolume(rw http.ResponseWriter, req *http.Request) error {
 
 func (s *Server) listVolumes(context *api.ApiContext) []*Volume {
 	return []*Volume{
-		NewVolume(context, s.c.Name, len(s.c.ListReplicas())),
+		NewVolume(context, s.c.Name, s.c.ReadOnly, len(s.c.ListReplicas())),
 	}
 }
 
