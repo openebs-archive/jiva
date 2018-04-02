@@ -318,6 +318,7 @@ func (s *Server) Close() error {
 	}
 
 	s.r = nil
+	s.MonitorChannel <- struct{}{}
 	return nil
 }
 

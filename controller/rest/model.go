@@ -21,6 +21,7 @@ type Volume struct {
 	client.Resource
 	Name         string `json:"name"`
 	ReplicaCount int    `json:"replicaCount"`
+	ReadOnly     string `json:"readOnly"`
 }
 
 type VolumeCollection struct {
@@ -105,7 +106,13 @@ type RegReplica struct {
 	UpTime      time.Duration     `json:"UpTime"`
 }
 
-func NewVolume(context *api.ApiContext, name string, replicas int) *Volume {
+func NewVolume(context *api.ApiContext, name string, readOnly bool, replicas int) *Volume {
+	var ReadOnly string
+	if readOnly {
+		ReadOnly = "true"
+	} else {
+		ReadOnly = "false"
+	}
 	v := &Volume{
 		Resource: client.Resource{
 			Id:      EncodeID(name),
@@ -114,6 +121,7 @@ func NewVolume(context *api.ApiContext, name string, replicas int) *Volume {
 		},
 		Name:         name,
 		ReplicaCount: replicas,
+		ReadOnly:     ReadOnly,
 	}
 
 	if replicas == 0 {
