@@ -227,18 +227,15 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 				break
 			}
 		}
-
 		if fromReplica.Mode == "" {
 			logrus.Errorf("No RW replica found at %s, retry after 2s", url)
 			time.Sleep(2 * time.Second)
 			continue
 		}
-
 		fromClient, err := replicaClient.NewReplicaClient(fromReplica.Address)
 		if err != nil {
 			return fmt.Errorf("Failed to create fromClient %s", err)
 		}
-
 		repl, err := fromClient.GetReplica()
 		if err != nil {
 			return fmt.Errorf("fromClient.GetReplica() failed, %s", err)
@@ -251,9 +248,6 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 		if err != nil {
 			return fmt.Errorf("Failed to create toClient %s", err)
 		}
-		if err := toClient.SetRebuilding(true); err != nil {
-			return fmt.Errorf("Failed to setRebuilding = true, %s", err)
-		}
 		for i, name := range chain {
 			if name == "volume-snap-"+snapName+".img" {
 				snapFound = true
@@ -263,6 +257,9 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 		}
 		if snapFound == false {
 			return fmt.Errorf("Snapshot Not found at source")
+		}
+		if err := toClient.SetRebuilding(true); err != nil {
+			return fmt.Errorf("Failed to setRebuilding = true, %s", err)
 		}
 		if err = t.syncFiles(fromClient, toClient, chain); err != nil {
 			logrus.Errorf("Sync failed, retry after 2s")
