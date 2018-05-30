@@ -3,13 +3,14 @@
 CONTROLLER_IP="172.18.0.2"
 REPLICA_IP1="172.18.0.3"
 REPLICA_IP2="172.18.0.4"
-CLONED_CONTROLLER_IP="172.18.0.5"
-CLONED_REPLICA_IP="172.18.0.6"
+REPLICA_IP3="172.18.0.5"
+CLONED_CONTROLLER_IP="172.18.0.6"
+CLONED_REPLICA_IP="172.18.0.7"
 
 prepare_test_env() {
 	sudo rm -rf /tmp/vol*
 	sudo rm -rf /mnt/logs
-	sudo mkdir -p /tmp/vol1 /tmp/vol2 /tmp/vol3
+	sudo mkdir -p /tmp/vol1 /tmp/vol2 /tmp/vol3 /tmp/vol4
 	sudo mkdir -p /mnt/store /mnt/store2
 
 	sudo docker network create --subnet=172.18.0.0/16 stg-net
@@ -116,6 +117,55 @@ test_two_replica_stop_start() {
 		echo "Dual replica stop/start test passed"
 	else
 		echo "Dual replica stop/start test failed"
+		exit 1
+	fi
+
+}
+test_three_replica_stop_start() {
+	sudo docker stop $replica1_id
+	if [ $(verify_rw_status "RW") == 0 ]; then
+		echo "stop/start test passed when there are 3 replicas and one is stopped"
+	else
+		echo "stop/start test failed when there are 3 replicas and one is stopped"
+		exit 1
+	fi
+	sudo docker stop $replica2_id
+	if [ $(verify_rw_status "RO") == 0 ]; then
+		echo "stop/start test passed when there are 3 replicas and two are stopped"
+	else
+		echo "stop/start test failed when there are 3 replicas and two are stopped"
+		exit 1
+	fi
+
+	sudo docker stop $replica3_id
+	if [ $(verify_rw_status "RO") == 0 ]; then
+		echo "stop/start test passed when there are 3 replicas and all are stopped"
+	else
+		echo "stop/start test failed when there are 3 replicas and all are stopped"
+		exit 1
+	fi
+
+	sudo docker start $replica1_id
+	if [ $(verify_rw_status "RO") == 0 ]; then
+		echo "stop/start test passed when there are 3 replicas and one is restarted"
+	else
+		echo "stop/start test failed when there are 3 replicas and one is restarted"
+		exit 1
+	fi
+
+	sudo docker start $replica2_id
+	if [ $(verify_rw_status "RW") == 0 ]; then
+		echo "stop/start test passed when there are 3 replicas and two are restarted"
+	else
+		echo "stop/start test failed when there are 3 replicas and two are restarted"
+		exit 1
+	fi
+
+	sudo docker start $replica3_id
+	if [ $(verify_rw_status "RW") == 0 ]; then
+		echo "stop/start test passed when there are 3 replicas and all are restarted"
+	else
+		echo "stop/start test failed when there are 3 replicas and all are restarted"
 		exit 1
 	fi
 
@@ -248,7 +298,7 @@ create_snapshot() {
 
 test_clone_feature() {
 	start_controller "$CLONED_CONTROLLER_IP" "store2"
-	start_cloned_replica "$CONTROLLER_IP"  "$CLONED_CONTROLLER_IP" "$CLONED_REPLICA_IP" "vol3"
+	start_cloned_replica "$CONTROLLER_IP"  "$CLONED_CONTROLLER_IP" "$CLONED_REPLICA_IP" "vol4"
 
 	if [ $(verify_clone_status "completed") == "0" ]; then
 		echo "clone created successfully"
@@ -300,10 +350,14 @@ controller_id=$(start_controller "$CONTROLLER_IP" "store1")
 replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 sleep 5
 test_single_replica_stop_start
-
+sleep 5
 replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
 sleep 5
 test_two_replica_stop_start
+sleep 5
+replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+sleep 5
+test_three_replica_stop_start
 sleep 5
 test_replica_reregitration
 sleep 5
