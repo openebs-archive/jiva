@@ -45,6 +45,8 @@ func (m *MultiWriterError) Error() string {
 func (m *MultiWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
 	quorumErrs := make([]error, len(m.writers))
 	replicaErrs := make([]error, len(m.writers))
+	replicaErrCount := 0
+	quorumErrCount := 0
 	quorumErrored := false
 	replicaErrored := false
 	wg := sync.WaitGroup{}
@@ -82,7 +84,22 @@ func (m *MultiWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
 	}
 
 	if replicaErrored || quorumErrored {
-		return 0, &errors
+		for _, err1 := range replicaErrs {
+			if err1 != nil {
+				replicaErrCount++
+			}
+		}
+		for _, err1 := range quorumErrs {
+			if err1 != nil {
+				quorumErrCount++
+			}
+		}
+		if (len(m.writers)-replicaErrCount >= len(m.writers)/2) &&
+			(len(m.writers)+len(m.updaters)-replicaErrCount-quorumErrCount >= (len(m.writers)+len(m.updaters))/2) {
+			return len(p), &errors
+		} else {
+			return 0, &errors
+		}
 	}
 	return len(p), nil
 }

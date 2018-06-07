@@ -284,6 +284,11 @@ func (t *Task) AddReplica(replicaAddress string) error {
 
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
+	currentReplicaClient, err := replicaClient.NewReplicaClient(replicaAddress)
+	if err != nil {
+		return err
+	}
+	currentReplicaClient.Close()
 Register:
 	volume, err := t.client.GetVolume()
 	if err != nil {
