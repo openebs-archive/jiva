@@ -173,6 +173,14 @@ func (c *Controller) addReplica(address string, snapshot bool) error {
 	}
 	c.Unlock()
 
+	//Two replicas might try enter in WO mode since the above lock is released
+	//after veryfying that no replica is in WO mode
+	//Although there is again a check in addReplicaNoLock which doesn't actually
+	//allow the second replica to add as WO replica
+	//But the function Create opens both the replicas one is attached while the
+	//other is errored out. The errored out replica needs to close before trying to
+	//connect back to controller.
+	//Below delay is introduced to hit the above condition while testing
 	if DelayInSec != 0 {
 		time.Sleep(time.Second * DelayInSec)
 	}

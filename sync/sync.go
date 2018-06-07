@@ -288,6 +288,8 @@ func (t *Task) AddReplica(replicaAddress string) error {
 	if err != nil {
 		return err
 	}
+	//Attempt replica close before trying to connect to controller.
+	//Replica can only connect to controller in closed state.
 	currentReplicaClient.Close()
 Register:
 	volume, err := t.client.GetVolume()

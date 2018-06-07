@@ -82,7 +82,10 @@ func (m *MultiWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
 		errors.Updaters = m.updaters
 		errors.QuorumErrors = quorumErrs
 	}
-
+	//Below code is introduced to make sure that the IO has been written to more
+	//than 50% of the replica.
+	//If any replica has errored, return with the length of data written and the
+	//erroed replica details so that it can be closed.
 	if replicaErrored || quorumErrored {
 		for _, err1 := range replicaErrs {
 			if err1 != nil {
