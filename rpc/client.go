@@ -15,9 +15,9 @@ var (
 	ErrRWTimeout   = errors.New("r/w timeout")
 	ErrPingTimeout = errors.New("Ping timeout")
 
-	opRetries       = 1
-	opReadTimeout   = 5 * time.Second // client read
-	opWriteTimeout  = 5 * time.Second // client write
+	opRetries       = 4
+	opReadTimeout   = 15 * time.Second // client read
+	opWriteTimeout  = 15 * time.Second // client write
 	opPingTimeout   = 20 * time.Second
 	opUpdateTimeout = 15 * time.Second // client update
 )
