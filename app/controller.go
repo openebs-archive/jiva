@@ -102,7 +102,7 @@ func startController(c *cli.Context) error {
 			case syscall.SIGUSR1:
 				controller.DelayInSec += 2
 			case syscall.SIGUSR2:
-				controller.DelayInSec += 2
+				controller.DelayInSec -= 2
 			}
 			logrus.Infof("controller DelayInSec for testing changed to: %d\n", controller.DelayInSec)
 		}
