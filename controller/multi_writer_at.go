@@ -97,8 +97,8 @@ func (m *MultiWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
 				quorumErrCount++
 			}
 		}
-		if (len(m.writers)-replicaErrCount >= len(m.writers)/2) &&
-			(len(m.writers)+len(m.updaters)-replicaErrCount-quorumErrCount >= (len(m.writers)+len(m.updaters))/2) {
+		if (len(m.writers)-replicaErrCount > len(m.writers)/2) &&
+			(len(m.writers)+len(m.updaters)-replicaErrCount-quorumErrCount > (len(m.writers)+len(m.updaters))/2) {
 			return len(p), &errors
 		} else {
 			return 0, &errors
