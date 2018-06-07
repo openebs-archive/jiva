@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
@@ -90,6 +92,21 @@ func startController(c *cli.Context) error {
 			logrus.Fatalf("Unsupported backend: %s", backend)
 		}
 	}
+
+	signal_chan := make(chan os.Signal, 5)
+	signal.Notify(signal_chan, syscall.SIGUSR1, syscall.SIGUSR2)
+	go func() {
+		for {
+			s := <-signal_chan
+			switch s {
+			case syscall.SIGUSR1:
+				controller.DelayInSec += 2
+			case syscall.SIGUSR2:
+				controller.DelayInSec += 2
+			}
+			logrus.Infof("controller DelayInSec for testing changed to: %d\n", controller.DelayInSec)
+		}
+	}()
 
 	var frontend types.Frontend
 	if frontendName != "" {

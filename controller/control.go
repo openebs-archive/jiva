@@ -12,6 +12,8 @@ import (
 	"github.com/openebs/jiva/util"
 )
 
+var DelayInSec time.Duration = 0
+
 type Controller struct {
 	sync.RWMutex
 	Name                     string
@@ -170,6 +172,10 @@ func (c *Controller) addReplica(address string, snapshot bool) error {
 		return err
 	}
 	c.Unlock()
+
+	if DelayInSec != 0 {
+		time.Sleep(time.Second * DelayInSec)
+	}
 
 	newBackend, err := c.factory.Create(address)
 	if err != nil {
@@ -675,7 +681,11 @@ func (c *Controller) WriteAt(b []byte, off int64) (int, error) {
 				}
 			}
 		}
-		return n, errh
+		if n == len(b) && errh == nil {
+			return n, nil
+		} else {
+			return n, errh
+		}
 	}
 	return n, err
 }

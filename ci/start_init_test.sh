@@ -3,13 +3,14 @@
 CONTROLLER_IP="172.18.0.2"
 REPLICA_IP1="172.18.0.3"
 REPLICA_IP2="172.18.0.4"
-CLONED_CONTROLLER_IP="172.18.0.5"
-CLONED_REPLICA_IP="172.18.0.6"
+REPLICA_IP3="172.18.0.5"
+CLONED_CONTROLLER_IP="172.18.0.6"
+CLONED_REPLICA_IP="172.18.0.7"
 
 prepare_test_env() {
 	sudo rm -rf /tmp/vol*
 	sudo rm -rf /mnt/logs
-	sudo mkdir -p /tmp/vol1 /tmp/vol2 /tmp/vol3
+	sudo mkdir -p /tmp/vol1 /tmp/vol2 /tmp/vol3 /tmp/vol4
 	sudo mkdir -p /mnt/store /mnt/store2
 
 	sudo docker network create --subnet=172.18.0.0/16 stg-net
@@ -31,7 +32,7 @@ verify_rw_status() {
 			rw_status="RW"
 		fi
 		i=`expr $i + 1`
-		if [ i == 10 ]; then
+		if [ "$i" == 10 ]; then
 			echo "1"
 		fi
 	done
@@ -62,7 +63,7 @@ start_cloned_replica() {
 # get_replica_count CONTROLLER_IP
 get_replica_count() {
 	replicaCount=`curl http://"$1":9501/v1/volumes | jq '.data[0].replicaCount'`
-	return $replicaCount
+	echo "$replicaCount"
 }
 
 test_single_replica_stop_start() {
@@ -120,34 +121,115 @@ test_two_replica_stop_start() {
 	fi
 
 }
+run_ios_to_test_stop_start() {
+	login_to_volume "$CONTROLLER_IP:3260"
+	sleep 5
+	get_scsi_disk
+	if [ "$device_name"!="" ]; then
+		sudo dd if=/dev/urandom of=/dev/$device_name bs=4k count=1000
+		logout_of_volume
+		sleep 5
+	else
+		echo "Unable to detect iSCSI device, login failed"; exit 1
+	fi
+}
+
+test_three_replica_stop_start() {
+	sudo docker kill --signal=SIGUSR1 $replica1_id
+	sudo docker kill --signal=SIGUSR1 $replica1_id
+
+	run_ios_to_test_stop_start &
+	sudo docker stop $replica1_id
+	if [ $(verify_rw_status "RW") == 0 ]; then
+		echo "stop/start test passed when there are 3 replicas and one is stopped"
+	else
+		echo "stop/start test failed when there are 3 replicas and one is stopped"
+		exit 1
+	fi
+	sudo docker stop $replica2_id
+	if [ $(verify_rw_status "RO") == 0 ]; then
+		echo "stop/start test passed when there are 3 replicas and two are stopped"
+	else
+		echo "stop/start test failed when there are 3 replicas and two are stopped"
+		exit 1
+	fi
+
+	sudo docker stop $replica3_id
+	if [ $(verify_rw_status "RO") == 0 ]; then
+		echo "stop/start test passed when there are 3 replicas and all are stopped"
+	else
+		echo "stop/start test failed when there are 3 replicas and all are stopped"
+		exit 1
+	fi
+
+	sudo docker start $replica1_id
+	if [ $(verify_rw_status "RO") == 0 ]; then
+		echo "stop/start test passed when there are 3 replicas and one is restarted"
+	else
+		echo "stop/start test failed when there are 3 replicas and one is restarted"
+		exit 1
+	fi
+
+	sudo docker kill --signal=SIGUSR1 $controller_id
+	sudo docker kill --signal=SIGUSR1 $controller_id
+
+	sudo docker start $replica2_id
+	if [ $(verify_rw_status "RW") == 0 ]; then
+		echo "stop/start test passed when there are 3 replicas and two are restarted"
+	else
+		echo "stop/start test failed when there are 3 replicas and two are restarted"
+		exit 1
+	fi
+
+	sudo docker start $replica3_id
+	if [ $(verify_rw_status "RW") == 0 ]; then
+		echo "stop/start test passed when there are 3 replicas and all are restarted"
+	else
+		echo "stop/start test failed when there are 3 replicas and all are restarted"
+		exit 1
+	fi
+
+	replica_count=$(get_replica_count $CONTROLLER_IP)
+	while [ "$replica_count" != 3 ]; do
+		i=`expr $i + 1`
+		if [ $i -eq 10 ]; then
+			echo "Closed replica failed to attach back to controller"
+			exit;
+		fi
+		echo "Wait for the closed replica to connect back to controller, replicaCount: "$replica_count
+		sleep 5;
+		replica_count=$(get_replica_count $CONTROLLER_IP)
+	done
+
+}
 
 test_replica_reregitration() {
 	i=0
-	get_replica_count $CONTROLLER_IP
-	while [ $? != 2 ]; do
+	replica_count=$(get_replica_count $CONTROLLER_IP)
+	while [ "$replica_count" != 3 ]; do
 		i=`expr $i + 1`
 		if [ $i -eq 10 ]; then
 			echo "Replicas failed to attach to controller"
 			exit;
 		fi
-		echo "Wait for both replicas to attach to controller"
+		echo "Wait for the closed replica to connect back to controller, replicaCount: "$replica_count
 		sleep 5;
-		get_replica_count $CONTROLLER_IP
+		replica_count=$(get_replica_count $CONTROLLER_IP)
 	done
 
 	curl -H "Content-Type: application/json" -X POST http://172.18.0.3:9502/v1/replicas/1?action=close
 
 	i=0
-	get_replica_count $CONTROLLER_IP
-	while [ $? != 2 ]; do
-		i=`expr $i+1`
+	replica_count=$(get_replica_count $CONTROLLER_IP)
+	while [ "$replica_count" != 3 ]; do
+		i=`expr $i + 1`
 		if [ $i -eq 10 ]; then
 			echo "Closed replica failed to attach back to controller"
 			exit;
 		fi
-		echo "Wait for the closed replica to connect back to controller"
+		echo "Wait for the closed replica to connect back to controller, replicaCount: "$replica_count
 		sleep 5;
-		get_replica_count $CONTROLLER_IP
+		replica_count=$(get_replica_count $CONTROLLER_IP)
 	done
 }
 
@@ -248,7 +330,7 @@ create_snapshot() {
 
 test_clone_feature() {
 	start_controller "$CLONED_CONTROLLER_IP" "store2"
-	start_cloned_replica "$CONTROLLER_IP"  "$CLONED_CONTROLLER_IP" "$CLONED_REPLICA_IP" "vol3"
+	start_cloned_replica "$CONTROLLER_IP"  "$CLONED_CONTROLLER_IP" "$CLONED_REPLICA_IP" "vol4"
 
 	if [ $(verify_clone_status "completed") == "0" ]; then
 		echo "clone created successfully"
@@ -300,10 +382,14 @@ controller_id=$(start_controller "$CONTROLLER_IP" "store1")
 replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 sleep 5
 test_single_replica_stop_start
-
+sleep 5
 replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
 sleep 5
 test_two_replica_stop_start
+sleep 5
+replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+sleep 5
+test_three_replica_stop_start
 sleep 5
 test_replica_reregitration
 sleep 5
