@@ -1,4 +1,5 @@
 #!/bin/bash
+set -x
 #SIGUSR1 increases the delay by 2 seconds at certain places in controller/replica
 #SIGUSR2 decreases the delay by 2 seconds at certain places in controller/replica
 
