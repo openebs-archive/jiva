@@ -102,7 +102,6 @@ func (s *Server) Open() error {
 	_, info := s.Status()
 	size := s.getSize(info.Size)
 	sectorSize := s.getSectorSize()
-
 	logrus.Infof("Opening volume %s, size %d/%d", s.dir, size, sectorSize)
 	r, err := New(size, sectorSize, s.dir, s.backing, s.ServerType)
 	if err != nil {
