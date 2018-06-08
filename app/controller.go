@@ -93,18 +93,18 @@ func startController(c *cli.Context) error {
 		}
 	}
 
-	signal_chan := make(chan os.Signal, 5)
-	signal.Notify(signal_chan, syscall.SIGUSR1, syscall.SIGUSR2)
+	signalChan := make(chan os.Signal, 5)
+	signal.Notify(signalChan, syscall.SIGUSR1, syscall.SIGUSR2)
 	go func() {
 		for {
-			s := <-signal_chan
+			s := <-signalChan
 			switch s {
 			case syscall.SIGUSR1:
-				controller.DelayInSec += 2
+				controller.Delay += 2
 			case syscall.SIGUSR2:
-				controller.DelayInSec -= 2
+				controller.Delay -= 2
 			}
-			logrus.Infof("controller DelayInSec for testing changed to: %d\n", controller.DelayInSec)
+			logrus.Infof("controller Delay for testing changed to: %d\n", controller.Delay)
 		}
 	}()
 

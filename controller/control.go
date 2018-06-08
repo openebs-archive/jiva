@@ -12,7 +12,7 @@ import (
 	"github.com/openebs/jiva/util"
 )
 
-var DelayInSec time.Duration = 0
+var Delay time.Duration
 
 type Controller struct {
 	sync.RWMutex
@@ -181,8 +181,8 @@ func (c *Controller) addReplica(address string, snapshot bool) error {
 	//other is errored out. The errored out replica needs to close before trying to
 	//connect back to controller.
 	//Below delay is introduced to hit the above condition while testing
-	if DelayInSec != 0 {
-		time.Sleep(time.Second * DelayInSec)
+	if Delay != 0 {
+		time.Sleep(time.Second * Delay)
 	}
 
 	newBackend, err := c.factory.Create(address)
@@ -691,9 +691,8 @@ func (c *Controller) WriteAt(b []byte, off int64) (int, error) {
 		}
 		if n == len(b) && errh == nil {
 			return n, nil
-		} else {
-			return n, errh
 		}
+		return n, errh
 	}
 	return n, err
 }
