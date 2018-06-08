@@ -67,7 +67,7 @@ _run_ci:
 	@echo ""
 	@echo "INFO:\t..... run ci over jiva image"
 	@echo ""
-	./ci/start_init_test.sh
+	sudo ./ci/start_init_test.sh
 
 _push_image:
 	cd $(GOPATH)/src/github.com/openebs/jiva && ./scripts/push

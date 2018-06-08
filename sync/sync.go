@@ -284,6 +284,13 @@ func (t *Task) AddReplica(replicaAddress string) error {
 
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
+	currentReplicaClient, err := replicaClient.NewReplicaClient(replicaAddress)
+	if err != nil {
+		return err
+	}
+	//Attempt replica close before trying to connect to controller.
+	//Replica can only connect to controller in closed state.
+	currentReplicaClient.Close()
 Register:
 	volume, err := t.client.GetVolume()
 	if err != nil {
