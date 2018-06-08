@@ -1,5 +1,4 @@
 #!/bin/bash
-
 #SIGUSR1 increases the delay by 2 seconds at certain places in controller/replica
 #SIGUSR2 decreases the delay by 2 seconds at certain places in controller/replica
 
@@ -126,9 +125,15 @@ test_two_replica_stop_start() {
 }
 run_ios_to_test_stop_start() {
 	login_to_volume "$CONTROLLER_IP:3260"
-	sleep 5
+	sleep 2
 	get_scsi_disk
 	if [ "$device_name"!="" ]; then
+		# Add 4 sec delay in serving IOs from replica1, start IOs, and then close replica1
+		# This will trigger the quorum condition which checks if the IOs are
+		# written to more than 50% of the replicas
+		docker kill --signal=SIGUSR1 $replica1_id
+		docker kill --signal=SIGUSR1 $replica1_id
+
 		dd if=/dev/urandom of=/dev/$device_name bs=4k count=1000
 		if [ $? -eq 0 ]; then echo "IOs were written successfully while running 3 replicas stop/start test"
 		else
@@ -142,13 +147,8 @@ run_ios_to_test_stop_start() {
 }
 
 test_three_replica_stop_start() {
-	# Add 4 sec delay in serving IOs from replica1, start IOs, and then close replica1
-	# This will trigger the quorum condition which checks if the IOs are 
-	# written to more than 50% of the replicas
-	docker kill --signal=SIGUSR1 $replica1_id
-	docker kill --signal=SIGUSR1 $replica1_id
-
 	run_ios_to_test_stop_start &
+	sleep 8
 	docker stop $replica1_id
 	if [ $(verify_rw_status "RW") == 0 ]; then
 		echo "stop/start test passed when there are 3 replicas and one is stopped"
