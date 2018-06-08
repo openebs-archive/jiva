@@ -15,7 +15,7 @@ before_install:
   - go env && pwd
   - mkdir -p $HOME/gopath/bin
 script:
-  - make build
+  - sudo make build
 notifications:
   email:
     recipients:
