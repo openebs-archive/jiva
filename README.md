@@ -15,9 +15,9 @@ Both controller and replica can be launched using this same image, *openebs/jiva
 
 The scheduling of the controller and replica containers of an OpenEBS Volume is managed by *maya* that integrates itself into Container Orchestrators like Kubernetes, Docker Swarm, Mesos or Nomad. 
 
-OpenEBS v0.4.0, provides integration into Kubernetes Clusters. Please follow [OpenEBS documentation](http://openebs.readthedocs.io/en/latest/), if you are using Kubernetes.
+OpenEBS v0.4.0 provides integration into Kubernetes Clusters. Please follow [OpenEBS documentation](http://openebs.readthedocs.io/en/latest/), if you are using Kubernetes.
 
-For other types of Container Orchestrators like Docker Swarm, Mesos, Nomad, etc., the following instructions will help you to quickly setup an OpenEBS Volume (exposed via iSCSI) with 2 replicas. To enable redundancy, the replicas have to be run on different hosts.
+For other types of Container Orchestrators like Docker Swarm, Mesos, Nomad, etc., the following instructions will help you to quickly set up an OpenEBS Volume (exposed via iSCSI) with 2 replicas. To enable redundancy, the replicas have to be run on different hosts.
 
 ## Building from source code
 
@@ -63,7 +63,7 @@ host#2$ sudo ip addr add 172.18.200.103/24 dev eth0
 .
 #### Setup the storage disks
 
-The backend containers will need to be provided with the storage (directory) where the data will be persisted. The directory should be accessible via the containers. One host1 and host2 setup creates a directory on the disk that has sufficient space for holding the volume. (Again, these operations are taken care by the Storage Orchestrator - Maya, if you are using Kubernetes).
+The backend containers will need to be provided with the storage (directory) where the data will be persisted. The directory should be accessible via the containers. One host1 and host2 setup create a directory on the disk that has sufficient space for holding the volume. (Again, these operations are taken care by the Storage Orchestrator - Maya, if you are using Kubernetes).
 
 ```
 host#1$ mkdir /mnt/store1
@@ -76,7 +76,7 @@ host#2$ mkdir /mnt/store2
 .
 ### Launch controller
 
-Create a controller on host#1, that will create *demo-vol1* with capacity of 10G.
+Create a controller on host#1, that will create *demo-vol1* with the capacity of 10G.
 
 ```
 host#1$ sudo docker run -d --net host -P --expose 3260 --expose 9501 --name ctrl openebs/jiva launch controller --frontend gotgt --frontendIP 172.18.200.101 demo-vol1 10G
@@ -105,7 +105,7 @@ Portal : 172.18.200.101:3260
 IQN : iqn.2016-09.com.openebs.jiva:demo-vol1
 
 
-*For further info, checkout http://openebs.readthedocs.io/en/latest/ or join the slack# http://slack.openebs.io*
+*For further info, check out http://openebs.readthedocs.io/en/latest/ or join the slack# http://slack.openebs.io*
 
 ## Inspiration and Credit
 
