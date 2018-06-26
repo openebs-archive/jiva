@@ -88,14 +88,13 @@ func AutoConfigureReplica(s *replica.Server, frontendIP string, address string, 
 checkagain:
 	state, err := CheckReplicaState(frontendIP, address)
 	if err == nil && (state == "" || state == "ERR") {
-		logrus.Infof("Removing Replica")
+		s.Close(false)
 	} else {
 		time.Sleep(5 * time.Second)
 		goto checkagain
 	}
-	s.Close()
 	AutoRmReplica(frontendIP, address)
-	AutoAddReplica(frontendIP, address, replicaType)
+	AutoAddReplica(s, frontendIP, address, replicaType)
 	select {
 	case <-s.MonitorChannel:
 		goto checkagain
