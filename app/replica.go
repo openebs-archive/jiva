@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -169,21 +168,6 @@ func startReplica(c *cli.Context) error {
 	}
 
 	resp := make(chan error)
-
-	signalChan := make(chan os.Signal, 5)
-	signal.Notify(signalChan, syscall.SIGUSR1, syscall.SIGUSR2)
-	go func() {
-		for {
-			s := <-signalChan
-			switch s {
-			case syscall.SIGUSR1:
-				replica.Delay += 2
-			case syscall.SIGUSR2:
-				replica.Delay -= 2
-			}
-			logrus.Infof("replica Delay for testing changed to: %d\n", replica.Delay)
-		}
-	}()
 
 	go func() {
 		server := rest.NewServer(s)

@@ -1,8 +1,5 @@
 #!/bin/bash
 set -x
-#SIGUSR1 increases the delay by 2 seconds at certain places in controller/replica
-#SIGUSR2 decreases the delay by 2 seconds at certain places in controller/replica
-
 CONTROLLER_IP="172.18.0.2"
 REPLICA_IP1="172.18.0.3"
 REPLICA_IP2="172.18.0.4"
@@ -132,8 +129,6 @@ run_ios_to_test_stop_start() {
 		# Add 4 sec delay in serving IOs from replica1, start IOs, and then close replica1
 		# This will trigger the quorum condition which checks if the IOs are
 		# written to more than 50% of the replicas
-		docker kill --signal=SIGUSR1 $replica1_id
-		docker kill --signal=SIGUSR1 $replica1_id
 
 		dd if=/dev/urandom of=/dev/$device_name bs=4k count=1000
 		if [ $? -eq 0 ]; then echo "IOs were written successfully while running 3 replicas stop/start test"
@@ -180,13 +175,6 @@ test_three_replica_stop_start() {
 		echo "stop/start test failed when there are 3 replicas and one is restarted"
 		exit 1
 	fi
-	# Sending SIGUSR1 to controller twice adds delay of 4 seconds in the controller code at some places
-	# It has been introduced just before starting 2nd and 3rd replica.
-	# Path being tested here is the race condition which should be hit as both the replicas 
-	# are added at the same time at the controller. So that both the replicas are opened but 
-	# only one is attached successfully and the other is left in open state.
-	docker kill --signal=SIGUSR1 $controller_id
-	docker kill --signal=SIGUSR1 $controller_id
 
 	docker start $replica2_id
 	if [ $(verify_rw_status "RW") == 0 ]; then
