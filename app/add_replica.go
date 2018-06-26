@@ -6,6 +6,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
+	"github.com/openebs/jiva/replica"
 	"github.com/openebs/jiva/sync"
 )
 
@@ -31,7 +32,7 @@ func addReplica(c *cli.Context) error {
 	task := sync.NewTask(url)
 	return task.AddReplica(replica)
 }
-func AutoAddReplica(frontendIP string, replica string, replicaType string) error {
+func AutoAddReplica(s *replica.Server, frontendIP string, replica string, replicaType string) error {
 	var err error
 	url := "http://" + frontendIP + ":9501"
 	task := sync.NewTask(url)
@@ -43,6 +44,7 @@ func AutoAddReplica(frontendIP string, replica string, replicaType string) error
 		}
 		if err != nil {
 			time.Sleep(2 * time.Second)
+			s.Close(false)
 			continue
 		}
 		return err

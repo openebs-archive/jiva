@@ -226,7 +226,7 @@ func (s *Server) UpdateCloneInfo(rw http.ResponseWriter, req *http.Request) erro
 }
 
 func (s *Server) CloseReplica(rw http.ResponseWriter, req *http.Request) error {
-	return s.doOp(req, s.s.Close())
+	return s.doOp(req, s.s.Close(true))
 }
 
 func (s *Server) DeleteReplica(rw http.ResponseWriter, req *http.Request) error {
