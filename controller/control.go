@@ -150,6 +150,7 @@ func (c *Controller) addQuorumReplica(address string, snapshot bool) error {
 	}
 
 	if (len(c.replicas)+len(c.quorumReplicas) > (c.replicaCount+c.quorumReplicaCount)/2) && (c.ReadOnly == true) {
+		logrus.Infof("Marking volume as R/W")
 		c.ReadOnly = false
 	}
 
@@ -181,6 +182,7 @@ func (c *Controller) addReplica(address string, snapshot bool) error {
 
 	err = c.addReplicaNoLock(newBackend, address, snapshot)
 	if (len(c.replicas)+len(c.quorumReplicas) > (c.replicaCount+c.quorumReplicaCount)/2) && (c.ReadOnly == true) {
+		logrus.Infof("Marking volume as R/W")
 		c.ReadOnly = false
 	}
 	return err
@@ -193,6 +195,8 @@ func (c *Controller) signalToAdd() {
 func (c *Controller) registerReplica(register types.RegReplica) error {
 	c.Lock()
 	defer c.Unlock()
+	logrus.Infof("Register Replica, Address: %v Uptime: %v State: %v Type: %v RevisionCount: %v PeerCount: %v",
+		register.Address, register.UpTime, register.RepState, register.RepType, register.RevCount, register.PeerDetail.ReplicaCount)
 
 	_, ok := c.RegisteredReplicas[register.Address]
 	if !ok {
@@ -224,8 +228,8 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 			return nil
 		}
 	}
-	fmt.Println("STATE =", register.RepState)
 	if register.RepState == "rebuilding" {
+		logrus.Errorf("Cannot add replica in rebuilding state")
 		return nil
 	}
 
@@ -465,6 +469,7 @@ func (c *Controller) RemoveReplica(address string) error {
 	}
 
 	if len(c.replicas)+len(c.quorumReplicas) <= (c.replicaCount+c.quorumReplicaCount)/2 {
+		logrus.Infof("Marking volume as R/O")
 		c.ReadOnly = true
 	}
 	return nil
@@ -646,6 +651,7 @@ func (c *Controller) Start(addresses ...string) error {
 		}
 	}
 	if (len(c.replicas)+len(c.quorumReplicas) > (c.replicaCount+c.quorumReplicaCount)/2) && (c.ReadOnly == true) {
+		logrus.Infof("Marking volume as R/W")
 		c.ReadOnly = false
 	}
 

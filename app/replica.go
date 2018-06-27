@@ -166,7 +166,10 @@ func startReplica(c *cli.Context) error {
 		return err
 	}
 
-	resp := make(chan error)
+	var resp error
+	controlResp := make(chan error)
+	syncResp := make(chan error)
+	rpcResp := make(chan error)
 
 	go func() {
 		server := rest.NewServer(s)
@@ -176,13 +179,13 @@ func startReplica(c *cli.Context) error {
 			"/v1/replicas/1": struct{}{},
 		}, os.Stdout, router)
 		logrus.Infof("Listening on control %s", controlAddress)
-		resp <- http.ListenAndServe(controlAddress, router)
+		controlResp <- http.ListenAndServe(controlAddress, router)
 	}()
 
 	go func() {
 		rpcServer := rpc.New(dataAddress, s)
 		logrus.Infof("Listening on data %s", dataAddress)
-		resp <- rpcServer.ListenAndServe()
+		rpcResp <- rpcServer.ListenAndServe()
 	}()
 
 	if c.Bool("sync-agent") {
@@ -204,7 +207,7 @@ func startReplica(c *cli.Context) error {
 			cmd.Dir = dir
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
-			resp <- cmd.Run()
+			syncResp <- cmd.Run()
 		}()
 	}
 	if frontendIP != "" {
@@ -231,6 +234,14 @@ func startReplica(c *cli.Context) error {
 	} else {
 		s.Replica().SetCloneStatus("NA")
 	}
+	select {
+	case resp = <-controlResp:
+		logrus.Infof("Rest API exited: %v", resp)
+	case resp = <-rpcResp:
+		logrus.Infof("RPC listen exited: %v", resp)
+	case resp = <-syncResp:
+		logrus.Infof("Sync process exited: %v", resp)
+	}
+	return resp
 
-	return <-resp
 }
