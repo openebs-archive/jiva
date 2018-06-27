@@ -652,6 +652,9 @@ func (c *Controller) Start(addresses ...string) error {
 	return nil
 }
 
+//Delaying error response by 1 second when volume is in read only state
+//This will avoid the iscsi disk at client side to go in read only mode even when IOs are not being served.
+//Above approach can hold the the app only for small amount of time based on the app.
 func (c *Controller) WriteAt(b []byte, off int64) (int, error) {
 	c.RLock()
 	if c.ReadOnly == true {
