@@ -657,6 +657,7 @@ func (c *Controller) WriteAt(b []byte, off int64) (int, error) {
 	if c.ReadOnly == true {
 		err := fmt.Errorf("Mode: ReadOnly")
 		c.RUnlock()
+		time.Sleep(1 * time.Second)
 		return 0, err
 	}
 	if off < 0 || off+int64(len(b)) > c.size {
