@@ -36,54 +36,59 @@ func (s *Server) GetMonitorChannel() chan struct{} {
 }
 
 func (s *Server) Handle() error {
-	go s.write()
+	var (
+		msg *Message
+		err error
+	)
 	defer func() {
-		s.done <- struct{}{}
+		monitorChan <- struct{}{}
 	}()
-	err := s.read()
-	monitorChan <- struct{}{}
-	return err
-}
-
-func (s *Server) readFromWire(ret chan<- error) {
-	msg, err := s.wire.Read()
-	if err == io.EOF {
-		ret <- err
-		return
-	} else if err != nil {
-		logrus.Errorf("Failed to read: %v", err)
-		ret <- err
-		return
-	}
-	switch msg.Type {
-	case TypeRead:
-		go s.handleRead(msg)
-	case TypeWrite:
-		go s.handleWrite(msg)
-	case TypePing:
-		go s.handlePing(msg)
-		/*
-			case TypeUpdate:
-				go s.handleUpdate(msg)
-		*/
-	}
-	ret <- nil
-}
-
-func (s *Server) read() error {
 	ret := make(chan error)
-	for {
-		go s.readFromWire(ret)
+	go s.readWrite(ret)
 
+	for {
 		select {
-		case err := <-ret:
+		case <-s.done:
+			msg = &Message{
+				Type: TypeClose,
+			}
+			//Best effort to notify client to close connection
+			s.write(msg)
+			return nil
+		case err = <-ret:
 			if err != nil {
 				return err
 			}
-			continue
-		case <-s.done:
-			logrus.Debugf("RPC server stopped")
-			return nil
+		}
+	}
+}
+
+func (s *Server) readWrite(ret chan<- error) {
+	for {
+		msg, err := s.wire.Read()
+		if err == io.EOF {
+			ret <- err
+			break
+		} else if err != nil {
+			logrus.Errorf("Failed to read: %v", err)
+			ret <- err
+			break
+		}
+		switch msg.Type {
+		case TypeRead:
+			s.handleRead(msg)
+		case TypeWrite:
+			s.handleWrite(msg)
+		case TypePing:
+			s.handlePing(msg)
+			/*
+				case TypeUpdate:
+					go s.handleUpdate(msg)
+			*/
+		}
+		if err := s.write(msg); err != nil {
+			ret <- err
+			break
 		}
 	}
 }
@@ -94,17 +99,17 @@ func (s *Server) Stop() {
 
 func (s *Server) handleRead(msg *Message) {
 	c, err := s.data.ReadAt(msg.Data, msg.Offset)
-	s.pushResponse(c, msg, err)
+	s.createResponse(c, msg, err)
 }
 
 func (s *Server) handleWrite(msg *Message) {
 	c, err := s.data.WriteAt(msg.Data, msg.Offset)
-	s.pushResponse(c, msg, err)
+	s.createResponse(c, msg, err)
 }
 
 func (s *Server) handlePing(msg *Message) {
 	err := s.data.PingResponse()
-	s.pushResponse(0, msg, err)
+	s.createResponse(0, msg, err)
 }
 
 /*
@@ -114,7 +119,7 @@ func (s *Server) handleUpdate(msg *Message) {
 }
 */
 
-func (s *Server) pushResponse(count int, msg *Message, err error) {
+func (s *Server) createResponse(count int, msg *Message, err error) {
 	msg.MagicVersion = MagicVersion
 	msg.Type = TypeResponse
 	if err == io.EOF {
@@ -124,23 +129,12 @@ func (s *Server) pushResponse(count int, msg *Message, err error) {
 		msg.Type = TypeError
 		msg.Data = []byte(err.Error())
 	}
-	s.responses <- msg
 }
 
-func (s *Server) write() {
-	for {
-		select {
-		case msg := <-s.responses:
-			if err := s.wire.Write(msg); err != nil {
-				logrus.Errorf("Failed to write: %v", err)
-			}
-		case <-s.done:
-			msg := &Message{
-				Type: TypeClose,
-			}
-			//Best effort to notify client to close connection
-			s.wire.Write(msg)
-			break
-		}
+func (s *Server) write(msg *Message) error {
+	if err := s.wire.Write(msg); err != nil {
+		logrus.Errorf("Failed to write: %v", err)
+		return err
 	}
+	return nil
 }
