@@ -147,6 +147,9 @@ func (t *goTgt) startScsiTarget(cfg *config.Config) error {
 }
 
 func (t *goTgt) stopScsiTarget() error {
+	if t.targetDriver == nil {
+		return nil
+	}
 	logrus.Infof("stopping target %v ...", t.tgtName)
 	t.targetDriver.Stop()
 	logrus.Infof("target %v stopped", t.tgtName)
