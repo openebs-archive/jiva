@@ -9,10 +9,11 @@ import (
 )
 
 type Server struct {
-	wire      *Wire
-	responses chan *Message
-	done      chan struct{}
-	data      types.DataProcessor
+	wire        *Wire
+	responses   chan *Message
+	done        chan struct{}
+	data        types.DataProcessor
+	monitorChan chan struct{}
 }
 
 func NewServer(conn net.Conn, data types.DataProcessor) *Server {
@@ -24,15 +25,8 @@ func NewServer(conn net.Conn, data types.DataProcessor) *Server {
 	}
 }
 
-var monitorChan chan struct{}
-
-func (s *Server) CreateMonitorChannel() chan struct{} {
-	monitorChan = make(chan struct{}, 5)
-	return monitorChan
-}
-
-func (s *Server) GetMonitorChannel() chan struct{} {
-	return monitorChan
+func (s *Server) SetMonitorChannel(monitorChan chan struct{}) {
+	s.monitorChan = monitorChan
 }
 
 func (s *Server) Handle() error {
@@ -41,7 +35,7 @@ func (s *Server) Handle() error {
 		err error
 	)
 	defer func() {
-		monitorChan <- struct{}{}
+		s.monitorChan <- struct{}{}
 	}()
 	ret := make(chan error)
 	go s.readWrite(ret)

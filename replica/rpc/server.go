@@ -55,7 +55,7 @@ func (s *Server) ListenAndServe() error {
 
 		go func(conn net.Conn) {
 			server := rpc.NewServer(conn, s.s)
-			s.s.MonitorChannel = server.CreateMonitorChannel()
+			server.SetMonitorChannel(s.s.MonitorChannel)
 			server.Handle()
 		}(conn)
 	}

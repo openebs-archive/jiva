@@ -32,7 +32,10 @@ type Server struct {
 	dir               string
 	defaultSectorSize int64
 	backing           *BackingFile
-	MonitorChannel    chan struct{}
+	//This channel is used to montitor the IO connection
+	//between controller and replica. If the connection is broken,
+	//the replica attempts to connect back to controller
+	MonitorChannel chan struct{}
 }
 
 func NewServer(dir string, backing *BackingFile, sectorSize int64, serverType string) *Server {
@@ -44,6 +47,7 @@ func NewServer(dir string, backing *BackingFile, sectorSize int64, serverType st
 		backing:           backing,
 		defaultSectorSize: sectorSize,
 		ServerType:        serverType,
+		MonitorChannel:    make(chan struct{}),
 	}
 }
 
