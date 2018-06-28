@@ -236,12 +236,11 @@ func startReplica(c *cli.Context) error {
 	}
 	select {
 	case resp = <-controlResp:
-		logrus.Infof("Rest API exited: %v", resp)
+		logrus.Fatalf("Rest API exited: %v", resp)
 	case resp = <-rpcResp:
-		logrus.Infof("RPC listen exited: %v", resp)
+		logrus.Fatalf("RPC listen exited: %v", resp)
 	case resp = <-syncResp:
-		logrus.Infof("Sync process exited: %v", resp)
+		logrus.Fatalf("Sync process exited: %v", resp)
 	}
 	return resp
-
 }
