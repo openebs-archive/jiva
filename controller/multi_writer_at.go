@@ -43,7 +43,7 @@ func (m *MultiWriterError) Error() string {
 }
 
 func (m *MultiWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
-	quorumErrs := make([]error, len(m.writers))
+	quorumErrs := make([]error, len(m.updaters))
 	replicaErrs := make([]error, len(m.writers))
 	replicaErrCount := 0
 	quorumErrCount := 0
