@@ -34,6 +34,7 @@ verify_rw_status() {
 		i=`expr $i + 1`
 		if [ "$i" == 10 ]; then
 			echo "1"
+			return
 		fi
 	done
 	echo "0"
