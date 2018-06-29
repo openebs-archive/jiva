@@ -3,6 +3,7 @@ package rest
 import (
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -33,6 +34,7 @@ var (
 		},
 		[]string{"code", "method"},
 	)
+	prometheusLock sync.Mutex
 )
 
 // init registers Prometheus metrics.It's good to register these varibles here
@@ -75,14 +77,14 @@ func (s *Server) GetReplica(rw http.ResponseWriter, req *http.Request) error {
 
 func (s *Server) RegisterReplica(rw http.ResponseWriter, req *http.Request) error {
 	var (
-		regReplica    RegReplica
-		localRevCount int64
-		code          int
+		regReplica      RegReplica
+		localRevCount   int64
+		code            int
+		RequestDuration *prometheus.HistogramVec
+		RequestCounter  *prometheus.CounterVec
 	)
 	start := time.Now()
 	apiContext := api.GetApiContext(req)
-	s.RequestDuration = OpenEBSJivaRegestrationRequestDuration
-	s.RequestCounter = OpenEBSJivaRegestrationRequestCounter
 
 	if err := apiContext.Read(&regReplica); err != nil {
 		return err
@@ -100,15 +102,17 @@ func (s *Server) RegisterReplica(rw http.ResponseWriter, req *http.Request) erro
 	code = http.StatusOK
 	rw.WriteHeader(code)
 	defer func() {
+		prometheusLock.Lock()
 		// This will Display the metrics something similar to
 		// the examples given below
 		// exp: openebs_jiva_registration_request_duration_seconds{code="200", method="POST"}
-		s.RequestDuration.WithLabelValues(strconv.Itoa(code), req.Method).Observe(time.Since(start).Seconds())
+		RequestDuration.WithLabelValues(strconv.Itoa(code), req.Method).Observe(time.Since(start).Seconds())
 
 		// This will Display the metrics something similar to
 		// the examples given below
 		// exp: openebs_jiva_registration_requests_total{code="200", method="POST"}
-		s.RequestCounter.WithLabelValues(strconv.Itoa(code), req.Method).Inc()
+		RequestCounter.WithLabelValues(strconv.Itoa(code), req.Method).Inc()
+		prometheusLock.Unlock()
 	}()
 	return s.c.RegisterReplica(local)
 

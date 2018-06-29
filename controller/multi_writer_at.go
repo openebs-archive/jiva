@@ -51,11 +51,14 @@ func (m *MultiWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
 	replicaErrored := false
 	wg := sync.WaitGroup{}
 	var errors MultiWriterError
+	var multiWriterMtx sync.Mutex
 
 	for i, w := range m.writers {
 		wg.Add(1)
 		go func(index int, w io.WriterAt) {
 			_, err := w.WriteAt(p, off)
+			multiWriterMtx.Lock()
+			defer multiWriterMtx.Unlock()
 			if err != nil {
 				replicaErrored = true
 				replicaErrs[index] = err
@@ -67,6 +70,8 @@ func (m *MultiWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
 		wg.Add(1)
 		go func(index int, w io.WriterAt) {
 			_, err := w.WriteAt(nil, 0)
+			multiWriterMtx.Lock()
+			defer multiWriterMtx.Unlock()
 			if err != nil {
 				quorumErrored = true
 				quorumErrs[index] = err
