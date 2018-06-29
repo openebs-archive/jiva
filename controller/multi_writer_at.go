@@ -57,11 +57,11 @@ func (m *MultiWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
 		wg.Add(1)
 		go func(index int, w io.WriterAt) {
 			_, err := w.WriteAt(p, off)
-			multiWriterMtx.Lock()
-			defer multiWriterMtx.Unlock()
 			if err != nil {
+				multiWriterMtx.Lock()
 				replicaErrored = true
 				replicaErrs[index] = err
+				multiWriterMtx.Unlock()
 			}
 			wg.Done()
 		}(i, w)
@@ -70,11 +70,11 @@ func (m *MultiWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
 		wg.Add(1)
 		go func(index int, w io.WriterAt) {
 			_, err := w.WriteAt(nil, 0)
-			multiWriterMtx.Lock()
-			defer multiWriterMtx.Unlock()
 			if err != nil {
+				multiWriterMtx.Lock()
 				quorumErrored = true
 				quorumErrs[index] = err
+				multiWriterMtx.Unlock()
 			}
 			wg.Done()
 		}(i, w)

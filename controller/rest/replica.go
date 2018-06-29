@@ -102,6 +102,8 @@ func (s *Server) RegisterReplica(rw http.ResponseWriter, req *http.Request) erro
 	code = http.StatusOK
 	rw.WriteHeader(code)
 	defer func() {
+		RequestDuration = OpenEBSJivaRegestrationRequestDuration
+		RequestCounter = OpenEBSJivaRegestrationRequestCounter
 		prometheusLock.Lock()
 		// This will Display the metrics something similar to
 		// the examples given below
