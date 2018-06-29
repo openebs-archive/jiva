@@ -29,6 +29,7 @@ type Message struct {
 	Type         uint32
 	Offset       int64
 	Data         []byte
+	Size         uint32
 	transportErr error
 
 	ID journal.OpID //Seq and ID can apparently be collapsed into one (ID)
