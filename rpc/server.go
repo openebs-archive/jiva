@@ -123,7 +123,9 @@ func (s *Server) createResponse(count int, msg *Message, err error) {
 	msg.Type = TypeResponse
 	if err == io.EOF {
 		msg.Type = TypeEOF
-		msg.Data = msg.Data[:count]
+		if msg.Data != nil {
+			msg.Data = msg.Data[:count]
+		}
 		msg.Size = uint32(len(msg.Data))
 	} else if err != nil {
 		msg.Type = TypeError
