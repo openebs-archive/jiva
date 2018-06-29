@@ -14,8 +14,8 @@ var (
 	//ErrRWTimeout r/w operation timeout
 	ErrRWTimeout   = errors.New("r/w timeout")
 	ErrPingTimeout = errors.New("Ping timeout")
-
-	opRetries       = 4
+	//Retries are not required as the reader on msg->complete has already exited
+	opRetries       = 0
 	opReadTimeout   = 15 * time.Second // client read
 	opWriteTimeout  = 15 * time.Second // client write
 	opPingTimeout   = 20 * time.Second
@@ -142,22 +142,22 @@ func (c *Client) operation(op uint32, buf []byte, offset int64) (int, error) {
 		case <-timeout:
 			switch msg.Type {
 			case TypeRead:
-				logrus.Errorln("Read timeout on replica", c.TargetID(), "seq=", msg.Seq, "size=", len(msg.Data)/1024, "(kB)")
+				logrus.Errorln("Read timeout on replica ", c.TargetID(), c.peerAddr, "seq=", msg.Seq)
 			case TypeWrite:
-				logrus.Errorln("Write timeout on replica", c.TargetID(), "seq=", msg.Seq, "size=", len(msg.Data)/1024, "(kB)")
+				logrus.Errorln("Write timeout on replica", c.TargetID(), c.peerAddr, "seq=", msg.Seq)
 			case TypePing:
-				logrus.Errorln("Ping timeout on replica", c.TargetID(), "seq=", msg.Seq)
+				logrus.Errorln("Ping timeout on replica", c.TargetID(), c.peerAddr, "seq=", msg.Seq)
 			}
 			if retry < opRetries {
 				retry++
-				logrus.Errorln("Retry ", retry, "on replica", c.TargetID(), "seq=", msg.Seq, "size=", len(msg.Data)/1024, "(kB)")
+				logrus.Errorln("Retry ", retry, "on replica", c.TargetID(), c.peerAddr, "seq=", msg.Seq)
 			} else {
 				err := ErrRWTimeout
 				if msg.Type == TypePing {
 					err = ErrPingTimeout
 				}
 				c.SetError(err)
-				journal.PrintLimited(1000) //flush automatically upon timeout
+				//journal.PrintLimited(1000) //flush automatically upon timeout
 				return 0, err
 			}
 		}
@@ -248,29 +248,31 @@ func (c *Client) handleResponse(resp *Message) {
 		}
 		req.Type = resp.Type
 		req.Complete <- struct{}{}
+	} else {
+		logrus.Errorf("IOSeq: %v not found, message count: %v, RemoteAddr:%v", resp.Seq, len(c.messages), c.peerAddr)
 	}
 }
 
 func (c *Client) write() {
 	for msg := range c.send {
 		if err := c.wire.Write(msg); err != nil {
-			c.responses <- &Message{
-				transportErr: err,
-			}
+			logrus.Errorf("Error Writing to wire: %v, RemoteAddr: %v", err, c.peerAddr)
+			c.SetError(err)
+			break
 		}
 	}
+	logrus.Infof("Exiting rpc writer, RemoteAddr:%v", c.peerAddr)
 }
 
 func (c *Client) read() {
 	for {
 		msg, err := c.wire.Read()
 		if err != nil {
-			logrus.Errorf("Error reading from wire: %v", err)
-			c.responses <- &Message{
-				transportErr: err,
-			}
+			logrus.Errorf("Error reading from wire: %v, RemoteAddr: %v", err, c.peerAddr)
+			c.SetError(err)
 			break
 		}
 		c.responses <- msg
 	}
+	logrus.Infof("Exiting rpc reader, RemoteAddr:%v", c.peerAddr)
 }
