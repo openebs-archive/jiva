@@ -35,6 +35,9 @@ func (w *Wire) Write(msg *Message) error {
 	if err := binary.Write(w.writer, binary.LittleEndian, msg.Offset); err != nil {
 		return err
 	}
+	if err := binary.Write(w.writer, binary.LittleEndian, msg.Size); err != nil {
+		return err
+	}
 	if err := binary.Write(w.writer, binary.LittleEndian, uint32(len(msg.Data))); err != nil {
 		return err
 	}
@@ -67,6 +70,9 @@ func (w *Wire) Read() (*Message, error) {
 	}
 
 	if err := binary.Read(w.reader, binary.LittleEndian, &msg.Offset); err != nil {
+		return nil, err
+	}
+	if err := binary.Read(w.reader, binary.LittleEndian, &msg.Size); err != nil {
 		return nil, err
 	}
 
