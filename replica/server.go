@@ -310,18 +310,20 @@ func (s *Server) Delete() error {
 func (s *Server) Close(signalMonitor bool) error {
 	logrus.Infof("Closing replica")
 	s.Lock()
-	defer s.Unlock()
 
 	if s.r == nil {
 		logrus.Infof("Close replica failed, s.r not set")
+		s.Unlock()
 		return nil
 	}
 
 	if err := s.r.Close(); err != nil {
+		s.Unlock()
 		return err
 	}
 
 	s.r = nil
+	s.Unlock()
 	if signalMonitor {
 		s.MonitorChannel <- struct{}{}
 	}
