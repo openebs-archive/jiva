@@ -7,9 +7,28 @@ REPLICA_IP3="172.18.0.5"
 CLONED_CONTROLLER_IP="172.18.0.6"
 CLONED_REPLICA_IP="172.18.0.7"
 
+collect_logs_and_exit() {
+	echo "--------------------------ORIGINAL CONTROLLER LOGS ------------------------"
+	docker logs $orig_controller_id
+	echo "--------------------------REPLICA 1 LOGS ----------------------------------"
+	docker logs $replica1_id
+	echo "--------------------------REPLICA 2 LOGS ----------------------------------"
+	docker logs $replica2_id
+	echo "--------------------------REPLICA 3  LOGS ---------------------------------"
+	docker logs $replica3_id
+	echo "--------------------------CLONED CONTROLLER LOGS --------------------------"
+	docker logs $cloned_controller_id
+	echo "--------------------------CLONED REPLICA LOGS -----------------------------"
+	docker logs $cloned_replica_id
+	exit 1
+}
+
 prepare_test_env() {
 	rm -rf /tmp/vol*
 	rm -rf /mnt/logs
+	docker stop $(docker ps -aq)
+	docker rm $(docker ps -aq)
+
 	mkdir -p /tmp/vol1 /tmp/vol2 /tmp/vol3 /tmp/vol4
 	mkdir -p /mnt/store /mnt/store2
 
@@ -75,7 +94,7 @@ test_single_replica_stop_start() {
 		echo "Single replica stop/start test passed"
 	else
 		echo "Single replica stop/start test failed"
-		exit 1
+		collect_logs_and_exit
 	fi
 }
 
@@ -85,7 +104,7 @@ test_two_replica_stop_start() {
 		echo "stop/start test passed when there are 2 replicas and one is stopped"
 	else
 		echo "stop/start test failed when there are 2 replicas and one is stopped"
-		exit 1
+		collect_logs_and_exit
 	fi
 
 	docker start $replica1_id
@@ -93,7 +112,7 @@ test_two_replica_stop_start() {
 		echo "stop/start test passed when there are 2 replicas and one is restarted"
 	else
 		echo "stop/start test failed when there are 2 replicas and one is restarted"
-		exit 1
+		collect_logs_and_exit
 	fi
 
 	docker stop $replica1_id
@@ -102,7 +121,7 @@ test_two_replica_stop_start() {
 		echo "stop/start test passed when there are 2 replicas and both are stopped"
 	else
 		echo "stop/start test failed when there are 2 replicas and both are stopped"
-		exit 1
+		collect_logs_and_exit
 	fi
 
 	docker start $replica1_id
@@ -110,7 +129,7 @@ test_two_replica_stop_start() {
 		echo "stop/start test passed when there are 2 replicas and one is restarted"
 	else
 		echo "stop/start test failed when there are 2 replicas and one is restarted"
-		exit 1
+		collect_logs_and_exit
 	fi
 
 	docker start $replica2_id
@@ -118,7 +137,7 @@ test_two_replica_stop_start() {
 		echo "Dual replica stop/start test passed"
 	else
 		echo "Dual replica stop/start test failed"
-		exit 1
+		collect_logs_and_exit
 	fi
 
 }
@@ -134,12 +153,12 @@ run_ios_to_test_stop_start() {
 		dd if=/dev/urandom of=/dev/$device_name bs=4k count=1000
 		if [ $? -eq 0 ]; then echo "IOs were written successfully while running 3 replicas stop/start test"
 		else
-			echo "IOs errored out while running 3 replicas stop/start test"; exit 1
+			echo "IOs errored out while running 3 replicas stop/start test"; collect_logs_and_exit
 		fi
 		logout_of_volume
 		sleep 5
 	else
-		echo "Unable to detect iSCSI device, login failed"; exit 1
+		echo "Unable to detect iSCSI device, login failed"; collect_logs_and_exit
 	fi
 }
 
@@ -151,14 +170,14 @@ test_three_replica_stop_start() {
 		echo "stop/start test passed when there are 3 replicas and one is stopped"
 	else
 		echo "stop/start test failed when there are 3 replicas and one is stopped"
-		exit 1
+		collect_logs_and_exit
 	fi
 	docker stop $replica2_id
 	if [ $(verify_rw_status "RO") == 0 ]; then
 		echo "stop/start test passed when there are 3 replicas and two are stopped"
 	else
 		echo "stop/start test failed when there are 3 replicas and two are stopped"
-		exit 1
+		collect_logs_and_exit
 	fi
 
 	docker stop $replica3_id
@@ -166,7 +185,7 @@ test_three_replica_stop_start() {
 		echo "stop/start test passed when there are 3 replicas and all are stopped"
 	else
 		echo "stop/start test failed when there are 3 replicas and all are stopped"
-		exit 1
+		collect_logs_and_exit
 	fi
 
 	docker start $replica1_id
@@ -174,7 +193,7 @@ test_three_replica_stop_start() {
 		echo "stop/start test passed when there are 3 replicas and one is restarted"
 	else
 		echo "stop/start test failed when there are 3 replicas and one is restarted"
-		exit 1
+		collect_logs_and_exit
 	fi
 
 	docker start $replica2_id
@@ -182,7 +201,7 @@ test_three_replica_stop_start() {
 		echo "stop/start test passed when there are 3 replicas and two are restarted"
 	else
 		echo "stop/start test failed when there are 3 replicas and two are restarted"
-		exit 1
+		collect_logs_and_exit
 	fi
 
 	docker start $replica3_id
@@ -190,7 +209,7 @@ test_three_replica_stop_start() {
 		echo "stop/start test passed when there are 3 replicas and all are restarted"
 	else
 		echo "stop/start test failed when there are 3 replicas and all are restarted"
-		exit 1
+		collect_logs_and_exit
 	fi
 
 	replica_count=$(get_replica_count $CONTROLLER_IP)
@@ -248,11 +267,11 @@ run_vdbench_test_on_volume() {
 		docker run -v /mnt/store/data:/datadir1 openebs/tests-vdbench:latest
 		if [ $? -eq 0 ]; then echo "VDbench Test: PASSED"
 		else
-			echo "VDbench Test: FAILED";exit 1
+			echo "VDbench Test: FAILED";collect_logs_and_exit
 		fi
 		umount /mnt/store
 	else
-		echo "Unable to detect iSCSI device, login failed"; exit 1
+		echo "Unable to detect iSCSI device, login failed"; collect_logs_and_exit
 	fi
 	logout_of_volume
 }
@@ -266,7 +285,7 @@ run_libiscsi_test_suite() {
 	if [ $tp -ge 146 ] && [ $tf -le 29 ]; then
 		echo "iSCSI Compliance test: PASSED"
 	else
-		echo "iSCSI Compliance test: FAILED"; exit 1
+		echo "iSCSI Compliance test: FAILED"; collect_logs_and_exit
 	fi
 }
 
@@ -313,7 +332,7 @@ run_data_integrity_test() {
 		hash2=$(md5sum /mnt/store/file1 | awk '{print $1}')
 		if [ $hash1 == $hash2 ]; then echo "DI Test: PASSED"
 		else
-			echo "DI Test: FAILED"; exit 1
+			echo "DI Test: FAILED"; collect_logs_and_exit
 		fi
 
 		cd /mnt/store; sync; sleep 5; sync; sleep 5; cd ~;
@@ -323,7 +342,7 @@ run_data_integrity_test() {
 		logout_of_volume
 		sleep 5
 	else
-		echo "Unable to detect iSCSI device, login failed"; exit 1
+		echo "Unable to detect iSCSI device, login failed"; collect_logs_and_exit
 	fi
 }
 
@@ -333,14 +352,14 @@ create_snapshot() {
 }
 
 test_clone_feature() {
-	start_controller "$CLONED_CONTROLLER_IP" "store2"
+	cloned_controller_id=$(start_controller "$CLONED_CONTROLLER_IP" "store2")
 	start_cloned_replica "$CONTROLLER_IP"  "$CLONED_CONTROLLER_IP" "$CLONED_REPLICA_IP" "vol4"
 
 	if [ $(verify_clone_status "completed") == "0" ]; then
 		echo "clone created successfully"
 	else
 		echo "Clone creation failed"
-		exit 1
+		collect_logs_and_exit
 	fi
 
 	login_to_volume "$CLONED_CONTROLLER_IP:3260"
@@ -357,10 +376,10 @@ test_clone_feature() {
 		else
 			umount /mnt/store2
 			logout_of_volume
-			echo "DI Test: FAILED"; exit 1
+			echo "DI Test: FAILED"; collect_logs_and_exit
 		fi
 	else
-		echo "Unable to detect iSCSI device, login failed"; exit 1
+		echo "Unable to detect iSCSI device, login failed"; collect_logs_and_exit
 	fi
 }
 
@@ -382,7 +401,7 @@ verify_clone_status() {
 }
 
 prepare_test_env
-controller_id=$(start_controller "$CONTROLLER_IP" "store1")
+orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1")
 replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 sleep 5
 test_single_replica_stop_start
