@@ -13,8 +13,8 @@ then
   #Push the development build images to jiva-ci docker hub repository
   docker tag ${IMAGEID} openebs/jiva-ci:${VERSION}
   docker push openebs/jiva-ci:${VERSION};
-  docker tag ${IMAGEID} openebs/jiva:ci
-  docker push openebs/jiva:ci;
+  docker tag ${IMAGEID} openebs/jiva:ci-0.5.5
+  docker push openebs/jiva:ci-0.5.5;
   if [ ! -z "${TRAVIS_TAG}" ] || [ ! -z "${RELEASE_TAG}" ]; 
   then
     #Push the release tag image to jiva docker hub repository
