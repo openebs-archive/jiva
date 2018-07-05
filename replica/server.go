@@ -305,7 +305,7 @@ func (s *Server) Close() error {
 	}
 
 	s.r = nil
-	s.MonitorChannel <- struct{}{}
+	//s.MonitorChannel <- struct{}{}
 	return nil
 }
 
