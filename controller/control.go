@@ -152,6 +152,7 @@ func (c *Controller) addQuorumReplica(address string, snapshot bool) error {
 	}
 
 	if (len(c.replicas)+len(c.quorumReplicas) > (c.replicaCount+c.quorumReplicaCount)/2) && (c.ReadOnly == true) {
+		logrus.Infof("Marking volume RW")
 		c.ReadOnly = false
 	}
 
@@ -195,6 +196,7 @@ func (c *Controller) addReplica(address string, snapshot bool) error {
 
 	err = c.addReplicaNoLock(newBackend, address, snapshot)
 	if (len(c.replicas)+len(c.quorumReplicas) > (c.replicaCount+c.quorumReplicaCount)/2) && (c.ReadOnly == true) {
+		logrus.Infof("Marking volume RW")
 		c.ReadOnly = false
 	}
 	return err
@@ -479,6 +481,7 @@ func (c *Controller) RemoveReplica(address string) error {
 	}
 
 	if len(c.replicas)+len(c.quorumReplicas) <= (c.replicaCount+c.quorumReplicaCount)/2 {
+		logrus.Infof("Marking volume RO")
 		c.ReadOnly = true
 	}
 	return nil
@@ -645,6 +648,7 @@ func (c *Controller) Start(addresses ...string) error {
 		}
 	}
 	if (len(c.replicas)+len(c.quorumReplicas) > (c.replicaCount+c.quorumReplicaCount)/2) && (c.ReadOnly == true) {
+		logrus.Infof("Marking volume RW")
 		c.ReadOnly = false
 	}
 
@@ -654,6 +658,7 @@ func (c *Controller) Start(addresses ...string) error {
 func (c *Controller) WriteAt(b []byte, off int64) (int, error) {
 	c.RLock()
 	if c.ReadOnly == true {
+		logrus.Infof("Marking volume RO")
 		err := fmt.Errorf("Mode: ReadOnly")
 		c.RUnlock()
 		return 0, err
