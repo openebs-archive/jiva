@@ -150,6 +150,7 @@ func (c *Controller) addQuorumReplica(address string, snapshot bool) error {
 	}
 
 	if (len(c.replicas)+len(c.quorumReplicas) > (c.replicaCount+c.quorumReplicaCount)/2) && (c.ReadOnly == true) {
+		logrus.Infof("Mark volume as r/w")
 		c.ReadOnly = false
 	}
 
@@ -181,6 +182,7 @@ func (c *Controller) addReplica(address string, snapshot bool) error {
 
 	err = c.addReplicaNoLock(newBackend, address, snapshot)
 	if (len(c.replicas)+len(c.quorumReplicas) > (c.replicaCount+c.quorumReplicaCount)/2) && (c.ReadOnly == true) {
+		logrus.Infof("Mark volume as r/w")
 		c.ReadOnly = false
 	}
 	return err
@@ -465,6 +467,7 @@ func (c *Controller) RemoveReplica(address string) error {
 	}
 
 	if len(c.replicas)+len(c.quorumReplicas) <= (c.replicaCount+c.quorumReplicaCount)/2 {
+		logrus.Infof("Mark volume as r/o")
 		c.ReadOnly = true
 	}
 	return nil
@@ -631,6 +634,7 @@ func (c *Controller) Start(addresses ...string) error {
 		}
 	}
 	if (len(c.replicas)+len(c.quorumReplicas) > (c.replicaCount+c.quorumReplicaCount)/2) && (c.ReadOnly == true) {
+		logrus.Infof("Mark volume as r/w")
 		c.ReadOnly = false
 	}
 
