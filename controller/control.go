@@ -12,6 +12,8 @@ import (
 	"github.com/openebs/jiva/util"
 )
 
+var Delay time.Duration
+
 type Controller struct {
 	sync.RWMutex
 	Name                     string
@@ -150,6 +152,7 @@ func (c *Controller) addQuorumReplica(address string, snapshot bool) error {
 	}
 
 	if (len(c.replicas)+len(c.quorumReplicas) > (c.replicaCount+c.quorumReplicaCount)/2) && (c.ReadOnly == true) {
+		logrus.Infof("Marking volume RW")
 		c.ReadOnly = false
 	}
 
@@ -171,6 +174,18 @@ func (c *Controller) addReplica(address string, snapshot bool) error {
 	}
 	c.Unlock()
 
+	//Two replicas might try enter in WO mode since the above lock is released
+	//after veryfying that no replica is in WO mode
+	//Although there is again a check in addReplicaNoLock which doesn't actually
+	//allow the second replica to add as WO replica
+	//But the function Create opens both the replicas one is attached while the
+	//other is errored out. The errored out replica needs to close before trying to
+	//connect back to controller.
+	//Below delay is introduced to hit the above condition while testing
+	if Delay != 0 {
+		time.Sleep(time.Second * Delay)
+	}
+
 	newBackend, err := c.factory.Create(address)
 	if err != nil {
 		return err
@@ -181,6 +196,7 @@ func (c *Controller) addReplica(address string, snapshot bool) error {
 
 	err = c.addReplicaNoLock(newBackend, address, snapshot)
 	if (len(c.replicas)+len(c.quorumReplicas) > (c.replicaCount+c.quorumReplicaCount)/2) && (c.ReadOnly == true) {
+		logrus.Infof("Marking volume RW")
 		c.ReadOnly = false
 	}
 	return err
@@ -465,6 +481,7 @@ func (c *Controller) RemoveReplica(address string) error {
 	}
 
 	if len(c.replicas)+len(c.quorumReplicas) <= (c.replicaCount+c.quorumReplicaCount)/2 {
+		logrus.Infof("Marking volume RO")
 		c.ReadOnly = true
 	}
 	return nil
@@ -631,6 +648,7 @@ func (c *Controller) Start(addresses ...string) error {
 		}
 	}
 	if (len(c.replicas)+len(c.quorumReplicas) > (c.replicaCount+c.quorumReplicaCount)/2) && (c.ReadOnly == true) {
+		logrus.Infof("Marking volume RW")
 		c.ReadOnly = false
 	}
 
@@ -640,6 +658,7 @@ func (c *Controller) Start(addresses ...string) error {
 func (c *Controller) WriteAt(b []byte, off int64) (int, error) {
 	c.RLock()
 	if c.ReadOnly == true {
+		logrus.Infof("Marking volume RO")
 		err := fmt.Errorf("Mode: ReadOnly")
 		c.RUnlock()
 		return 0, err
@@ -659,6 +678,9 @@ func (c *Controller) WriteAt(b []byte, off int64) (int, error) {
 					c.RemoveReplica(address)
 				}
 			}
+		}
+		if n == len(b) && errh == nil {
+			return n, nil
 		}
 		return n, errh
 	}

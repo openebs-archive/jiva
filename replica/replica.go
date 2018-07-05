@@ -35,6 +35,7 @@ const (
 	maximumChainLength = 250
 )
 
+var Delay time.Duration
 var (
 	diskPattern = regexp.MustCompile(`volume-head-(\d)+.img`)
 )
@@ -976,6 +977,9 @@ func (r *Replica) WriteAt(buf []byte, offset int64) (int, error) {
 	if r.readOnly {
 		return 0, fmt.Errorf("Can not write on read-only replica")
 	}
+	if Delay != 0 {
+		time.Sleep(time.Second * Delay)
+	}
 
 	if r.ReplicaType != "quorum" {
 		r.RLock()
@@ -1007,6 +1011,9 @@ func (r *Replica) Update() error {
 */
 
 func (r *Replica) ReadAt(buf []byte, offset int64) (int, error) {
+	if Delay != 0 {
+		time.Sleep(time.Second * Delay)
+	}
 	r.RLock()
 	c, err := r.volume.ReadAt(buf, offset)
 	r.RUnlock()
