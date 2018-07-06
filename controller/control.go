@@ -12,6 +12,10 @@ import (
 	"github.com/openebs/jiva/util"
 )
 
+var (
+	ReplicationFactor = 3
+)
+
 type Controller struct {
 	sync.RWMutex
 	Name                     string
@@ -51,6 +55,13 @@ func NewController(name string, frontendIP string, clusterIP string, factory typ
 	}
 	c.reset()
 	return c
+}
+
+func max(x int, y int) int {
+	if x > y {
+		return x
+	}
+	return y
 }
 
 func (c *Controller) AddQuorumReplica(address string) error {
@@ -202,12 +213,19 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 		if ok {
 			return nil
 		}
+	} else {
+		logrus.Infof("Duplicate Register Request for %v, Replica Already Registered", register.Address)
 	}
 	if c.quorumReplicaCount < register.PeerDetail.QuorumReplicaCount {
 		c.quorumReplicaCount = register.PeerDetail.QuorumReplicaCount
 	}
-	if c.replicaCount < register.PeerDetail.ReplicaCount {
-		c.replicaCount = register.PeerDetail.ReplicaCount
+
+	maxreplicas := max(register.PeerDetail.ReplicaCount, ReplicationFactor)
+	if c.replicaCount < maxreplicas {
+		logrus.Infof("Initial ReplicaCount:%d, RegisteredReplicaCount:%d, len(c.replicas):%d RegisteredReplicaLen: %d",
+			c.replicaCount, register.PeerDetail.ReplicaCount,
+			len(c.replicas), len(c.RegisteredReplicas))
+		c.replicaCount = maxreplicas
 	}
 
 	if register.RepType == "quorum" {
