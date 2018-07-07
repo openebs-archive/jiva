@@ -94,7 +94,9 @@ func (c *Controller) VerifyRebuildReplica(address string) error {
 	logrus.Debugf("WO replica %v's chain verified, update mode to RW", address)
 	c.setReplicaModeNoLock(address, types.RW)
 	if len(c.replicas) > c.replicaCount {
-		c.replicaCount = len(c.replicas)
+		logrus.Infof("verifyrebuild ReplicaCount:%d, len(c.replicas):%d",
+			c.replicaCount, len(c.replicas))
+		c.replicaCount = max(ReplicationFactor, len(c.replicas))
 	}
 	if len(c.quorumReplicas) > c.quorumReplicaCount {
 		c.quorumReplicaCount = len(c.quorumReplicas)

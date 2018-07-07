@@ -246,8 +246,8 @@ run_data_integrity_test(){
 prepare_test_env
 controller_id=$(start_controller "$CONTROLLER_IP" "store1")
 replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
-sleep 5
-test_single_replica_stop_start
+#sleep 5
+#test_single_replica_stop_start
 
 replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
 sleep 5
