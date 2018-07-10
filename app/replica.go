@@ -217,21 +217,26 @@ func startReplica(c *cli.Context) error {
 		go AutoConfigureReplica(s, frontendIP, "tcp://"+address, replicaType)
 	}
 	for s.Replica() == nil {
+		logrus.Infof("Waiting for s.Replica() to be non nil")
 		time.Sleep(2 * time.Second)
 	}
 	if replicaType == "clone" && snapName != "" {
 		logrus.Infof("Starting clone process\n")
 		status := s.Replica().GetCloneStatus()
 		if status != "completed" {
+			logrus.Infof("Set clone status as inProgress")
 			s.Replica().SetCloneStatus("inProgress")
 			if err = CloneReplica(s, "tcp://"+address, cloneIP, snapName); err != nil {
+				logrus.Infof("Set clone status as error")
 				s.Replica().SetCloneStatus("error")
 				return err
 			}
 		}
+		logrus.Infof("Set clone status as Completed")
 		s.Replica().SetCloneStatus("completed")
 		logrus.Infof("Clone process completed successfully\n")
 	} else {
+		logrus.Infof("Set clone status as NA")
 		s.Replica().SetCloneStatus("NA")
 	}
 	select {
