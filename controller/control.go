@@ -458,6 +458,11 @@ func (c *Controller) RemoveReplicaNoLock(address string) error {
 				}
 			}
 			if foundregrep == 0 {
+				//We should not break if the replica is not found in registered
+				//list, since all replicas are not registered.
+				//if there is already one replica in RW mode then, the replica
+				//registration process is avoided and same is true for quorum
+				//replicas
 				logrus.Infof("RemoveReplica %v not found in registered replicas", address)
 			}
 			c.replicas = append(c.replicas[:i], c.replicas[i+1:]...)
