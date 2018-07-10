@@ -48,6 +48,7 @@ func NewController(name string, frontendIP string, clusterIP string, factory typ
 		RegisteredReplicas:       map[string]types.RegReplica{},
 		RegisteredQuorumReplicas: map[string]types.RegReplica{},
 		StartTime:                time.Now(),
+		ReadOnly:                 true,
 	}
 	c.reset()
 	return c
