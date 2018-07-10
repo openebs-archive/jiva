@@ -426,10 +426,7 @@ func (c *Controller) hasReplica(address string) bool {
 	return false
 }
 
-func (c *Controller) RemoveReplica(address string) error {
-	c.Lock()
-	defer c.Unlock()
-
+func (c *Controller) RemoveReplicaNoLock(address string) error {
 	if !c.hasReplica(address) {
 		return nil
 	}
@@ -475,50 +472,11 @@ func (c *Controller) RemoveReplica(address string) error {
 	return nil
 }
 
-func (c *Controller) RemoveReplicaNoLock(address string) error {
-	if !c.hasReplica(address) {
-		return nil
-	}
-	for i, r := range c.replicas {
-		if r.Address == address {
-			if len(c.replicas) == 1 && c.frontend.State() == types.StateUp {
-				if r.Mode == "ERR" {
-					if c.frontend != nil {
-						c.StartSignalled = false
-						c.MaxRevReplica = ""
-						c.frontend.Shutdown()
-					}
-				} else {
-					return fmt.Errorf("Cannot remove last replica if volume is up")
-				}
-			}
-			for regrep := range c.RegisteredReplicas {
-				if strings.Contains(address, regrep) {
-					delete(c.RegisteredReplicas, regrep)
-				}
-			}
-			c.replicas = append(c.replicas[:i], c.replicas[i+1:]...)
-			c.backend.RemoveBackend(r.Address)
-		}
-	}
+func (c *Controller) RemoveReplica(address string) error {
+	c.Lock()
+	defer c.Unlock()
 
-	for i, r := range c.quorumReplicas {
-		if r.Address == address {
-			for regrep := range c.RegisteredQuorumReplicas {
-				if strings.Contains(address, regrep) {
-					delete(c.RegisteredQuorumReplicas, regrep)
-				}
-			}
-			c.quorumReplicas = append(c.quorumReplicas[:i], c.quorumReplicas[i+1:]...)
-			c.backend.RemoveBackend(r.Address)
-		}
-	}
-
-	if len(c.replicas)+len(c.quorumReplicas) <= (c.replicaCount+c.quorumReplicaCount)/2 {
-		logrus.Infof("Marking volume as R/O")
-		c.ReadOnly = true
-	}
-	return nil
+	return c.RemoveReplicaNoLock(address)
 }
 
 func (c *Controller) ListReplicas() []types.Replica {
