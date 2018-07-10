@@ -147,11 +147,8 @@ func (r *replicator) WriteAt(p []byte, off int64) (int, error) {
 
 	n, err := r.writer.WriteAt(p, off)
 	if err != nil {
-		errors := map[string]error{
-			r.writerIndex[0]: err,
-		}
+		errors := map[string]error{}
 		if mErr, ok := err.(*MultiWriterError); ok {
-			errors = map[string]error{}
 			for index, err := range mErr.ReplicaErrors {
 				if err != nil {
 					errors[r.writerIndex[index]] = err

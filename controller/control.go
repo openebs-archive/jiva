@@ -426,10 +426,7 @@ func (c *Controller) hasReplica(address string) bool {
 	return false
 }
 
-func (c *Controller) RemoveReplica(address string) error {
-	c.Lock()
-	defer c.Unlock()
-
+func (c *Controller) RemoveReplicaNoLock(address string) error {
 	if !c.hasReplica(address) {
 		return nil
 	}
@@ -475,6 +472,13 @@ func (c *Controller) RemoveReplica(address string) error {
 	return nil
 }
 
+func (c *Controller) RemoveReplica(address string) error {
+	c.Lock()
+	defer c.Unlock()
+
+	return c.RemoveReplicaNoLock(address)
+}
+
 func (c *Controller) ListReplicas() []types.Replica {
 	return c.replicas
 }
@@ -489,8 +493,8 @@ func (c *Controller) SetReplicaMode(address string, mode types.Mode) error {
 		c.Lock()
 		defer c.Unlock()
 	case types.RW:
-		c.RLock()
-		defer c.RUnlock()
+		c.Lock()
+		defer c.Unlock()
 	default:
 		return fmt.Errorf("Can not set to mode %s", mode)
 	}
@@ -665,26 +669,25 @@ func (c *Controller) Start(addresses ...string) error {
 // Above approach can hold the the app only for small amount of time based
 // on the app.
 func (c *Controller) WriteAt(b []byte, off int64) (int, error) {
-	c.RLock()
+	c.Lock()
 	if c.ReadOnly == true {
 		err := fmt.Errorf("Mode: ReadOnly")
-		c.RUnlock()
+		c.Unlock()
 		time.Sleep(1 * time.Second)
 		return 0, err
 	}
+	defer c.Unlock()
 	if off < 0 || off+int64(len(b)) > c.size {
 		err := fmt.Errorf("EOF: Write of %v bytes at offset %v is beyond volume size %v", len(b), off, c.size)
-		c.RUnlock()
 		return 0, err
 	}
 	n, err := c.backend.WriteAt(b, off)
-	c.RUnlock()
 	if err != nil {
-		errh := c.handleError(err)
+		errh := c.handleErrorNoLock(err)
 		if bErr, ok := err.(*BackendError); ok {
 			if len(bErr.Errors) > 0 {
 				for address := range bErr.Errors {
-					c.RemoveReplica(address)
+					c.RemoveReplicaNoLock(address)
 				}
 			}
 		}
@@ -697,20 +700,19 @@ func (c *Controller) WriteAt(b []byte, off int64) (int, error) {
 }
 
 func (c *Controller) ReadAt(b []byte, off int64) (int, error) {
-	c.RLock()
+	c.Lock()
+	defer c.Unlock()
 	if off < 0 || off+int64(len(b)) > c.size {
 		err := fmt.Errorf("EOF: Read of %v bytes at offset %v is beyond volume size %v", len(b), off, c.size)
-		c.RUnlock()
 		return 0, err
 	}
 	n, err := c.backend.ReadAt(b, off)
-	c.RUnlock()
 	if err != nil {
-		errh := c.handleError(err)
+		errh := c.handleErrorNoLock(err)
 		if bErr, ok := err.(*BackendError); ok {
 			if len(bErr.Errors) > 0 {
 				for address := range bErr.Errors {
-					c.RemoveReplica(address)
+					c.RemoveReplicaNoLock(address)
 				}
 			}
 		}
@@ -825,10 +827,12 @@ func (c *Controller) monitoring(address string, backend types.Backend) {
 
 	logrus.Infof("Start monitoring %v", address)
 	err := <-monitorChan
+	c.Lock()
+	defer c.Unlock()
 	if err != nil {
 		logrus.Errorf("Backend %v monitoring failed, mark as ERR: %v", address, err)
-		c.SetReplicaMode(address, types.ERR)
+		c.setReplicaModeNoLock(address, types.ERR)
 	}
 	logrus.Infof("Monitoring stopped %v", address)
-	c.RemoveReplica(address)
+	c.RemoveReplicaNoLock(address)
 }

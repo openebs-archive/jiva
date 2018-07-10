@@ -6,12 +6,17 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
+
+	"github.com/Sirupsen/logrus"
 )
 
 type Wire struct {
-	conn   net.Conn
-	writer *bufio.Writer
-	reader io.Reader
+	WriteLock sync.Mutex
+	ReadLock  sync.Mutex
+	conn      net.Conn
+	writer    *bufio.Writer
+	reader    io.Reader
 }
 
 func NewWire(conn net.Conn) *Wire {
@@ -23,26 +28,35 @@ func NewWire(conn net.Conn) *Wire {
 }
 
 func (w *Wire) Write(msg *Message) error {
+	w.WriteLock.Lock()
+	defer w.WriteLock.Unlock()
 	if err := binary.Write(w.writer, binary.LittleEndian, msg.MagicVersion); err != nil {
+		logrus.Errorf("Write MAgicVersion failed, Error: %v", err)
 		return err
 	}
 	if err := binary.Write(w.writer, binary.LittleEndian, msg.Seq); err != nil {
+		logrus.Errorf("Write msg.Seq failed, Error: %v", err)
 		return err
 	}
 	if err := binary.Write(w.writer, binary.LittleEndian, msg.Type); err != nil {
+		logrus.Errorf("Write msg.Type failed, Error: %v", err)
 		return err
 	}
 	if err := binary.Write(w.writer, binary.LittleEndian, msg.Offset); err != nil {
+		logrus.Errorf("Write msg.Offset failed, Error: %v", err)
 		return err
 	}
 	if err := binary.Write(w.writer, binary.LittleEndian, msg.Size); err != nil {
+		logrus.Errorf("Write msg.Size failed, Error: %v", err)
 		return err
 	}
 	if err := binary.Write(w.writer, binary.LittleEndian, uint32(len(msg.Data))); err != nil {
+		logrus.Errorf("Write len(msg.Data) failed, Error: %v", err)
 		return err
 	}
 	if len(msg.Data) > 0 {
 		if _, err := w.writer.Write(msg.Data); err != nil {
+			logrus.Errorf("Write msg.Data failed, Error: %v", err)
 			return err
 		}
 	}
@@ -54,35 +68,44 @@ func (w *Wire) Read() (*Message, error) {
 		msg    Message
 		length uint32
 	)
+	w.ReadLock.Lock()
+	defer w.ReadLock.Unlock()
 
 	if err := binary.Read(w.reader, binary.LittleEndian, &msg.MagicVersion); err != nil {
+		logrus.Errorf("Read msg.Seq failed, Error: %v", err)
 		return nil, err
 	}
 	if msg.MagicVersion != MagicVersion {
 		return nil, fmt.Errorf("Wrong API version received: 0x%x", &msg.MagicVersion)
 	}
 	if err := binary.Read(w.reader, binary.LittleEndian, &msg.Seq); err != nil {
+		logrus.Errorf("Read msg.Seq failed, Error: %v", err)
 		return nil, err
 	}
 
 	if err := binary.Read(w.reader, binary.LittleEndian, &msg.Type); err != nil {
+		logrus.Errorf("Read msg.Type failed, Error: %v", err)
 		return nil, err
 	}
 
 	if err := binary.Read(w.reader, binary.LittleEndian, &msg.Offset); err != nil {
+		logrus.Errorf("Read msg.Offset failed, Error: %v", err)
 		return nil, err
 	}
 	if err := binary.Read(w.reader, binary.LittleEndian, &msg.Size); err != nil {
+		logrus.Errorf("Read msg.Size failed, Error: %v", err)
 		return nil, err
 	}
 
 	if err := binary.Read(w.reader, binary.LittleEndian, &length); err != nil {
+		logrus.Errorf("Read length failed, Error: %v", err)
 		return nil, err
 	}
 
 	if length > 0 {
 		msg.Data = make([]byte, length)
 		if _, err := io.ReadFull(w.reader, msg.Data); err != nil {
+			logrus.Errorf("Read msg.Data failed, Error: %v", err)
 			return nil, err
 		}
 	}
