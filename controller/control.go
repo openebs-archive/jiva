@@ -428,7 +428,12 @@ func (c *Controller) hasReplica(address string) bool {
 }
 
 func (c *Controller) RemoveReplicaNoLock(address string) error {
+	var foundregrep int
+	var prev bool
+
+	logrus.Infof("RemoveReplica %v ReplicasAdded:%v FrontendState:%v", address, len(c.replicas), c.frontend.State())
 	if !c.hasReplica(address) {
+		logrus.Infof("RemoveReplica %v not found", address)
 		return nil
 	}
 	for i, r := range c.replicas {
@@ -444,32 +449,54 @@ func (c *Controller) RemoveReplicaNoLock(address string) error {
 					return fmt.Errorf("Cannot remove last replica if volume is up")
 				}
 			}
+			foundregrep = 0
 			for regrep := range c.RegisteredReplicas {
-				if strings.Contains(address, regrep) {
+				logrus.Infof("RemoveReplica ToRemove: %v Found: %v", address, regrep)
+				if address == "tcp://"+regrep+":9502" {
 					delete(c.RegisteredReplicas, regrep)
+					foundregrep = 1
+					break
 				}
+			}
+			if foundregrep == 0 {
+				//We should not break if the replica is not found in registered
+				//list, since all replicas are not registered.
+				//if there is already one replica in RW mode then, the replica
+				//registration process is avoided and same is true for quorum
+				//replicas
+				logrus.Infof("RemoveReplica %v not found in registered replicas", address)
 			}
 			c.replicas = append(c.replicas[:i], c.replicas[i+1:]...)
 			c.backend.RemoveBackend(r.Address)
+			break
 		}
 	}
 
 	for i, r := range c.quorumReplicas {
+		foundregrep = 0
 		if r.Address == address {
 			for regrep := range c.RegisteredQuorumReplicas {
-				if strings.Contains(address, regrep) {
+				logrus.Infof("RemoveReplica quorum ToRemove: %v Found: %v", address, regrep)
+				if address == "tcp://"+regrep+":9502" {
 					delete(c.RegisteredQuorumReplicas, regrep)
+					foundregrep = 1
+					break
 				}
+			}
+			if foundregrep == 0 {
+				logrus.Infof("RemoveReplica %v not found in registered quorum replicas", address)
 			}
 			c.quorumReplicas = append(c.quorumReplicas[:i], c.quorumReplicas[i+1:]...)
 			c.backend.RemoveBackend(r.Address)
+			break
 		}
 	}
-
+	prev = c.ReadOnly
 	if len(c.replicas)+len(c.quorumReplicas) <= (c.replicaCount+c.quorumReplicaCount)/2 {
 		logrus.Infof("Marking volume as R/O")
 		c.ReadOnly = true
 	}
+	logrus.Infof("controller readonly p:%v c:%v", prev, c.ReadOnly)
 	return nil
 }
 
