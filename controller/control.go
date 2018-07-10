@@ -535,8 +535,8 @@ func (c *Controller) SetReplicaMode(address string, mode types.Mode) error {
 		c.Lock()
 		defer c.Unlock()
 	case types.RW:
-		c.RLock()
-		defer c.RUnlock()
+		c.Lock()
+		defer c.Unlock()
 	default:
 		return fmt.Errorf("Can not set to mode %s", mode)
 	}
