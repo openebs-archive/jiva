@@ -13,7 +13,7 @@ collect_logs_and_exit() {
 	docker ps -a
 
 	#Below is to get stack traces of longhorn processes
-	#kill -SIGABRT $(ps -auxwww | grep -w longhorn | grep -v grep | awk '{print $2}')
+	kill -SIGABRT $(ps -auxwww | grep -w longhorn | grep -v grep | awk '{print $2}')
 
 	echo "--------------------------ORIGINAL CONTROLLER LOGS ------------------------"
 	curl http://$CONTROLLER_IP:9501/v1/volumes | jq
@@ -56,13 +56,13 @@ verify_replica_cnt() {
 		date
 		replica_cnt=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
 		i=`expr $i + 1`
-		if [ "$i" == 10 ]; then
-			echo $2 " failed"
+		if [ "$i" == 50 ]; then
+			echo $2 " -- failed"
 			collect_logs_and_exit
 		fi
 		sleep 4
 	done
-	echo $2 " passed"
+	echo $2 " -- passed"
 	return
 }
 
@@ -80,7 +80,7 @@ verify_rw_status() {
 			rw_status="RW"
 		fi
 		i=`expr $i + 1`
-		if [ "$i" == 10 ]; then
+		if [ "$i" == 50 ]; then
 			echo "1"
 			return
 		fi
@@ -101,20 +101,20 @@ verify_vol_status() {
 			rw_status="RW"
 		fi
 		i=`expr $i + 1`
-		if [ "$i" == 10 ]; then
-			echo $2 " failed"
+		if [ "$i" == 50 ]; then
+			echo $2 " -- failed"
 			collect_logs_and_exit
 		fi
 		sleep 4
 	done
-	echo $2 " passed"
+	echo $2 " -- passed"
 	return
 }
 
 verify_rep_state() {
 	i=0
 	rep_state=""
-	while [ "$i" != 10 ]; do
+	while [ "$i" != 50 ]; do
 		date
 		rep_cnt=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
 		replica_cnt=`expr $rep_cnt`
@@ -149,21 +149,21 @@ verify_rep_state() {
 			rep_index=`expr $rep_index + 1`
 		done
 		if [ "$passed" == "$1" ]; then
-			echo $2 " passed"
+			echo $2 " -- passed"
 			return
 		fi
 
 		i=`expr $i + 1`
 		sleep 4
 	done
-	echo $2 " failed"
+	echo $2 " -- failed"
 	collect_logs_and_exit
 }
 
 verify_controller_rep_state() {
 	i=0
 	rep_state=""
-	while [ "$i" != 10 ]; do
+	while [ "$i" != 50 ]; do
 		date
 		rep_cnt=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
 		replica_cnt=`expr $rep_cnt`
@@ -174,7 +174,7 @@ verify_controller_rep_state() {
 
 			if [ $address == "tcp://"$1":9502" ]; then
 				if [ "$mode" == "$2" ]; then
-					echo $3" passed"
+					echo $3" -- passed"
 					return
 				fi
 				break
@@ -184,7 +184,7 @@ verify_controller_rep_state() {
 		i=`expr $i + 1`
 		sleep 4
 	done
-	echo $3 " failed"
+	echo $3 " -- failed"
 	collect_logs_and_exit
 }
 
@@ -354,7 +354,7 @@ test_three_replica_stop_start() {
 	replica_count=$(get_replica_count $CONTROLLER_IP)
 	while [ "$replica_count" != 3 ]; do
 		i=`expr $i + 1`
-		if [ $i -eq 10 ]; then
+		if [ $i -eq 50 ]; then
 			echo "Closed replica failed to attach back to controller"
 			exit;
 		fi
@@ -370,7 +370,7 @@ test_replica_reregistration() {
 	replica_count=$(get_replica_count $CONTROLLER_IP)
 	while [ "$replica_count" != 3 ]; do
 		i=`expr $i + 1`
-		if [ $i -eq 10 ]; then
+		if [ $i -eq 50 ]; then
 			echo "Replicas failed to attach to controller"
 			exit;
 		fi
@@ -385,7 +385,7 @@ test_replica_reregistration() {
 	replica_count=$(get_replica_count $CONTROLLER_IP)
 	while [ "$replica_count" != 3 ]; do
 		i=`expr $i + 1`
-		if [ $i -eq 10 ]; then
+		if [ $i -eq 50 ]; then
 			echo "Closed replica failed to attach back to controller"
 			exit;
 		fi
@@ -548,7 +548,6 @@ sleep 5
 replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
 sleep 5
 test_two_replica_stop_start
-collect_logs_and_exit
 sleep 5
 replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
 sleep 5
