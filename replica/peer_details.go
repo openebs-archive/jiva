@@ -51,17 +51,21 @@ func (r *Replica) initPeerDetails() error {
 		}
 		// file doesn't exist yet
 		if err := r.openPeerFile(true); err != nil {
+			logrus.Errorf("openPeerFile failed %v", err)
 			return err
 		}
 		if err := r.writePeerDetails(peerDetails); err != nil {
+			logrus.Errorf("writePeerDetails failed %v", err)
 			return err
 		}
 	} else if err := r.openPeerFile(false); err != nil {
+		logrus.Errorf("OpenPeerFile failed when file already exists %v", err)
 		return err
 	}
 
 	peerDetails, err := r.readPeerDetails()
 	if err != nil {
+		logrus.Errorf("readPeerDetails failed %v", err)
 		return err
 	}
 	// Don't use r.peerCache directly

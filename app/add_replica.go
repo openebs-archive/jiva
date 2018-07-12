@@ -43,6 +43,7 @@ func AutoAddReplica(s *replica.Server, frontendIP string, replica string, replic
 			err = task.AddReplica(replica)
 		}
 		if err != nil {
+			logrus.Errorf("Error adding replica, err: %v, will retry", err)
 			time.Sleep(2 * time.Second)
 			s.Close(false)
 			continue

@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
@@ -66,6 +67,12 @@ func startController(c *cli.Context) error {
 		return errors.New("volume name is required")
 	}
 	name := c.Args()[0]
+	replicationFactor, _ := strconv.ParseInt(os.Getenv("REPLICATION_FACTOR"), 10, 32)
+	if replicationFactor == 0 {
+		logrus.Infof("REPLICATION_FACTOR env not set")
+	} else {
+		logrus.Infof("REPLICATION_FACTOR: %v", replicationFactor)
+	}
 
 	if !util.ValidVolumeName(name) {
 		return errors.New("invalid target name")
@@ -100,7 +107,7 @@ func startController(c *cli.Context) error {
 		frontend = f
 	}
 
-	control := controller.NewController(name, frontendIP, clusterIP, dynamic.New(factories), frontend)
+	control := controller.NewController(name, frontendIP, clusterIP, dynamic.New(factories), frontend, int(replicationFactor))
 	server := rest.NewServer(control)
 	router := http.Handler(rest.NewRouter(server))
 

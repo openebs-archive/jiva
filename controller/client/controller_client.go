@@ -178,10 +178,12 @@ func (c *ControllerClient) GetVolume() (*rest.Volume, error) {
 
 	err := c.get("/volumes", &volumes)
 	if err != nil {
+		logrus.Errorf("GetVolume failed, %v", err)
 		return nil, err
 	}
 
 	if len(volumes.Data) == 0 {
+		logrus.Errorf("volume not found")
 		return nil, errors.New("No volume found")
 	}
 
