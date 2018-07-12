@@ -472,33 +472,6 @@ func (c *Controller) RemoveReplicaNoLock(address string) error {
 		}
 	}
 
-	if len(c.replicas) == 1 {
-		r := c.replicas[0]
-		/*
-		 * there can be only one replica in WO mode, we don't
-		 * allow any other replica to connect. So, if the last
-		 * replica remaining is in WO, we should disconnect it
-		 * so that other can connect and proceed.
-		 */
-		if r.Mode == "WO" {
-			if c.frontend.State() == types.StateUp {
-				if c.frontend != nil {
-					c.StartSignalled = false
-					c.MaxRevReplica = ""
-					c.frontend.Shutdown()
-				}
-			}
-			for regrep := range c.RegisteredReplicas {
-				if r.Address == regrep {
-					delete(c.RegisteredReplicas, regrep)
-				}
-			}
-			c.replicas = nil
-			logrus.Infof("last replica (%v) is in WO mode, removing it!!!", r.Address)
-			c.backend.RemoveBackend(r.Address)
-		}
-	}
-
 	for i, r := range c.quorumReplicas {
 		foundregrep = 0
 		if r.Address == address {

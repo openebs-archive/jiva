@@ -6,8 +6,25 @@ REPLICA_IP2="172.18.0.4"
 REPLICA_IP3="172.18.0.5"
 CLONED_CONTROLLER_IP="172.18.0.6"
 CLONED_REPLICA_IP="172.18.0.7"
+REPLICATION_FACTOR=0
 
 collect_logs_and_exit() {
+	echo "--------------------------docker ps -a-------------------------------------"
+	docker ps -a
+
+	echo "--------------------------CONTROLLER REST output---------------------------"
+	curl http://$CONTROLLER_IP:9501/v1/volumes | jq
+	curl http://$CONTROLLER_IP:9501/v1/replicas | jq
+	echo "--------------------------REPLICA 1 LOGS ----------------------------------"
+	curl http://$REPLICA_IP1:9502/v1/replicas | jq
+	echo "--------------------------REPLICA 2 LOGS ----------------------------------"
+	curl http://$REPLICA_IP2:9502/v1/replicas | jq
+	echo "--------------------------REPLICA 3  LOGS ---------------------------------"
+	curl http://$REPLICA_IP3:9502/v1/replicas | jq
+
+	#Below is to get stack traces of longhorn processes
+	kill -SIGABRT $(ps -auxwww | grep -w longhorn | grep -v grep | awk '{print $2}')
+
 	echo "--------------------------ORIGINAL CONTROLLER LOGS ------------------------"
 	docker logs $orig_controller_id
 	echo "--------------------------REPLICA 1 LOGS ----------------------------------"
@@ -33,8 +50,25 @@ prepare_test_env() {
 	mkdir -p /mnt/store /mnt/store2
 
 	docker network create --subnet=172.18.0.0/16 stg-net
-	JI=$(docker images | grep openebs/jiva | awk '{print $1":"$2}')
+	JI=$(docker images | grep openebs/jiva | awk '{print $1":"$2}' | head -1)
 	echo "Run CI tests on $JI"
+}
+
+verify_replica_cnt() {
+	i=0
+	replica_cnt=""
+	while [ "$replica_cnt" != "$1" ]; do
+		date
+		replica_cnt=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
+		i=`expr $i + 1`
+		if [ "$i" == 50 ]; then
+			echo $2 " -- failed"
+			collect_logs_and_exit
+		fi
+		sleep 4
+	done
+	echo $2 " -- passed"
+	return
 }
 
 # RW=1 RO=0
@@ -43,7 +77,6 @@ verify_rw_status() {
 	i=0
 	rw_status=""
 	while [ "$rw_status" != "$1" ]; do
-		sleep 5
 		ro_status=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
 		if [ "$ro_status" == "true" ]; then
 			rw_status="RO"
@@ -51,12 +84,112 @@ verify_rw_status() {
 			rw_status="RW"
 		fi
 		i=`expr $i + 1`
-		if [ "$i" == 10 ]; then
+		if [ "$i" == 50 ]; then
 			echo "1"
 			return
 		fi
+		sleep 4
 	done
 	echo "0"
+}
+
+verify_vol_status() {
+	i=0
+	rw_status=""
+	while [ "$rw_status" != "$1" ]; do
+		date
+		ro_status=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
+		if [ "$ro_status" == "true" ]; then
+			rw_status="RO"
+		elif [ "$ro_status" == "false" ]; then
+			rw_status="RW"
+		fi
+		i=`expr $i + 1`
+		if [ "$i" == 50 ]; then
+			echo $2 " -- failed"
+			collect_logs_and_exit
+		fi
+		sleep 4
+	done
+	echo $2 " -- passed"
+	return
+}
+
+verify_rep_state() {
+	i=0
+	rep_state=""
+	while [ "$i" != 50 ]; do
+		date
+		rep_cnt=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
+		replica_cnt=`expr $rep_cnt`
+		passed=0
+		#if [ "$replica_cnt" == 0 ]; then
+			rep_state=`curl http://$3:9502/v1/replicas | jq '.data[0].state' | tr -d '"'`
+			if [ "$rep_state" == "closed" ]; then
+				passed=`expr $passed + 1`
+			fi
+			if [ "$5" != "" ]; then
+				rep_state=`curl http://$5:9502/v1/replicas | jq '.data[0].state' | tr -d '"'`
+				if [ "$rep_state" == "closed" ]; then
+					passed=`expr $passed + 1`
+				fi
+			fi
+		#fi
+		rep_index=0
+		while [ $rep_index -lt $replica_cnt ]; do
+			address=`curl http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].address' | tr -d '"'`
+			mode=`curl http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].mode' | tr -d '"'`
+
+			if [ $address == "tcp://"$3":9502" ]; then
+				if [ "$mode" == "$4" ]; then
+					passed=`expr $passed + 1`
+				fi
+			fi
+			if [ $address == "tcp://"$5":9502" ]; then
+				if [ "$mode" == "$6" ]; then
+					passed=`expr $passed + 1`
+				fi
+			fi
+			rep_index=`expr $rep_index + 1`
+		done
+		if [ "$passed" == "$1" ]; then
+			echo $2 " -- passed"
+			return
+		fi
+
+		i=`expr $i + 1`
+		sleep 4
+	done
+	echo $2 " -- failed"
+	collect_logs_and_exit
+}
+
+verify_controller_rep_state() {
+	i=0
+	rep_state=""
+	while [ "$i" != 50 ]; do
+		date
+		rep_cnt=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
+		replica_cnt=`expr $rep_cnt`
+		rep_index=0
+		while [ $rep_index -lt $replica_cnt ]; do
+			address=`curl http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].address' | tr -d '"'`
+			mode=`curl http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].mode' | tr -d '"'`
+
+			if [ $address == "tcp://"$1":9502" ]; then
+				if [ "$mode" == "$2" ]; then
+					echo $3" -- passed"
+					return
+				fi
+				break
+			fi
+			rep_index=`expr $rep_index + 1`
+		done
+		i=`expr $i + 1`
+		sleep 4
+	done
+	echo $3 " -- failed"
+	collect_logs_and_exit
 }
 
 # start_controller CONTROLLER_IP
@@ -87,60 +220,70 @@ get_replica_count() {
 }
 
 test_single_replica_stop_start() {
+	verify_replica_cnt "1" "Single replica count test"
+
 	docker stop $replica1_id
 	sleep 5
+
+	verify_vol_status "RO" "Single replica stop test"
+
 	docker start $replica1_id
-	if [ $(verify_rw_status "RW") == "0" ]; then
-		echo "Single replica stop/start test passed"
-	else
-		echo "Single replica stop/start test failed"
-		collect_logs_and_exit
-	fi
+
+	verify_vol_status "RW" "Single replica start test"
+	verify_replica_cnt "1" "Single replica count test"
+	verify_controller_rep_state "$REPLICA_IP1" "RW" "Single replica status during start test"
 }
 
 test_two_replica_stop_start() {
+	verify_replica_cnt "2" "Two replica count test1"
+
 	docker stop $replica1_id
-	if [ $(verify_rw_status "RO") == 0 ]; then
-		echo "stop/start test passed when there are 2 replicas and one is stopped"
-	else
-		echo "stop/start test failed when there are 2 replicas and one is stopped"
-		collect_logs_and_exit
-	fi
+	verify_replica_cnt "1" "Two replica count test when one is stopped"
+	verify_vol_status "RO" "when there are 2 replicas and one is stopped"
+	verify_controller_rep_state "$REPLICA_IP2" "RW" "Replica2 status after stopping replica1 in 2 replicas case"
 
 	docker start $replica1_id
-	if [ $(verify_rw_status "RW") == 0 ]; then
-		echo "stop/start test passed when there are 2 replicas and one is restarted"
-	else
-		echo "stop/start test failed when there are 2 replicas and one is restarted"
-		collect_logs_and_exit
-	fi
+	verify_replica_cnt "2" "Two replica count test2"
+	verify_vol_status "RW" "when there are 2 replicas and one is restarted"
+
+	count=0
+	while [ "$count" != 10 ]; do
+		docker stop $replica1_id
+
+		docker start $replica1_id &
+		sleep `echo "$count * 0.2" | bc`
+		docker stop $replica2_id
+		# Replica1 might be in Registering mode with status as 'closed' or its rebuild is done with mode as 'RW'
+		verify_rep_state 1 "Replica1 status after restarting it, and stopping other one in 2 replicas case" "$REPLICA_IP1" "RW"
+
+		docker start $replica2_id
+		verify_replica_cnt "2" "Two replica count test3"
+		verify_vol_status "RW" "when there are 2 replicas and replicas restarted multiple times"
+
+		count=`expr $count + 1`
+	done
+
+
+#	verify_controller_rep_state "$REPLICA_IP1" "WO" "Replica1 status after restarting it, and stopping other one in 2 replicas case"
+
+#	verify_vol_status "RO" "restarting stopped replica, and stopped other one in 2 replica case"
+#	verify_replica_cnt "1" "Two replica count test when one is restarted and other is stopped"
+#	verify_controller_rep_state "$REPLICA_IP1" "RW" "Replica1 status after restarting it in 2 replicas case" -- needed this when replica2 is not stopped
 
 	docker stop $replica1_id
 	docker stop $replica2_id
-	if [ $(verify_rw_status "RO") == 0 ]; then
-		echo "stop/start test passed when there are 2 replicas and both are stopped"
-	else
-		echo "stop/start test failed when there are 2 replicas and both are stopped"
-		collect_logs_and_exit
-	fi
+	verify_vol_status "RO" "when there are 2 replicas and both are stopped"
+	verify_replica_cnt "0" "Two replica count test when both are stopped"
 
 	docker start $replica1_id
-	if [ $(verify_rw_status "RO") == 0 ]; then
-		echo "stop/start test passed when there are 2 replicas and one is restarted"
-	else
-		echo "stop/start test failed when there are 2 replicas and one is restarted"
-		collect_logs_and_exit
-	fi
+	verify_vol_status "RO" "when there are 2 replicas and are brought down. Then, only one started"
+	verify_rep_state 1 "Replica1 status after stopping both, and starting it" "$REPLICA_IP1" "NA"
 
 	docker start $replica2_id
-	if [ $(verify_rw_status "RW") == 0 ]; then
-		echo "Dual replica stop/start test passed"
-	else
-		echo "Dual replica stop/start test failed"
-		collect_logs_and_exit
-	fi
-
+	verify_vol_status "RW" "when there are 2 replicas and are brought down. Then, both are started"
+	verify_replica_cnt "2" "when there are 2 replicas and are brought down. Then, both are started"
 }
+
 run_ios_to_test_stop_start() {
 	login_to_volume "$CONTROLLER_IP:3260"
 	sleep 2
@@ -215,7 +358,7 @@ test_three_replica_stop_start() {
 	replica_count=$(get_replica_count $CONTROLLER_IP)
 	while [ "$replica_count" != 3 ]; do
 		i=`expr $i + 1`
-		if [ $i -eq 10 ]; then
+		if [ $i -eq 50 ]; then
 			echo "Closed replica failed to attach back to controller"
 			exit;
 		fi
@@ -226,12 +369,12 @@ test_three_replica_stop_start() {
 
 }
 
-test_replica_reregitration() {
+test_replica_reregistration() {
 	i=0
 	replica_count=$(get_replica_count $CONTROLLER_IP)
 	while [ "$replica_count" != 3 ]; do
 		i=`expr $i + 1`
-		if [ $i -eq 10 ]; then
+		if [ $i -eq 50 ]; then
 			echo "Replicas failed to attach to controller"
 			exit;
 		fi
@@ -246,7 +389,7 @@ test_replica_reregitration() {
 	replica_count=$(get_replica_count $CONTROLLER_IP)
 	while [ "$replica_count" != 3 ]; do
 		i=`expr $i + 1`
-		if [ $i -eq 10 ]; then
+		if [ $i -eq 50 ]; then
 			echo "Closed replica failed to attach back to controller"
 			exit;
 		fi
@@ -414,7 +557,7 @@ replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
 sleep 5
 test_three_replica_stop_start
 sleep 5
-test_replica_reregitration
+test_replica_reregistration
 sleep 5
 run_data_integrity_test
 sleep 5
