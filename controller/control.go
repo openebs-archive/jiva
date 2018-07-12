@@ -76,7 +76,12 @@ func (c *Controller) UpdateVolStatus() {
 			rwReplicaCount++
 		}
 	}
-	if rwReplicaCount >= ((c.replicaCount+c.quorumReplicaCount)/2)+1 {
+	for _, replica := range c.quorumReplicas {
+		if replica.Mode == "RW" {
+			rwReplicaCount++
+		}
+	}
+	if rwReplicaCount >= (((c.replicaCount + c.quorumReplicaCount) / 2) + 1) {
 		c.ReadOnly = false
 	} else {
 		c.ReadOnly = true
@@ -267,8 +272,8 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 		c.MaxRevReplica = register.Address
 	}
 
-	if (len(c.RegisteredReplicas) >= (c.replicaCount/2)+1) &&
-		((len(c.RegisteredReplicas) + len(c.RegisteredQuorumReplicas)) >= ((c.quorumReplicaCount+c.replicaCount)/2)+1) {
+	if (len(c.RegisteredReplicas) >= ((c.replicaCount / 2) + 1)) &&
+		((len(c.RegisteredReplicas) + len(c.RegisteredQuorumReplicas)) >= (((c.quorumReplicaCount + c.replicaCount) / 2) + 1)) {
 		c.signalToAdd()
 		c.StartSignalled = true
 		logrus.Infof("Replica %v signalled to start volume", register.Address)
