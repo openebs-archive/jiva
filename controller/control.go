@@ -32,7 +32,6 @@ type Controller struct {
 	StartTime                time.Time
 	StartSignalled           bool
 	ReadOnly                 bool
-	RWReplicaCount           int
 }
 
 func max(x int, y int) int {
@@ -71,16 +70,22 @@ func NewController(name string, frontendIP string, clusterIP string, factory typ
 
 func (c *Controller) UpdateVolStatus() {
 	prev := c.ReadOnly
-	if (min(len(c.replicas)+len(c.quorumReplicas), c.RWReplicaCount) > (c.replicaCount+c.quorumReplicaCount)/2) &&
+	var rwReplicaCount int
+	for _, replica := range c.replicas {
+		if replica.Mode == "RW" {
+			rwReplicaCount++
+		}
+	}
+	if (rwReplicaCount > (c.replicaCount+c.quorumReplicaCount)/2) &&
 		(c.ReadOnly == true) {
 		logrus.Infof("Marking volume as R/W")
 		c.ReadOnly = false
-	} else if (min(len(c.replicas)+len(c.quorumReplicas), c.RWReplicaCount) <= (c.replicaCount+c.quorumReplicaCount)/2) &&
+	} else if (rwReplicaCount <= (c.replicaCount+c.quorumReplicaCount)/2) &&
 		(c.ReadOnly == false) {
 		logrus.Infof("Marking volume as R/O")
 		c.ReadOnly = true
 	}
-	logrus.Infof("controller readonly p:%v c:%v", prev, c.ReadOnly)
+	logrus.Infof("controller readonly p:%v c:%v rcount:%v rw_count:%v", prev, c.ReadOnly, len(c.replicas), rwReplicaCount)
 }
 
 func (c *Controller) AddQuorumReplica(address string) error {
@@ -555,11 +560,6 @@ func (c *Controller) setReplicaModeNoLock(address string, mode types.Mode) {
 				r.Mode = mode
 				c.replicas[i] = r
 				c.backend.SetMode(address, mode)
-				if mode == types.Mode("RW") {
-					c.RWReplicaCount++
-				} else if mode == types.Mode("ERR") {
-					c.RWReplicaCount--
-				}
 			} else {
 				logrus.Infof("Ignore set replica %v to mode %v due to it's ERR",
 					address, mode)
@@ -573,11 +573,6 @@ func (c *Controller) setReplicaModeNoLock(address string, mode types.Mode) {
 				r.Mode = mode
 				c.quorumReplicas[i] = r
 				c.backend.SetMode(address, mode)
-				if mode == types.Mode("RW") {
-					c.RWReplicaCount++
-				} else if mode == types.Mode("ERR") {
-					c.RWReplicaCount--
-				}
 			} else {
 				logrus.Infof("Ignore set replica %v to mode %v due to it's ERR",
 					address, mode)

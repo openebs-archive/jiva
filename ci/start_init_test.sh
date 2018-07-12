@@ -6,7 +6,6 @@ REPLICA_IP2="172.18.0.4"
 REPLICA_IP3="172.18.0.5"
 CLONED_CONTROLLER_IP="172.18.0.6"
 CLONED_REPLICA_IP="172.18.0.7"
-REPLICATION_FACTOR=0
 
 collect_logs_and_exit() {
 	echo "--------------------------docker ps -a-------------------------------------"
@@ -39,12 +38,16 @@ collect_logs_and_exit() {
 	docker logs $cloned_replica_id
 	exit 1
 }
-
-prepare_test_env() {
+cleanup() {
 	rm -rf /tmp/vol*
 	rm -rf /mnt/logs
 	docker stop $(docker ps -aq)
 	docker rm $(docker ps -aq)
+}
+
+prepare_test_env() {
+	echo "-------------------Prepare test env------------------------"
+	cleanup
 
 	mkdir -p /tmp/vol1 /tmp/vol2 /tmp/vol3 /tmp/vol4
 	mkdir -p /mnt/store /mnt/store2
@@ -65,7 +68,7 @@ verify_replica_cnt() {
 			echo $2 " -- failed"
 			collect_logs_and_exit
 		fi
-		sleep 4
+		sleep 2
 	done
 	echo $2 " -- passed"
 	return
@@ -88,7 +91,7 @@ verify_rw_status() {
 			echo "1"
 			return
 		fi
-		sleep 4
+		sleep 2
 	done
 	echo "0"
 }
@@ -109,7 +112,7 @@ verify_vol_status() {
 			echo $2 " -- failed"
 			collect_logs_and_exit
 		fi
-		sleep 4
+		sleep 2
 	done
 	echo $2 " -- passed"
 	return
@@ -158,7 +161,7 @@ verify_rep_state() {
 		fi
 
 		i=`expr $i + 1`
-		sleep 4
+		sleep 2
 	done
 	echo $2 " -- failed"
 	collect_logs_and_exit
@@ -186,7 +189,7 @@ verify_controller_rep_state() {
 			rep_index=`expr $rep_index + 1`
 		done
 		i=`expr $i + 1`
-		sleep 4
+		sleep 2
 	done
 	echo $3 " -- failed"
 	collect_logs_and_exit
@@ -194,8 +197,7 @@ verify_controller_rep_state() {
 
 # start_controller CONTROLLER_IP
 start_controller() {
-	controller_id=$(docker run -d --net stg-net --ip "$1" -P --expose 3260 --expose 9501 --expose 9502-9504 $JI \
-		launch controller --frontend gotgt --frontendIP "$1" "$2")
+	controller_id=$(docker run -d --net stg-net --ip $1 -P --expose 3260 --expose 9501 --expose 9502-9504 $JI env REPLICATION_FACTOR="$3" launch controller --frontend gotgt --frontendIP "$1" "$2")
 	echo "$controller_id"
 }
 
@@ -220,6 +222,11 @@ get_replica_count() {
 }
 
 test_single_replica_stop_start() {
+	echo "----------------Test_single_replica_stop_start--------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	sleep 5
+
 	verify_replica_cnt "1" "Single replica count test"
 
 	docker stop $replica1_id
@@ -232,10 +239,20 @@ test_single_replica_stop_start() {
 	verify_vol_status "RW" "Single replica start test"
 	verify_replica_cnt "1" "Single replica count test"
 	verify_controller_rep_state "$REPLICA_IP1" "RW" "Single replica status during start test"
+	docker stop $replica1_id
+	docker stop $orig_controller_id
+	cleanup
 }
 
 test_two_replica_stop_start() {
+	echo "----------------Test_two_replica_stop_start---------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	sleep 5
 	verify_replica_cnt "2" "Two replica count test1"
+	# This will delay sync between replicas
+	run_ios_to_test_stop_start
 
 	docker stop $replica1_id
 	verify_replica_cnt "1" "Two replica count test when one is stopped"
@@ -244,6 +261,9 @@ test_two_replica_stop_start() {
 
 	docker start $replica1_id
 	verify_replica_cnt "2" "Two replica count test2"
+	# This is to test when one replica is in WO mode out of 2, volume should be in RO mode
+	# This is to check intermediate state when 2nd replica is syncing
+	verify_vol_status "RO" "when there are 2 replicas and one is restarted"
 	verify_vol_status "RW" "when there are 2 replicas and one is restarted"
 
 	count=0
@@ -282,6 +302,8 @@ test_two_replica_stop_start() {
 	docker start $replica2_id
 	verify_vol_status "RW" "when there are 2 replicas and are brought down. Then, both are started"
 	verify_replica_cnt "2" "when there are 2 replicas and are brought down. Then, both are started"
+
+	cleanup
 }
 
 run_ios_to_test_stop_start() {
@@ -293,7 +315,7 @@ run_ios_to_test_stop_start() {
 		# This will trigger the quorum condition which checks if the IOs are
 		# written to more than 50% of the replicas
 
-		dd if=/dev/urandom of=/dev/$device_name bs=4k count=1000
+		dd if=/dev/urandom of=/dev/$device_name bs=4k count=50000
 		if [ $? -eq 0 ]; then echo "IOs were written successfully while running 3 replicas stop/start test"
 		else
 			echo "IOs errored out while running 3 replicas stop/start test"; collect_logs_and_exit
@@ -306,8 +328,16 @@ run_ios_to_test_stop_start() {
 }
 
 test_three_replica_stop_start() {
+	echo "-----------------Test_three_replica_stop_start---------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+
+	sleep 5
 	run_ios_to_test_stop_start &
 	sleep 8
+
 	docker stop $replica1_id
 	if [ $(verify_rw_status "RW") == 0 ]; then
 		echo "stop/start test passed when there are 3 replicas and one is stopped"
@@ -367,9 +397,16 @@ test_three_replica_stop_start() {
 		replica_count=$(get_replica_count $CONTROLLER_IP)
 	done
 
+	cleanup
 }
 
 test_replica_reregistration() {
+	echo "----------------Test_replica_reregistration------------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+	sleep 5
 	i=0
 	replica_count=$(get_replica_count $CONTROLLER_IP)
 	while [ "$replica_count" != 3 ]; do
@@ -397,9 +434,17 @@ test_replica_reregistration() {
 		sleep 5;
 		replica_count=$(get_replica_count $CONTROLLER_IP)
 	done
+	cleanup
 }
 
 run_vdbench_test_on_volume() {
+	echo "-----------------Run_vdbench_test_on_volume------------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+
+	sleep 5
 	login_to_volume "$CONTROLLER_IP:3260"
 	sleep 5
 	get_scsi_disk
@@ -417,9 +462,17 @@ run_vdbench_test_on_volume() {
 		echo "Unable to detect iSCSI device, login failed"; collect_logs_and_exit
 	fi
 	logout_of_volume
+	cleanup
 }
 
 run_libiscsi_test_suite() {
+	echo "----------------Run_libiscsi_test_suite---------------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+
+	sleep 5
 	echo "Run the libiscsi compliance suite on Jiva Vol"
 	mkdir /mnt/logs
 	docker run -v /mnt/logs:/mnt/logs --net host openebs/tests-libiscsi /bin/bash -c "./testiscsi.sh --ctrl-svc-ip $CONTROLLER_IP"
@@ -430,6 +483,7 @@ run_libiscsi_test_suite() {
 	else
 		echo "iSCSI Compliance test: FAILED"; collect_logs_and_exit
 	fi
+	cleanup
 }
 
 logout_of_volume() {
@@ -461,6 +515,13 @@ get_scsi_disk() {
 }
 
 run_data_integrity_test() {
+	echo "--------------------Run_data_integrity_test------------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+
+	sleep 5
 	login_to_volume "$CONTROLLER_IP:3260"
 	sleep 5
 	get_scsi_disk
@@ -487,15 +548,18 @@ run_data_integrity_test() {
 	else
 		echo "Unable to detect iSCSI device, login failed"; collect_logs_and_exit
 	fi
+	#Cleanup is not being performed here because this data will be used to test clone feature in the next test
 }
 
 create_snapshot() {
+	echo "--------------create_snapshot-------------"
 	id=`curl http://$1:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
 	curl -H "Content-Type: application/json" -X POST -d '{"name":"snap1"}' http://$CONTROLLER_IP:9501/v1/volumes/$id?action=snapshot
 }
 
 test_clone_feature() {
-	cloned_controller_id=$(start_controller "$CLONED_CONTROLLER_IP" "store2")
+	echo "-----------------------Test_clone_feature-------------------------"
+	cloned_controller_id=$(start_controller "$CLONED_CONTROLLER_IP" "store2" "1")
 	start_cloned_replica "$CONTROLLER_IP"  "$CLONED_CONTROLLER_IP" "$CLONED_REPLICA_IP" "vol4"
 
 	if [ $(verify_clone_status "completed") == "0" ]; then
@@ -524,6 +588,7 @@ test_clone_feature() {
 	else
 		echo "Unable to detect iSCSI device, login failed"; collect_logs_and_exit
 	fi
+	cleanup
 }
 
 verify_clone_status() {
@@ -544,28 +609,12 @@ verify_clone_status() {
 }
 
 prepare_test_env
-orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1")
-replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
-sleep 5
 test_single_replica_stop_start
-sleep 5
-replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
-sleep 5
 test_two_replica_stop_start
-sleep 5
-replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
-sleep 5
 test_three_replica_stop_start
-sleep 5
 test_replica_reregistration
-sleep 5
 run_data_integrity_test
-sleep 5
 create_snapshot "$CONTROLLER_IP"
-sleep 5
 test_clone_feature
-sleep 5
 run_vdbench_test_on_volume
-sleep 5
 run_libiscsi_test_suite
-
