@@ -12,21 +12,26 @@ collect_logs_and_exit() {
 	echo "--------------------------docker ps -a-------------------------------------"
 	docker ps -a
 
+	echo "--------------------------CONTROLLER REST output---------------------------"
+	curl http://$CONTROLLER_IP:9501/v1/volumes | jq
+	curl http://$CONTROLLER_IP:9501/v1/replicas | jq
+	echo "--------------------------REPLICA 1 LOGS ----------------------------------"
+	curl http://$REPLICA_IP1:9502/v1/replicas | jq
+	echo "--------------------------REPLICA 2 LOGS ----------------------------------"
+	curl http://$REPLICA_IP2:9502/v1/replicas | jq
+	echo "--------------------------REPLICA 3  LOGS ---------------------------------"
+	curl http://$REPLICA_IP3:9502/v1/replicas | jq
+
 	#Below is to get stack traces of longhorn processes
 	kill -SIGABRT $(ps -auxwww | grep -w longhorn | grep -v grep | awk '{print $2}')
 
 	echo "--------------------------ORIGINAL CONTROLLER LOGS ------------------------"
-	curl http://$CONTROLLER_IP:9501/v1/volumes | jq
-	curl http://$CONTROLLER_IP:9501/v1/replicas | jq
 	docker logs $orig_controller_id
 	echo "--------------------------REPLICA 1 LOGS ----------------------------------"
-	curl http://$REPLICA_IP1:9502/v1/replicas | jq
 	docker logs $replica1_id
 	echo "--------------------------REPLICA 2 LOGS ----------------------------------"
-	curl http://$REPLICA_IP2:9502/v1/replicas | jq
 	docker logs $replica2_id
 	echo "--------------------------REPLICA 3  LOGS ---------------------------------"
-	curl http://$REPLICA_IP3:9502/v1/replicas | jq
 	docker logs $replica3_id
 	echo "--------------------------CLONED CONTROLLER LOGS --------------------------"
 	docker logs $cloned_controller_id
@@ -72,7 +77,6 @@ verify_rw_status() {
 	i=0
 	rw_status=""
 	while [ "$rw_status" != "$1" ]; do
-		date
 		ro_status=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
 		if [ "$ro_status" == "true" ]; then
 			rw_status="RO"
