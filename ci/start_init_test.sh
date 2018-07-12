@@ -197,7 +197,8 @@ verify_controller_rep_state() {
 
 # start_controller CONTROLLER_IP
 start_controller() {
-	controller_id=$(docker run -d --net stg-net --ip $1 -P --expose 3260 --expose 9501 --expose 9502-9504 $JI env REPLICATION_FACTOR="$3" launch controller --frontend gotgt --frontendIP "$1" "$2")
+	controller_id=$(docker run -d --net stg-net --ip $1 -P --expose 3260 --expose 9501 --expose 9502-9504 $JI \
+			env REPLICATION_FACTOR="$3" launch controller --frontend gotgt --frontendIP "$1" "$2")
 	echo "$controller_id"
 }
 

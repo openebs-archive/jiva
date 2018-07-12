@@ -76,13 +76,9 @@ func (c *Controller) UpdateVolStatus() {
 			rwReplicaCount++
 		}
 	}
-	if (rwReplicaCount > (c.replicaCount+c.quorumReplicaCount)/2) &&
-		(c.ReadOnly == true) {
-		logrus.Infof("Marking volume as R/W")
+	if rwReplicaCount >= ((c.replicaCount+c.quorumReplicaCount)/2)+1 {
 		c.ReadOnly = false
-	} else if (rwReplicaCount <= (c.replicaCount+c.quorumReplicaCount)/2) &&
-		(c.ReadOnly == false) {
-		logrus.Infof("Marking volume as R/O")
+	} else {
 		c.ReadOnly = true
 	}
 	logrus.Infof("controller readonly p:%v c:%v rcount:%v rw_count:%v", prev, c.ReadOnly, len(c.replicas), rwReplicaCount)
@@ -233,9 +229,6 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 			logrus.Infof("Quorum replica Address %v already present in registered list", register.Address)
 			return nil
 		}
-	} else {
-		//TODO Check if it is better to return from here
-		logrus.Infof("Address %v already present in registered list", register.Address)
 	}
 	if c.quorumReplicaCount < register.PeerDetail.QuorumReplicaCount {
 		c.quorumReplicaCount = register.PeerDetail.QuorumReplicaCount
@@ -274,40 +267,14 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 		c.MaxRevReplica = register.Address
 	}
 
-	if (len(c.RegisteredReplicas) > c.replicaCount/2) &&
-		((len(c.RegisteredReplicas) + len(c.RegisteredQuorumReplicas)) > (c.quorumReplicaCount+c.replicaCount)/2) {
+	if (len(c.RegisteredReplicas) >= (c.replicaCount/2)+1) &&
+		((len(c.RegisteredReplicas) + len(c.RegisteredQuorumReplicas)) >= ((c.quorumReplicaCount+c.replicaCount)/2)+1) {
 		c.signalToAdd()
 		c.StartSignalled = true
 		logrus.Infof("Replica %v signalled to start volume", register.Address)
 		return nil
 	}
 
-	/*
-		//TODO Improve on this logic for HA
-		if register.UpTime > time.Since(c.StartTime) && (c.StartSignalled == false || c.MaxRevReplica == register.Address) {
-			c.signalToAdd()
-			c.StartSignalled = true
-			return nil
-		}
-	*/
-	/*
-		if len(c.RegisteredReplicas) >= 2 {
-			for _, tmprep := range c.RegisteredReplicas {
-				if revCount == 0 {
-					revCount = tmprep.RevCount
-				} else {
-					if revCount != tmprep.RevCount {
-						revisionConflict = 1
-					}
-				}
-			}
-			if revisionConflict == 0 {
-				c.signalToAdd()
-				c.StartSignalled = true
-				return nil
-			}
-		}
-	*/
 	return nil
 }
 

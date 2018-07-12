@@ -85,7 +85,6 @@ func CheckReplicaState(frontendIP string, replicaIP string) (string, error) {
 
 func AutoConfigureReplica(s *replica.Server, frontendIP string, address string, replicaType string) {
 checkagain:
-	logrus.Infof("Get replica state")
 	state, err := CheckReplicaState(frontendIP, address)
 	logrus.Infof("checkreplicastate %v %v", state, err)
 	if err == nil && (state == "" || state == "ERR") {
