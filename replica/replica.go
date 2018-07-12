@@ -123,9 +123,11 @@ func CreateTempReplica() (*Replica, error) {
 		ReplicaStartTime: StartTime,
 	}
 	if err := r.initRevisionCounter(); err != nil {
+		logrus.Errorf("Error in initRevisionCounter, err:%v", err)
 		return nil, err
 	}
 	if err := r.initPeerDetails(); err != nil {
+		logrus.Errorf("Error in initPeerDetails, err:%v", err)
 		return nil, err
 	}
 	return r, nil

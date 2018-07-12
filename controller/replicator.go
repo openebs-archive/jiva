@@ -96,11 +96,12 @@ func (r *replicator) RemoveBackend(address string) {
 	if !ok {
 		backend, ok = r.quorumBackends[address]
 		if !ok {
+			logrus.Infof("RemoveBackend %v not found", address)
 			return
 		}
 	}
 
-	logrus.Infof("Removing backend: %s", address)
+	logrus.Infof("Remove backend: %s mode: %v", address, backend.mode)
 
 	// We cannot wait for it's return because peer may not exists anymore
 	go backend.backend.Close()

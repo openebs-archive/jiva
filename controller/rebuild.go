@@ -100,6 +100,7 @@ func (c *Controller) VerifyRebuildReplica(address string) error {
 		c.quorumReplicaCount = len(c.quorumReplicas)
 	}
 	c.backend.UpdatePeerDetails(c.replicaCount, c.quorumReplicaCount)
+	c.UpdateVolStatus()
 	return nil
 }
 
