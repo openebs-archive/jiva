@@ -190,7 +190,7 @@ func (c *Client) loop() {
 		case resp := <-c.responses:
 			c.handleResponse(resp)
 			if c.err != nil {
-				logrus.Infof("Exiting rpc loop for %v with err %v", c.TargetID, c.err)
+				logrus.Infof("Exiting rpc loop for %v with err %v", c.peerAddr, c.err)
 				return
 			}
 		}
