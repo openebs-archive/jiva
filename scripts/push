@@ -12,10 +12,17 @@ then
   docker push openebs/jiva-ci:${VERSION};
   docker tag ${IMAGEID} openebs/jiva:ci
   docker push openebs/jiva:ci;
-  if [ ! -z "${TRAVIS_TAG}" ] && [ "${TRAVIS_BRANCH}" == "master" ];
+  if [ ! -z "${TRAVIS_TAG}" ] || [ ! -z "${RELEASE_TAG}" ];
   then
-    docker tag ${IMAGEID} openebs/jiva:${TRAVIS_TAG}
-    docker push openebs/jiva:${TRAVIS_TAG};
+    #Push the release tag image to jiva docker hub repository
+    #When a git hub is tagged with a release, the travis will
+    #hold the release tag in env TRAVIS_TAG
+    if [ ! -z "${TRAVIS_TAG}" ];
+    then
+      RELEASE_TAG=${TRAVIS_TAG}
+    fi
+    docker tag ${IMAGEID} openebs/jiva:${RELEASE_TAG}
+    docker push openebs/jiva:${RELEASE_TAG};
     docker tag ${IMAGEID} openebs/jiva:latest
     docker push openebs/jiva:latest;
   fi;
