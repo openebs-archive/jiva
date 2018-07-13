@@ -117,7 +117,7 @@ func CloneReplica(s *replica.Server, address string, cloneIP string, snapName st
 
 func startReplica(c *cli.Context) error {
 
-	formatter := &logrus.TextFormatter {
+	formatter := &logrus.TextFormatter{
 		FullTimestamp: true,
 	}
 	logrus.SetFormatter(formatter)
