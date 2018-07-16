@@ -219,9 +219,9 @@ func (r *Remote) info() (rest.Replica, error) {
 }
 
 // Create Remote with address given string, returns backend and error
-// No need to add prints in this function.
-// Make sure caller of this takes care of printing error
 func (rf *Factory) Create(address string) (types.Backend, error) {
+	// No need to add prints in this function.
+	// Make sure caller of this takes care of printing error
 	logrus.Infof("Connecting to remote: %s", address)
 
 	controlAddress, dataAddress, _, err := util.ParseAddresses(address)

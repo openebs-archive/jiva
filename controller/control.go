@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -388,11 +389,11 @@ func (c *Controller) addQuorumReplicaNoLock(newBackend types.Backend, address st
 	return nil
 }
 
-/*
-* No need to add prints in this function.
-* Make sure caller of this takes care of printing error
- */
 func (c *Controller) addReplicaNoLock(newBackend types.Backend, address string, snapshot bool) error {
+	/*
+	 * No need to add prints in this function.
+	 * Make sure caller of this takes care of printing error
+	 */
 	if ok, err := c.canAdd(address); !ok {
 		return err
 	}
@@ -597,12 +598,59 @@ func (c *Controller) startFrontend() error {
 	return nil
 }
 
+func (c *Controller) addReplicaDuringStartNoLock(address string) error {
+	var (
+		status string
+		err1   error
+	)
+	newBackend, err := c.factory.Create(address)
+	if err != nil {
+		return err
+	}
+
+	newSize, err := newBackend.Size()
+	if err != nil {
+		return err
+	}
+
+	newSectorSize, err := newBackend.SectorSize()
+	if err != nil {
+		return err
+	}
+
+	if c.size == math.MaxInt64 {
+		c.size = newSize
+		c.sectorSize = newSectorSize
+	}
+
+	if c.size != newSize {
+		return fmt.Errorf("Backend sizes do not match %d != %d", c.size, newSize)
+	} else if c.sectorSize != newSectorSize {
+		return fmt.Errorf("Backend sizes do not match %d != %d", c.sectorSize, newSectorSize)
+	}
+
+	if err := c.addReplicaNoLock(newBackend, address, false); err != nil {
+		return err
+	}
+getCloneStatus:
+	if status, err1 = c.backend.GetCloneStatus(address); err1 != nil {
+		return err1
+	}
+	if status == "" || status == "inProgress" {
+		logrus.Errorf("Waiting for replica to update CloneStatus to Completed/NA, retry after 2s")
+		time.Sleep(2 * time.Second)
+		goto getCloneStatus
+	} else if status == "error" {
+		return fmt.Errorf("Replica clone status returned error %s", address)
+	}
+	c.setReplicaModeNoLock(address, types.RW)
+	return nil
+}
+
 func (c *Controller) Start(addresses ...string) error {
 	var (
 		expectedRevision int64
 		sendSignal       int
-		status           string
-		err1             error
 	)
 
 	c.Lock()
@@ -622,53 +670,13 @@ func (c *Controller) Start(addresses ...string) error {
 
 	defer c.startFrontend()
 
-	first := true
+	c.size = math.MaxInt64
 	for _, address := range addresses {
-		newBackend, err := c.factory.Create(address)
+		err := c.addReplicaDuringStartNoLock(address)
 		if err != nil {
-			logrus.Infof("remote creation from start failed %s %v", address, err)
+			logrus.Errorf("err %v adding %s replica during start", err, address)
 			return err
 		}
-
-		newSize, err := newBackend.Size()
-		if err != nil {
-			logrus.Infof("getting backend size failed %s %v", address, err)
-			return err
-		}
-
-		newSectorSize, err := newBackend.SectorSize()
-		if err != nil {
-			logrus.Infof("getting backend sectorsize failed %s %v", address, err)
-			return err
-		}
-
-		if first {
-			first = false
-			c.size = newSize
-			c.sectorSize = newSectorSize
-		} else if c.size != newSize {
-			return fmt.Errorf("Backend sizes do not match %d != %d", c.size, newSize)
-		} else if c.sectorSize != newSectorSize {
-			return fmt.Errorf("Backend sizes do not match %d != %d", c.sectorSize, newSectorSize)
-		}
-
-		if err := c.addReplicaNoLock(newBackend, address, false); err != nil {
-			logrus.Infof("addReplicaNoLock from start failed %s %v", address, err)
-			return err
-		}
-	getCloneStatus:
-		if status, err1 = c.backend.GetCloneStatus(address); err1 != nil {
-			logrus.Infof("getCloneStatus from start failed %s %v", address, err1)
-			return err1
-		}
-		if status == "" || status == "inProgress" {
-			logrus.Errorf("Waiting for replica to update CloneStatus to Completed/NA, retry after 2s")
-			time.Sleep(2 * time.Second)
-			goto getCloneStatus
-		} else if status == "error" {
-			return fmt.Errorf("Replica clone status returned error %s", address)
-		}
-		c.setReplicaModeNoLock(address, types.RW)
 	}
 
 	revisionCounters := make(map[string]int64)
@@ -901,8 +909,8 @@ func (c *Controller) monitoring(address string, backend types.Backend) {
 	err := <-monitorChan
 	c.Lock()
 	defer c.Unlock()
-	logrus.Errorf("Backend %v monitoring failed, mark as ERR: %v", address, err)
 	if err != nil {
+		logrus.Errorf("Backend %v monitoring failed, mark as ERR: %v", address, err)
 		c.setReplicaModeNoLock(address, types.ERR)
 	}
 	logrus.Infof("Monitoring stopped %v", address)

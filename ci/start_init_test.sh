@@ -486,6 +486,7 @@ test_three_replica_stop_start() {
 	done
 
 	cleanup
+	wait
 }
 
 test_replica_reregistration() {
