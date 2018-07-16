@@ -137,7 +137,7 @@ func syncFile(from, to string, fromReplica, toReplica *types.Replica) error {
 		return err
 	}
 
-	logrus.Infof("Synchronizing %s to %s@%s:%d", from, to, host, port)
+	logrus.Infof("Synchronizing %s@%s to %s@%s:%d", from, fromReplica.Address, to, host, port)
 	err = fromClient.SendFile(from, host, port)
 	if err != nil {
 		logrus.Infof("Failed synchronizing %s to %s@%s:%d: %v", from, to, host, port, err)

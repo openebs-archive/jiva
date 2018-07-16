@@ -171,7 +171,7 @@ func find(list []string, item string) int {
 	return -1
 }
 
-func (t *Task) AddQuorumReplica(replicaAddress string) error {
+func (t *Task) AddQuorumReplica(replicaAddress string, _ *replica.Server) error {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 Register:
@@ -279,9 +279,12 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 	}
 }
 
-func (t *Task) AddReplica(replicaAddress string) error {
+func (t *Task) AddReplica(replicaAddress string, s *replica.Server) error {
 	var action string
 
+	if s == nil {
+		return fmt.Errorf("Server not present for %v, Add replica using CLI not supported", replicaAddress)
+	}
 	logrus.Infof("Addreplica %v", replicaAddress)
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
@@ -327,7 +330,7 @@ Register:
 		return t.client.Start(replicaAddress)
 	}
 	logrus.Infof("CheckAndResetFailedRebuild %v", replicaAddress)
-	if err := t.checkAndResetFailedRebuild(replicaAddress); err != nil {
+	if err := t.checkAndResetFailedRebuild(replicaAddress, s); err != nil {
 		logrus.Errorf("CheckAndResetFailedRebuild failed, err:%v", err)
 		return err
 	}
@@ -369,27 +372,20 @@ Register:
 
 }
 
-func (t *Task) checkAndResetFailedRebuild(address string) error {
-	client, err := replicaClient.NewReplicaClient(address)
-	if err != nil {
-		return err
-	}
+func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server) error {
 
-	replica, err := client.GetReplica()
-	if err != nil {
-		return err
-	}
+	state, info := server.Status()
 
-	if replica.State == "closed" && replica.Rebuilding {
-		if err := client.OpenReplica(); err != nil {
+	if state == "closed" && info.Rebuilding {
+		if err := server.Open(); err != nil {
 			return err
 		}
 
-		if err := client.SetRebuilding(false); err != nil {
+		if err := server.SetRebuilding(false); err != nil {
 			return err
 		}
 
-		return client.Close()
+		return server.Close(false)
 	}
 
 	return nil
@@ -409,8 +405,8 @@ func (t *Task) reloadAndVerify(address string, repClient *replicaClient.ReplicaC
 }
 
 func (t *Task) syncFiles(fromClient *replicaClient.ReplicaClient, toClient *replicaClient.ReplicaClient, disks []string) error {
-	// volume head has been synced by PrepareRebuild()
-	for _, disk := range disks {
+	for i := range disks {
+		disk := disks[len(disks)-1-i]
 		if strings.Contains(disk, "volume-head") {
 			return fmt.Errorf("Disk list shouldn't contain volume-head")
 		}
@@ -421,6 +417,7 @@ func (t *Task) syncFiles(fromClient *replicaClient.ReplicaClient, toClient *repl
 		if err := t.syncFile(disk+".meta", "", fromClient, toClient); err != nil {
 			return err
 		}
+
 	}
 
 	return nil

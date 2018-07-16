@@ -30,7 +30,7 @@ func addReplica(c *cli.Context) error {
 
 	url := c.GlobalString("url")
 	task := sync.NewTask(url)
-	return task.AddReplica(replica)
+	return task.AddReplica(replica, nil)
 }
 func AutoAddReplica(s *replica.Server, frontendIP string, replica string, replicaType string) error {
 	var err error
@@ -38,9 +38,9 @@ func AutoAddReplica(s *replica.Server, frontendIP string, replica string, replic
 	task := sync.NewTask(url)
 	for {
 		if replicaType == "quorum" {
-			err = task.AddQuorumReplica(replica)
+			err = task.AddQuorumReplica(replica, s)
 		} else {
-			err = task.AddReplica(replica)
+			err = task.AddReplica(replica, s)
 		}
 		if err != nil {
 			logrus.Errorf("Error adding replica, err: %v, will retry", err)
