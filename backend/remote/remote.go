@@ -32,7 +32,7 @@ type Factory struct {
 
 type Remote struct {
 	types.ReaderWriterAt
-	name        string
+	Name        string
 	pingURL     string
 	replicaURL  string
 	httpClient  *http.Client
@@ -41,19 +41,19 @@ type Remote struct {
 }
 
 func (r *Remote) Close() error {
-	logrus.Infof("Closing: %s", r.name)
+	logrus.Infof("Closing: %s", r.Name)
 	r.StopMonitoring()
 	return r.doAction("close", nil)
 }
 
 func (r *Remote) open() error {
-	logrus.Infof("Opening: %s", r.name)
+	logrus.Infof("Opening: %s", r.Name)
 	return r.doAction("open", nil)
 }
 
 func (r *Remote) Snapshot(name string, userCreated bool, created string) error {
 	logrus.Infof("Snapshot: %s %s UserCreated %v Created at %v",
-		r.name, name, userCreated, created)
+		r.Name, name, userCreated, created)
 	return r.doAction("snapshot",
 		&map[string]interface{}{
 			"name":        name,
@@ -183,13 +183,13 @@ func (r *Remote) GetVolUsage() (types.VolUsage, error) {
 }
 
 func (r *Remote) SetRevisionCounter(counter int64) error {
-	logrus.Infof("Set revision counter of %s to : %v", r.name, counter)
+	logrus.Infof("Set revision counter of %s to : %v", r.Name, counter)
 	localRevCount := strconv.FormatInt(counter, 10)
 	return r.doAction("setrevisioncounter", &map[string]string{"counter": localRevCount})
 }
 
 func (r *Remote) UpdatePeerDetails(replicaCount int, quorumReplicaCount int) error {
-	logrus.Infof("Update peer details of %s ", r.name)
+	logrus.Infof("Update peer details of %s ", r.Name)
 	return r.doAction("updatepeerdetails",
 		&map[string]interface{}{
 			"replicacount":       replicaCount,
@@ -218,6 +218,9 @@ func (r *Remote) info() (rest.Replica, error) {
 	return replica, err
 }
 
+// Create Remote with address given string, returns backend and error
+// No need to add prints in this function.
+// Make sure caller of this takes care of printing error
 func (rf *Factory) Create(address string) (types.Backend, error) {
 	logrus.Infof("Connecting to remote: %s", address)
 
@@ -227,7 +230,7 @@ func (rf *Factory) Create(address string) (types.Backend, error) {
 	}
 
 	r := &Remote{
-		name:       address,
+		Name:       address,
 		replicaURL: fmt.Sprintf("http://%s/v1/replicas/1", controlAddress),
 		pingURL:    fmt.Sprintf("http://%s/ping", controlAddress),
 		httpClient: &http.Client{
@@ -271,7 +274,7 @@ func (rf *Factory) SignalToAdd(address string, action string) error {
 		return err
 	}
 	r := &Remote{
-		name:       address,
+		Name:       address,
 		replicaURL: fmt.Sprintf("http://%s/v1/replicas/1", controlAddress),
 		httpClient: &http.Client{
 			Timeout: timeout,
@@ -304,5 +307,6 @@ func (r *Remote) GetMonitorChannel() types.MonitorChannel {
 }
 
 func (r *Remote) StopMonitoring() {
+	logrus.Infof("stopping monitoring %v", r.Name)
 	r.closeChan <- struct{}{}
 }

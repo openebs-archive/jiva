@@ -53,6 +53,8 @@ func (m *MultiWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
 	var errors MultiWriterError
 	var multiWriterMtx sync.Mutex
 
+	multiWriterMtx = sync.Mutex{}
+
 	for i, w := range m.writers {
 		wg.Add(1)
 		go func(index int, w io.WriterAt) {

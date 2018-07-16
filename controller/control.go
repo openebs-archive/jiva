@@ -2,7 +2,6 @@ package controller
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -112,10 +111,11 @@ func (c *Controller) hasWOReplica() bool {
 
 func (c *Controller) canAdd(address string) (bool, error) {
 	if c.hasReplica(address) {
-		return false, nil
+		return false, fmt.Errorf("%s is already added", address)
 	}
 	if c.hasWOReplica() {
-		return false, fmt.Errorf("Can only have one WO replica at a time %v", address)
+		return false, fmt.Errorf("Can only have one WO replica %s at a time",
+			address)
 	}
 	return true, nil
 }
@@ -147,6 +147,7 @@ func (c *Controller) addQuorumReplica(address string, snapshot bool) error {
 
 	newBackend, err := c.factory.Create(address)
 	if err != nil {
+		logrus.Infof("remote creation addquorum failed %v", err)
 		return err
 	}
 
@@ -200,12 +201,14 @@ func (c *Controller) addReplica(address string, snapshot bool) error {
 	c.Lock()
 	if ok, err := c.canAdd(address); !ok {
 		c.Unlock()
+		logrus.Infof("addReplica %s cant add %v", address, err)
 		return err
 	}
 	c.Unlock()
 
 	newBackend, err := c.factory.Create(address)
 	if err != nil {
+		logrus.Infof("remote creation addreplica failed %v", err)
 		return err
 	}
 
@@ -213,7 +216,11 @@ func (c *Controller) addReplica(address string, snapshot bool) error {
 	defer c.Unlock()
 
 	err = c.addReplicaNoLock(newBackend, address, snapshot)
-	c.UpdateVolStatus()
+	if err != nil {
+		logrus.Infof("addReplicaNoLock %s from addReplica failed %v", address, err)
+	} else {
+		c.UpdateVolStatus()
+	}
 	return err
 }
 
@@ -254,8 +261,12 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 	}
 	if c.StartSignalled == true {
 		if c.MaxRevReplica == register.Address {
+			logrus.Infof("Replica %v signalled to start again %d:%d", c.MaxRevReplica,
+				len(c.RegisteredReplicas), c.replicaCount)
 			c.signalToAdd()
 		} else {
+			logrus.Infof("Can signal only to %s.. can't signal to %s %d:%d",
+				c.MaxRevReplica, register.Address, len(c.RegisteredReplicas), c.replicaCount)
 			return nil
 		}
 	}
@@ -276,7 +287,8 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 		((len(c.RegisteredReplicas) + len(c.RegisteredQuorumReplicas)) >= (((c.quorumReplicaCount + c.replicaCount) / 2) + 1)) {
 		c.signalToAdd()
 		c.StartSignalled = true
-		logrus.Infof("Replica %v signalled to start volume", register.Address)
+		logrus.Infof("Replica %v signalled to start %d:%d", c.MaxRevReplica,
+			len(c.RegisteredReplicas), c.replicaCount)
 		return nil
 	}
 
@@ -376,6 +388,10 @@ func (c *Controller) addQuorumReplicaNoLock(newBackend types.Backend, address st
 	return nil
 }
 
+/*
+* No need to add prints in this function.
+* Make sure caller of this takes care of printing error
+ */
 func (c *Controller) addReplicaNoLock(newBackend types.Backend, address string, snapshot bool) error {
 	if ok, err := c.canAdd(address); !ok {
 		return err
@@ -384,18 +400,20 @@ func (c *Controller) addReplicaNoLock(newBackend types.Backend, address string, 
 	if snapshot {
 		uuid := util.UUID()
 		created := util.Now()
+		var remain int
+		var err error
 
-		if remain, err := c.backend.RemainSnapshots(); err != nil {
+		if remain, err = c.backend.RemainSnapshots(); err != nil {
 			return err
 		} else if remain <= 0 {
-			return fmt.Errorf("Too many snapshots created")
+			return fmt.Errorf("Too many %v snapshots created", remain)
 		}
 
-		if err := c.backend.Snapshot(uuid, false, created); err != nil {
+		if err = c.backend.Snapshot(uuid, false, created); err != nil {
 			newBackend.Close()
 			return err
 		}
-		if err := newBackend.Snapshot(uuid, false, created); err != nil {
+		if err = newBackend.Snapshot(uuid, false, created); err != nil {
 			newBackend.Close()
 			return err
 		}
@@ -525,8 +543,11 @@ func (c *Controller) SetReplicaMode(address string, mode types.Mode) error {
 }
 
 func (c *Controller) setReplicaModeNoLock(address string, mode types.Mode) {
+	var found int
+	found = 0
 	for i, r := range c.replicas {
 		if r.Address == address {
+			found = found + 1
 			if r.Mode != types.ERR {
 				logrus.Infof("Set replica %v to mode %v", address, mode)
 				r.Mode = mode
@@ -540,6 +561,7 @@ func (c *Controller) setReplicaModeNoLock(address string, mode types.Mode) {
 	}
 	for i, r := range c.quorumReplicas {
 		if r.Address == address {
+			found = found + 1
 			if r.Mode != types.ERR {
 				logrus.Infof("Set replica %v to mode %v", address, mode)
 				r.Mode = mode
@@ -551,6 +573,14 @@ func (c *Controller) setReplicaModeNoLock(address string, mode types.Mode) {
 			}
 		}
 	}
+	if found > 1 {
+		logrus.Fatalf("setReplicaModeNoLock error %d %d %s %v", len(c.replicas),
+			found, address, mode)
+	}
+	if found == 0 {
+		logrus.Infof("setReplicaModeNoLock %d %d %s %v", len(c.replicas),
+			found, address, mode)
+	}
 }
 
 func (c *Controller) startFrontend() error {
@@ -561,6 +591,8 @@ func (c *Controller) startFrontend() error {
 			// This will never be reached
 			return err
 		}
+	} else {
+		logrus.Infof("replicas %d is either 0 or frontend %v is nil", len(c.replicas), c.frontend)
 	}
 	return nil
 }
@@ -577,10 +609,12 @@ func (c *Controller) Start(addresses ...string) error {
 	defer c.Unlock()
 
 	if len(addresses) == 0 {
+		logrus.Infof("addresses is null")
 		return nil
 	}
 
 	if len(c.replicas) > 0 {
+		logrus.Infof("alreay %d replicas are started and added", len(c.replicas))
 		return nil
 	}
 
@@ -592,16 +626,19 @@ func (c *Controller) Start(addresses ...string) error {
 	for _, address := range addresses {
 		newBackend, err := c.factory.Create(address)
 		if err != nil {
+			logrus.Infof("remote creation from start failed %s %v", address, err)
 			return err
 		}
 
 		newSize, err := newBackend.Size()
 		if err != nil {
+			logrus.Infof("getting backend size failed %s %v", address, err)
 			return err
 		}
 
 		newSectorSize, err := newBackend.SectorSize()
 		if err != nil {
+			logrus.Infof("getting backend sectorsize failed %s %v", address, err)
 			return err
 		}
 
@@ -616,10 +653,12 @@ func (c *Controller) Start(addresses ...string) error {
 		}
 
 		if err := c.addReplicaNoLock(newBackend, address, false); err != nil {
+			logrus.Infof("addReplicaNoLock from start failed %s %v", address, err)
 			return err
 		}
 	getCloneStatus:
 		if status, err1 = c.backend.GetCloneStatus(address); err1 != nil {
+			logrus.Infof("getCloneStatus from start failed %s %v", address, err1)
 			return err1
 		}
 		if status == "" || status == "inProgress" {
@@ -627,9 +666,8 @@ func (c *Controller) Start(addresses ...string) error {
 			time.Sleep(2 * time.Second)
 			goto getCloneStatus
 		} else if status == "error" {
-			return fmt.Errorf("Replica clone status returned error")
+			return fmt.Errorf("Replica clone status returned error %s", address)
 		}
-		// We will validate this later
 		c.setReplicaModeNoLock(address, types.RW)
 	}
 
@@ -637,6 +675,7 @@ func (c *Controller) Start(addresses ...string) error {
 	for _, r := range c.replicas {
 		counter, err := c.backend.GetRevisionCounter(r.Address)
 		if err != nil {
+			logrus.Errorf("GetRevisionCounter failed %s %v", r.Address, err)
 			return err
 		}
 		if counter > expectedRevision {
@@ -655,24 +694,26 @@ func (c *Controller) Start(addresses ...string) error {
 	for regrep := range c.RegisteredReplicas {
 		sendSignal = 1
 		for _, tmprep := range c.replicas {
-			if strings.Contains(tmprep.Address, regrep) {
+			if tmprep.Address == "tcp://"+regrep+":9502" {
 				sendSignal = 0
 				break
 			}
 		}
 		if sendSignal == 1 {
+			logrus.Infof("sending add signal to %v", regrep)
 			c.factory.SignalToAdd(regrep, "add")
 		}
 	}
 	for regrep := range c.RegisteredQuorumReplicas {
 		sendSignal = 1
 		for _, tmprep := range c.quorumReplicas {
-			if strings.Contains(tmprep.Address, regrep) {
+			if tmprep.Address == "tcp://"+regrep+":9502" {
 				sendSignal = 0
 				break
 			}
 		}
 		if sendSignal == 1 {
+			logrus.Infof("sending add signal to quorum %v", regrep)
 			c.factory.SignalToAdd(regrep, "add")
 		}
 	}
@@ -780,6 +821,7 @@ func (c *Controller) handleError(err error) error {
 }
 
 func (c *Controller) reset() {
+	logrus.Infof("resetting controller")
 	c.replicas = []types.Replica{}
 	c.quorumReplicas = []types.Replica{}
 	c.backend = &replicator{}
@@ -851,6 +893,7 @@ func (c *Controller) monitoring(address string, backend types.Backend) {
 	monitorChan := backend.GetMonitorChannel()
 
 	if monitorChan == nil {
+		logrus.Errorf("cannot monitor %s.. chan is null", address)
 		return
 	}
 
@@ -858,8 +901,8 @@ func (c *Controller) monitoring(address string, backend types.Backend) {
 	err := <-monitorChan
 	c.Lock()
 	defer c.Unlock()
+	logrus.Errorf("Backend %v monitoring failed, mark as ERR: %v", address, err)
 	if err != nil {
-		logrus.Errorf("Backend %v monitoring failed, mark as ERR: %v", address, err)
 		c.setReplicaModeNoLock(address, types.ERR)
 	}
 	logrus.Infof("Monitoring stopped %v", address)
