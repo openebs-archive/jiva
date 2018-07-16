@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/openebs/jiva/backend/remote"
 	"github.com/openebs/jiva/types"
 )
 
@@ -71,6 +72,7 @@ func (r *replicator) AddQuorumBackend(address string, backend types.Backend) {
 
 func (r *replicator) AddBackend(address string, backend types.Backend) {
 	if _, ok := r.backends[address]; ok {
+		logrus.Infof("backend: %s already part of backends", address)
 		return
 	}
 
@@ -185,22 +187,38 @@ func (r *replicator) buildReadWriters() {
 		}
 	}
 
+	var prevwriters int
+	if r.writer != nil {
+		multiwriter := r.writer.(*MultiWriterAt)
+		prevwriters = len(multiwriter.writers)
+	} else {
+		prevwriters = 0
+	}
+	prevReaders := len(r.readers)
 	r.writer = &MultiWriterAt{
 		writers:  writers,
 		updaters: updaters,
 	}
 	r.readers = readers
+	multiwriter := r.writer.(*MultiWriterAt)
 
 	if len(r.readers) > 0 {
 		r.backendsAvailable = true
 	}
+	logrus.Infof("buildreadwriters: prev: %d %d cur: %d %d",
+		prevwriters,
+		prevReaders,
+		len(multiwriter.writers),
+		len(r.readers))
 }
 
 func (r *replicator) SetMode(address string, mode types.Mode) {
 	b, ok := r.backends[address]
 	if !ok {
+		logrus.Infof("addr %v m: %v not found in setmode", address, mode)
 		return
 	}
+	logrus.Infof("addr %v m: %v in setmode", address, mode)
 	b.mode = mode
 	r.backends[address] = b
 	if mode == types.ERR {
@@ -216,23 +234,32 @@ func (r *replicator) Snapshot(name string, userCreated bool, created string) err
 		Errors: map[string]error{},
 	}
 	wg := sync.WaitGroup{}
+	var success int
 
 	for addr, backend := range r.backends {
 		if backend.mode != types.ERR {
 			wg.Add(1)
 			go func(address string, backend types.Backend) {
 				if err := backend.Snapshot(name, userCreated, created); err != nil {
+					logrus.Infof("failed taking snapshot at %s with err %v", addr, err)
 					retErrorLock.Lock()
 					retError.Errors[address] = err
+					retErrorLock.Unlock()
+				} else {
+					retErrorLock.Lock()
+					success = success + 1
 					retErrorLock.Unlock()
 				}
 				wg.Done()
 			}(addr, backend.backend)
+		} else {
+			logrus.Infof("not taking snapshot at %s in err mode", addr)
 		}
 	}
 
 	wg.Wait()
 
+	logrus.Infof("successfully taken snapshots cnt %d", success)
 	if len(retError.Errors) != 0 {
 		return retError
 	}
@@ -292,6 +319,7 @@ func (r *replicator) Close() error {
 }
 
 func (r *replicator) reset(full bool) {
+	logrus.Infof("replicator reset %v", full)
 	r.backendsAvailable = false
 	r.writer = nil
 	r.writerIndex = map[int]string{}
@@ -334,6 +362,8 @@ func (r *replicator) RemainSnapshots() (int, error) {
 	ret := math.MaxInt32
 	for _, backend := range r.backends {
 		if backend.mode == types.ERR {
+			logrus.Infof("backend %v is in ERR mode.. cant find RemainSnapshots",
+				(backend.backend.(*remote.Remote)).Name)
 			continue
 		}
 		// ignore error and try next one. We can deal with all
@@ -345,7 +375,8 @@ func (r *replicator) RemainSnapshots() (int, error) {
 		}
 	}
 	if ret == math.MaxInt32 {
-		return 0, fmt.Errorf("Cannot get valid result for remain snapshot")
+		return 0, fmt.Errorf("Cannot get valid result for remain snapshot from %d backends",
+			len(r.backends))
 	}
 	return ret, nil
 }
