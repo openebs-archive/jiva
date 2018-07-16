@@ -96,6 +96,75 @@ verify_rw_status() {
 	echo "0"
 }
 
+#returns number of replicas connected to controller in RW mode
+get_rw_rep_count() {
+	rep_index=0
+	rw_count=0
+	rep_cnt=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
+	replica_cnt=`expr $rep_cnt`
+	while [ $rep_index -lt $replica_cnt ]; do
+		mode=`curl http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].mode' | tr -d '"'`
+		if [ "$mode" == "RW" ]; then
+			rw_count=`expr $rw_count + 1`
+		fi
+		rep_index=`expr $rep_index + 1`
+	done
+	echo "$rw_count"
+}
+
+#$1 - replication factor
+#$2 - message
+#this fn checks
+   # RW replica count connected to controller
+   # consistency factor
+   # and RO state of controller
+#and verifies whether they are in sync
+verify_controller_quorum() {
+	i=0
+	cf=`expr $1 / 2`
+	cf=`expr $cf + 1`
+	while [ "$i" != 5 ]; do
+		date
+		rw_count=$(get_rw_rep_count)
+		ro_status=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
+		# volume RO status is true
+		if [ "$ro_status" == "true" ]; then
+			# CF is not met
+			if [ "$rw_count" -lt "$cf" ]; then
+				echo $2 " -- passed1"
+			else
+				# if CF is met, volume should be in rw
+				ro_status=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
+				if [ "$ro_status" == "false" ]; then
+					echo $2 " -- passed2"
+				else
+				# CF is met, and volume is in RO
+					echo $2 " -- failed1"
+					collect_logs_and_exit
+				fi
+			fi
+		else
+			# volume RO status is false
+			# CF is met
+			if [ "$rw_count" -ge "$cf" ]; then
+				echo $2 " -- passed3"
+			else
+				# if CF is not met, volume should be in RO
+				ro_status=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
+				if [ "$ro_status" == "true" ]; then
+					echo $2 " -- passed4"
+				else
+				# CF is not met, and volume is in RW
+					echo $2 " -- failed2"
+					collect_logs_and_exit
+				fi
+			fi
+		fi
+		sleep 2
+		i=`expr $i + 1`
+	done
+}
+
 verify_vol_status() {
 	i=0
 	rw_status=""
@@ -118,6 +187,17 @@ verify_vol_status() {
 	return
 }
 
+#$1 - pass count
+#$2 - message
+#$3 - Replica IP
+#$4 - its to be mode which will be verified by querying controller
+#$5 - another replica IP
+#$6 - its to be mode which will be verified by querying controller
+#this fn verifies that
+    #the state of replica to be in 'closed' state by querying replica (or)
+    #the mode to be connected to controller by querying controller
+#this fn considered as 'pass' if the result matches with the pass count.
+#this fn takes care of checking for two replicas, and thus, pass count is passed by caller
 verify_rep_state() {
 	i=0
 	rep_state=""
@@ -262,17 +342,16 @@ test_two_replica_stop_start() {
 
 	docker start $replica1_id
 	verify_replica_cnt "2" "Two replica count test2"
-	# This is to test when one replica is in WO mode out of 2, volume should be in RO mode
-	# This is to check intermediate state when 2nd replica is syncing
-	verify_vol_status "RO" "when there are 2 replicas and one is restarted"
+
+	verify_controller_quorum "2" "when there are 2 replicas and one is restarted"
 	verify_vol_status "RW" "when there are 2 replicas and one is restarted"
 
 	count=0
-	while [ "$count" != 10 ]; do
+	while [ "$count" != 5 ]; do
 		docker stop $replica1_id
 
 		docker start $replica1_id &
-		sleep `echo "$count * 0.2" | bc`
+		sleep `echo "$count * 0.3" | bc`
 		docker stop $replica2_id
 		# Replica1 might be in Registering mode with status as 'closed' or its rebuild is done with mode as 'RW'
 		verify_rep_state 1 "Replica1 status after restarting it, and stopping other one in 2 replicas case" "$REPLICA_IP1" "RW"
@@ -283,13 +362,8 @@ test_two_replica_stop_start() {
 
 		count=`expr $count + 1`
 	done
-
-
-#	verify_controller_rep_state "$REPLICA_IP1" "WO" "Replica1 status after restarting it, and stopping other one in 2 replicas case"
-
-#	verify_vol_status "RO" "restarting stopped replica, and stopped other one in 2 replica case"
-#	verify_replica_cnt "1" "Two replica count test when one is restarted and other is stopped"
-#	verify_controller_rep_state "$REPLICA_IP1" "RW" "Replica1 status after restarting it in 2 replicas case" -- needed this when replica2 is not stopped
+	verify_controller_quorum "2" "when there are 2 replicas and they are restarted multiple times"
+	verify_vol_status "RW" "when there are 2 replicas and they are restarted multiple times"
 
 	docker stop $replica1_id
 	docker stop $replica2_id
@@ -303,6 +377,19 @@ test_two_replica_stop_start() {
 	docker start $replica2_id
 	verify_vol_status "RW" "when there are 2 replicas and are brought down. Then, both are started"
 	verify_replica_cnt "2" "when there are 2 replicas and are brought down. Then, both are started"
+
+	reader_exit=`docker logs $orig_controller_id 2>&1 | grep "Exiting rpc reader" | wc -l`
+	writer_exit=`docker logs $orig_controller_id 2>&1 | grep "Exiting rpc writer" | wc -l`
+	loop_exit=`docker logs $orig_controller_id 2>&1 | grep "Exiting rpc loop" | wc -l`
+	if [ "$reader_exit" == 0 ]; then
+		collect_logs_and_exit
+	fi
+	if [ "$writer_exit" == 0 ]; then
+		collect_logs_and_exit
+	fi
+	if [ "$loop_exit" == 0 ]; then
+		collect_logs_and_exit
+	fi
 
 	cleanup
 }

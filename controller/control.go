@@ -115,7 +115,7 @@ func (c *Controller) canAdd(address string) (bool, error) {
 		return false, nil
 	}
 	if c.hasWOReplica() {
-		return false, fmt.Errorf("Can only have one WO replica at a time")
+		return false, fmt.Errorf("Can only have one WO replica at a time %v", address)
 	}
 	return true, nil
 }
