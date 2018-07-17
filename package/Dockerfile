@@ -1,4 +1,4 @@
-FROM ubuntu:16.04
+FROM openebs/jiva:base
 RUN apt-get update && apt-get install -y kmod curl nfs-common fuse \
         libibverbs1 librdmacm1 libconfig-general-perl libaio1 \
         && rm -rf /var/lib/apt/lists/*
