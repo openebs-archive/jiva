@@ -485,8 +485,8 @@ test_three_replica_stop_start() {
 		replica_count=$(get_replica_count $CONTROLLER_IP)
 	done
 
-	cleanup
 	wait
+	cleanup
 }
 
 test_replica_reregistration() {
@@ -538,6 +538,7 @@ run_vdbench_test_on_volume() {
 	sleep 5
 	get_scsi_disk
 	if [ "$device_name"!="" ]; then
+		mkfs.ext2 -F /dev/$device_name
 		mount /dev/$device_name /mnt/store
 		mkdir -p /mnt/store/data
 		chown 777 /mnt/store/data

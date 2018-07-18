@@ -72,7 +72,7 @@ func (w *Wire) Read() (*Message, error) {
 	defer w.ReadLock.Unlock()
 
 	if err := binary.Read(w.reader, binary.LittleEndian, &msg.MagicVersion); err != nil {
-		logrus.Errorf("Read msg.Seq failed, Error: %v", err)
+		logrus.Errorf("Read msg.Version failed, Error: %v", err)
 		return nil, err
 	}
 	if msg.MagicVersion != MagicVersion {

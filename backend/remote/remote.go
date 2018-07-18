@@ -189,7 +189,7 @@ func (r *Remote) SetRevisionCounter(counter int64) error {
 }
 
 func (r *Remote) UpdatePeerDetails(replicaCount int, quorumReplicaCount int) error {
-	logrus.Infof("Update peer details of %s ", r.Name)
+	logrus.Infof("Update peer details of %s rc:%d qc:%d", r.Name, replicaCount, quorumReplicaCount)
 	return r.doAction("updatepeerdetails",
 		&map[string]interface{}{
 			"replicacount":       replicaCount,

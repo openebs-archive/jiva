@@ -68,6 +68,8 @@ func (c *Controller) VerifyRebuildReplica(address string) error {
 	if err != nil {
 		return err
 	}
+
+	logrus.Infof("chain %v from rw replica %s", rwChain, rwReplica.Address)
 	// Don't need to compare the volume head disk
 	rwChain = rwChain[1:]
 
@@ -75,6 +77,8 @@ func (c *Controller) VerifyRebuildReplica(address string) error {
 	if err != nil {
 		return err
 	}
+
+	logrus.Infof("chain %v from wo replica %s", chain, address)
 	chain = chain[1:]
 
 	if !reflect.DeepEqual(rwChain, chain) {
@@ -88,18 +92,25 @@ func (c *Controller) VerifyRebuildReplica(address string) error {
 			rwReplica.Address, counter, err)
 
 	}
+	logrus.Infof("rw replica %s revision counter %d", rwReplica.Address, counter)
+
 	if err := c.backend.SetRevisionCounter(address, counter); err != nil {
 		return fmt.Errorf("Fail to set revision counter for %v: %v", address, err)
 	}
 	logrus.Debugf("WO replica %v's chain verified, update mode to RW", address)
 	c.setReplicaModeNoLock(address, types.RW)
 	if len(c.replicas) > c.replicaCount {
+		logrus.Errorf("prev: replicacount %d len(replica) %d", c.replicaCount, len(c.replicas))
 		c.replicaCount = len(c.replicas)
 	}
 	if len(c.quorumReplicas) > c.quorumReplicaCount {
 		c.quorumReplicaCount = len(c.quorumReplicas)
 	}
-	c.backend.UpdatePeerDetails(c.replicaCount, c.quorumReplicaCount)
+	var err1 error
+	err1 = c.backend.UpdatePeerDetails(c.replicaCount, c.quorumReplicaCount)
+	if err1 != nil {
+		logrus.Errorf("Error in updating peer details: %v", err1)
+	}
 	c.UpdateVolStatus()
 	return nil
 }

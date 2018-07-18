@@ -141,9 +141,13 @@ func (c *Client) operation(op uint32, buf []byte, offset int64) (int, error) {
 				copy(buf, msg.Data)
 			}
 			if msg.Type == TypeError {
+				logrus.Errorf("replying TypeErr for seq %v of type %v on addr %s",
+					msg.Seq, op, c.peerAddr)
 				return 0, errors.New(string(msg.Data))
 			}
 			if msg.Type == TypeEOF {
+				logrus.Errorf("replying TypeEOF for seq %v of type %v on addr %s",
+					msg.Seq, op, c.peerAddr)
 				return int(msg.Size), io.EOF
 			}
 			return int(msg.Size), nil
@@ -203,6 +207,8 @@ func (c *Client) nextSeq() uint32 {
 }
 
 func (c *Client) replyError(req *Message) {
+	logrus.Errorf("replying err %v for seq %v of type %v on addr %s", c.err,
+		req.Seq, req.Type, c.peerAddr)
 	journal.RemovePendingOp(req.ID, false)
 	delete(c.messages, req.Seq)
 	req.Type = TypeError

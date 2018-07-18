@@ -218,7 +218,7 @@ func (r *replicator) SetMode(address string, mode types.Mode) {
 		logrus.Infof("addr %v m: %v not found in setmode", address, mode)
 		return
 	}
-	logrus.Infof("addr %v m: %v in setmode", address, mode)
+	logrus.Infof("addr %v m: %v prev: %v in setmode", address, mode, b.mode)
 	b.mode = mode
 	r.backends[address] = b
 	if mode == types.ERR {
