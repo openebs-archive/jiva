@@ -86,7 +86,9 @@ func (c *Controller) UpdateVolStatus() {
 	} else {
 		c.ReadOnly = true
 	}
-	logrus.Infof("controller readonly p:%v c:%v rcount:%v rw_count:%v", prev, c.ReadOnly, len(c.replicas), rwReplicaCount)
+	logrus.Infof("controller readonly p:%v c:%v rcount:%v rw_count:%v",
+		prev, c.ReadOnly, len(c.replicas), rwReplicaCount)
+	logrus.Infof("backends len: %d", len(c.backend.backends))
 }
 
 func (c *Controller) AddQuorumReplica(address string) error {
@@ -579,7 +581,7 @@ func (c *Controller) setReplicaModeNoLock(address string, mode types.Mode) {
 			found, address, mode)
 	}
 	if found == 0 {
-		logrus.Infof("setReplicaModeNoLock %d %d %s %v", len(c.replicas),
+		logrus.Infof("setReplicaModeNoLock not found %d %d %s %v", len(c.replicas),
 			found, address, mode)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/openebs/jiva/types"
 	"github.com/prometheus/client_golang/prometheus"
@@ -228,11 +229,13 @@ func (s *Server) VerifyRebuildReplica(rw http.ResponseWriter, req *http.Request)
 	vars := mux.Vars(req)
 	id, err := DencodeID(vars["id"])
 	if err != nil {
+		logrus.Errorf("Error %v in getting id while verifyrebuildreplica", err)
 		rw.WriteHeader(http.StatusNotFound)
 		return nil
 	}
 
 	if err := s.c.VerifyRebuildReplica(id); err != nil {
+		logrus.Errorf("Err %v in verifyrebuildreplica", err)
 		return err
 	}
 
