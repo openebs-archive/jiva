@@ -174,6 +174,9 @@ func startReplica(c *cli.Context) error {
 		return err
 	}
 
+	logrus.Infof("Starting replica having replicaType: %v, frontendIP: %v, size: %v, dir: %v", replicaType, frontendIP, size, dir)
+	logrus.Infof("Setting replicaAddr: %v, controlAddr: %v, dataAddr: %v, syncAddr: %v", address, controlAddress, dataAddress, syncAddress)
+
 	var resp error
 	controlResp := make(chan error)
 	syncResp := make(chan error)
