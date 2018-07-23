@@ -2,7 +2,6 @@ package app
 
 import (
 	"errors"
-	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -234,23 +233,29 @@ func startReplica(c *cli.Context) error {
 		status := s.Replica().GetCloneStatus()
 		if status != "completed" {
 			logrus.Infof("Set clone status as inProgress")
-			if err := s.Replica().SetCloneStatus("inProgress"); err != nil {
+			if err = s.Replica().SetCloneStatus("inProgress"); err != nil {
+				logrus.Error("Error in setting the clone status as 'inProgress'")
 				return err
 			}
 			if err = CloneReplica(s, "tcp://"+address, cloneIP, snapName); err != nil {
-				logrus.Error("Error in cloning replica, found error ", err.Error())
-				logrus.Info("Setting the status of clone as error")
-				return s.Replica().SetCloneStatus("error")
+				logrus.Info("Error in cloning replica, setting clone status as 'error'")
+				if err := s.Replica().SetCloneStatus("error"); err != nil {
+					logrus.Error("Error in setting the clone status as 'error'")
+					return err
+				}
+				return err
 			}
 		}
 		logrus.Infof("Set clone status as Completed")
 		if err := s.Replica().SetCloneStatus("completed"); err != nil {
-			return fmt.Errorf("Error in setting the status of clone as complete, found error %s", err.Error())
+			logrus.Error("Error in setting the clone status as 'completed'")
+			return err
 		}
 		logrus.Infof("Clone process completed successfully\n")
 	} else {
 		logrus.Infof("Set clone status as NA")
 		if err := s.Replica().SetCloneStatus("NA"); err != nil {
+			logrus.Error("Error in setting the clone status as 'NA'")
 			return err
 		}
 	}
