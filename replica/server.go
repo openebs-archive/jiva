@@ -325,6 +325,7 @@ func (s *Server) Close(signalMonitor bool) error {
 	s.r = nil
 	s.Unlock()
 	if signalMonitor {
+		logrus.Infof("Signal MonitorChannel")
 		s.MonitorChannel <- struct{}{}
 	}
 	return nil

@@ -43,7 +43,7 @@ type Remote struct {
 func (r *Remote) Close() error {
 	logrus.Infof("Closing: %s", r.Name)
 	r.StopMonitoring()
-	return r.doAction("close", nil)
+	return nil
 }
 
 func (r *Remote) open() error {
