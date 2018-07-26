@@ -158,6 +158,7 @@ func (c *ControllerClient) GetReplica(address string) (*rest.Replica, error) {
 func (c *ControllerClient) VerifyRebuildReplica(address string) error {
 	replica, err := c.GetReplica(address)
 	if err != nil {
+		logrus.Errorf("getReplica in verifyRebuildReplica failed %s", address)
 		return err
 	}
 	return c.post(replica.Actions["verifyrebuild"], &replica, nil)
@@ -167,6 +168,7 @@ func (c *ControllerClient) PrepareRebuild(address string) (*rest.PrepareRebuildO
 	var output rest.PrepareRebuildOutput
 	replica, err := c.GetReplica(address)
 	if err != nil {
+		logrus.Errorf("getReplica in prepareRebuild failed %s", address)
 		return nil, err
 	}
 	err = c.post(replica.Actions["preparerebuild"], &replica, &output)

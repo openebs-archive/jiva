@@ -110,6 +110,7 @@ func (s *Server) Open() error {
 	logrus.Infof("Opening volume %s, size %d/%d", s.dir, size, sectorSize)
 	r, err := New(size, sectorSize, s.dir, s.backing, s.ServerType)
 	if err != nil {
+		logrus.Errorf("Error %v during open", err)
 		return err
 	}
 	s.r = r
@@ -121,12 +122,14 @@ func (s *Server) Reload() error {
 	defer s.Unlock()
 
 	if s.r == nil {
+		logrus.Errorf("s.r is NULL in reload")
 		return nil
 	}
 
 	logrus.Infof("Reloading volume")
 	newReplica, err := s.r.Reload()
 	if err != nil {
+		logrus.Errorf("error in Reload")
 		return err
 	}
 

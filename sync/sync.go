@@ -2,6 +2,7 @@ package sync
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -378,10 +379,12 @@ func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server
 
 	if state == "closed" && info.Rebuilding {
 		if err := server.Open(); err != nil {
+			logrus.Errorf("Error during open in checkAndResetFailedRebuild")
 			return err
 		}
 
 		if err := server.SetRebuilding(false); err != nil {
+			logrus.Errorf("Error during setRebuilding in checkAndResetFailedRebuild")
 			return err
 		}
 
@@ -394,14 +397,19 @@ func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server
 func (t *Task) reloadAndVerify(address string, repClient *replicaClient.ReplicaClient) error {
 	_, err := repClient.ReloadReplica()
 	if err != nil {
+		logrus.Errorf("Error in reloadreplica %s", address)
 		return err
 	}
 
 	if err := t.client.VerifyRebuildReplica(rest.EncodeID(address)); err != nil {
+		logrus.Errorf("Error in verifyRebuildReplica %s", address)
 		return err
 	}
 
-	return repClient.SetRebuilding(false)
+	if err = repClient.SetRebuilding(false); err != nil {
+		logrus.Errorf("Error in setRebuilding %s", address)
+	}
+	return err
 }
 
 func (t *Task) syncFiles(fromClient *replicaClient.ReplicaClient, toClient *replicaClient.ReplicaClient, disks []string) error {
@@ -436,6 +444,11 @@ func (t *Task) syncFile(from, to string, fromClient *replicaClient.ReplicaClient
 	logrus.Infof("Synchronizing %s to %s@%s:%d", from, to, host, port)
 	err = fromClient.SendFile(from, host, port)
 	if err != nil {
+		if err1 := os.Remove(to); err1 != nil {
+			logrus.Errorf("Remove %s failed with err %v", to, err1)
+		} else {
+			logrus.Infof("Removed %s due to err in sync", to)
+		}
 		logrus.Infof("Failed synchronizing %s to %s@%s:%d: %v", from, to, host, port, err)
 	} else {
 		logrus.Infof("Done synchronizing %s to %s@%s:%d", from, to, host, port)
