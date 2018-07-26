@@ -121,6 +121,7 @@ func (s *Server) Reload() error {
 	defer s.Unlock()
 
 	if s.r == nil {
+		logrus.Infof("returning as s.r is nil in reloading volume")
 		return nil
 	}
 
@@ -188,14 +189,32 @@ func (s *Server) PrevStatus() (State, Info) {
 
 func (s *Server) Stats() *types.Stats {
 	r := s.r
-	return &types.Stats{
-		RevisionCounter: r.revisionCache,
-		ReplicaCounter:  int64(r.peerCache.ReplicaCount),
+	var revisionCache int64
+	var replicaCount int64
+
+	revisionCache = 0
+	replicaCount = 0
+	if r != nil {
+		revisionCache = r.revisionCache
+		replicaCount = int64(r.peerCache.ReplicaCount)
 	}
+
+	stats1 := &types.Stats{
+		RevisionCounter: revisionCache,
+		ReplicaCounter:  replicaCount,
+	}
+	return stats1
 }
 
 func (s *Server) GetUsage() (*types.VolUsage, error) {
-	return s.r.GetUsage()
+	if s.r != nil {
+		return s.r.GetUsage()
+	}
+	return &types.VolUsage{
+		UsedLogicalBlocks: 0,
+		UsedBlocks:        0,
+		SectorSize:        0,
+	}, nil
 }
 
 func (s *Server) SetRebuilding(rebuilding bool) error {
@@ -227,6 +246,7 @@ func (s *Server) Revert(name, created string) error {
 	defer s.Unlock()
 
 	if s.r == nil {
+		logrus.Infof("Revert is not performed as s.r is nil")
 		return nil
 	}
 
@@ -245,6 +265,7 @@ func (s *Server) Snapshot(name string, userCreated bool, createdTime string) err
 	defer s.Unlock()
 
 	if s.r == nil {
+		logrus.Infof("snapshot is not performed as s.r is nil")
 		return nil
 	}
 
@@ -258,6 +279,7 @@ func (s *Server) RemoveDiffDisk(name string) error {
 	defer s.Unlock()
 
 	if s.r == nil {
+		logrus.Infof("RemoveDiffDisk is not performed as s.r is nil")
 		return nil
 	}
 
@@ -270,6 +292,7 @@ func (s *Server) ReplaceDisk(target, source string) error {
 	defer s.Unlock()
 
 	if s.r == nil {
+		logrus.Infof("ReplicaDisk is not performed as s.r is nil")
 		return nil
 	}
 
@@ -282,6 +305,7 @@ func (s *Server) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) {
 	defer s.Unlock()
 
 	if s.r == nil {
+		logrus.Infof("PrepareRemoveDisk is not performed as s.r is nil")
 		return nil, nil
 	}
 
@@ -294,6 +318,7 @@ func (s *Server) Delete() error {
 	defer s.Unlock()
 
 	if s.r == nil {
+		logrus.Infof("Delete is not performed as s.r is nil")
 		return nil
 	}
 
@@ -358,6 +383,7 @@ func (s *Server) SetRevisionCounter(counter int64) error {
 	defer s.Unlock()
 
 	if s.r == nil {
+		logrus.Infof("s.r is nil during setRevisionCounter")
 		return nil
 	}
 	return s.r.SetRevisionCounter(counter)
@@ -369,6 +395,7 @@ func (s *Server) UpdatePeerDetails(peerDetails types.PeerDetails) error {
 	defer s.Unlock()
 
 	if s.r == nil {
+		logrus.Infof("s.r is nil during updatePeerDetails")
 		return nil
 	}
 	return s.r.UpdatePeerDetails(peerDetails)
