@@ -84,6 +84,7 @@ func startController(c *cli.Context) error {
 	if frontendName == "gotgt" {
 		frontendIP = c.String("frontendIP")
 		clusterIP = c.String("clusterIP")
+		logrus.Infof("Starting controller with frontendIP: %v, and clusterIP: %v", frontendIP, clusterIP)
 	}
 	controlListener = c.String("listen")
 	factories := map[string]types.BackendFactory{}
