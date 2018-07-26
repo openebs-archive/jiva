@@ -459,14 +459,10 @@ func (c *Controller) RemoveReplicaNoLock(address string) error {
 	for i, r := range c.replicas {
 		if r.Address == address {
 			if len(c.replicas) == 1 && c.frontend.State() == types.StateUp {
-				if r.Mode == "ERR" {
-					if c.frontend != nil {
-						c.StartSignalled = false
-						c.MaxRevReplica = ""
-						c.frontend.Shutdown()
-					}
-				} else {
-					return fmt.Errorf("Cannot remove last replica if volume is up")
+				if c.frontend != nil {
+					c.StartSignalled = false
+					c.MaxRevReplica = ""
+					c.frontend.Shutdown()
 				}
 			}
 			foundregrep = 0
@@ -523,10 +519,14 @@ func (c *Controller) RemoveReplica(address string) error {
 }
 
 func (c *Controller) ListReplicas() []types.Replica {
+	c.Lock()
+	defer c.Unlock()
 	return c.replicas
 }
 
 func (c *Controller) ListQuorumReplicas() []types.Replica {
+	c.Lock()
+	defer c.Unlock()
 	return c.quorumReplicas
 }
 
@@ -911,8 +911,10 @@ func (c *Controller) monitoring(address string, backend types.Backend) {
 	err := <-monitorChan
 	c.Lock()
 	defer c.Unlock()
-	logrus.Errorf("Backend %v monitoring failed, mark as ERR: %v", address, err)
-	c.setReplicaModeNoLock(address, types.ERR)
+	if err != nil {
+		logrus.Errorf("Backend %v monitoring failed, mark as ERR: %v", address, err)
+		c.setReplicaModeNoLock(address, types.ERR)
+	}
 	logrus.Infof("Monitoring stopped %v", address)
 	c.RemoveReplicaNoLock(address)
 }

@@ -48,6 +48,7 @@ func init() {
 }
 
 func (s *Server) ListReplicas(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("List Replicas")
 	apiContext := api.GetApiContext(req)
 	resp := client.GenericCollection{}
 	for _, r := range s.c.ListReplicas() {
@@ -64,6 +65,7 @@ func (s *Server) ListReplicas(rw http.ResponseWriter, req *http.Request) error {
 }
 
 func (s *Server) GetReplica(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("Get Replica")
 	apiContext := api.GetApiContext(req)
 	vars := mux.Vars(req)
 	id, err := DencodeID(vars["id"])
@@ -77,6 +79,7 @@ func (s *Server) GetReplica(rw http.ResponseWriter, req *http.Request) error {
 }
 
 func (s *Server) RegisterReplica(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("Register Replica")
 	var (
 		regReplica      RegReplica
 		localRevCount   int64
@@ -122,6 +125,7 @@ func (s *Server) RegisterReplica(rw http.ResponseWriter, req *http.Request) erro
 }
 
 func (s *Server) CreateReplica(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("Create Replica")
 	var replica Replica
 	apiContext := api.GetApiContext(req)
 	if err := apiContext.Read(&replica); err != nil {
@@ -137,6 +141,7 @@ func (s *Server) CreateReplica(rw http.ResponseWriter, req *http.Request) error 
 }
 
 func (s *Server) CreateQuorumReplica(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("Create QuorumReplica")
 	var replica Replica
 	apiContext := api.GetApiContext(req)
 	if err := apiContext.Read(&replica); err != nil {
@@ -170,6 +175,7 @@ func (s *Server) getQuorumReplica(context *api.ApiContext, id string) *Replica {
 }
 
 func (s *Server) DeleteReplica(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("Delete Replica")
 	vars := mux.Vars(req)
 	id, err := DencodeID(vars["id"])
 	if err != nil {
@@ -181,6 +187,7 @@ func (s *Server) DeleteReplica(rw http.ResponseWriter, req *http.Request) error 
 }
 
 func (s *Server) UpdateReplica(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("Update Replica")
 	vars := mux.Vars(req)
 	id, err := DencodeID(vars["id"])
 	if err != nil {
@@ -200,6 +207,7 @@ func (s *Server) UpdateReplica(rw http.ResponseWriter, req *http.Request) error 
 }
 
 func (s *Server) PrepareRebuildReplica(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("Prepare Rebuild Replica")
 	vars := mux.Vars(req)
 	id, err := DencodeID(vars["id"])
 	if err != nil {
@@ -226,6 +234,7 @@ func (s *Server) PrepareRebuildReplica(rw http.ResponseWriter, req *http.Request
 }
 
 func (s *Server) VerifyRebuildReplica(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("Verify Rebuild Replica")
 	vars := mux.Vars(req)
 	id, err := DencodeID(vars["id"])
 	if err != nil {
