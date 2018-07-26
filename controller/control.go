@@ -519,8 +519,6 @@ func (c *Controller) RemoveReplica(address string) error {
 }
 
 func (c *Controller) ListReplicas() []types.Replica {
-	c.Lock()
-	defer c.Unlock()
 	return c.replicas
 }
 

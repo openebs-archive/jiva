@@ -92,6 +92,7 @@ func (s *Server) GetVolUsage(rw http.ResponseWriter, req *http.Request) error {
 
 func (s *Server) doOp(req *http.Request, err error) error {
 	if err != nil {
+		logrus.Errorf("Error in doOp %v", err)
 		return err
 	}
 
