@@ -86,7 +86,7 @@ func CheckReplicaState(frontendIP string, replicaIP string) (string, error) {
 func AutoConfigureReplica(s *replica.Server, frontendIP string, address string, replicaType string) {
 checkagain:
 	state, err := CheckReplicaState(frontendIP, address)
-	logrus.Infof("checkreplicastate %v %v", state, err)
+	logrus.Infof("Replicastate: %v err:%v", state, err)
 	if err == nil && (state == "" || state == "ERR") {
 		s.Close(false)
 	} else {
@@ -95,6 +95,7 @@ checkagain:
 	}
 	AutoRmReplica(frontendIP, address)
 	AutoAddReplica(s, frontendIP, address, replicaType)
+	logrus.Infof("Waiting on MonitorChannel")
 	select {
 	case <-s.MonitorChannel:
 		logrus.Infof("Restart AutoConfigure Process")
