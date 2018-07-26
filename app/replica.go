@@ -238,9 +238,9 @@ func startReplica(c *cli.Context) error {
 				return err
 			}
 			if err = CloneReplica(s, "tcp://"+address, cloneIP, snapName); err != nil {
-				logrus.Info("Error in cloning replica, setting clone status as 'error'")
-				if err := s.Replica().SetCloneStatus("error"); err != nil {
-					logrus.Error("Error in setting the clone status as 'error'")
+				logrus.Error("Error in cloning replica, setting clone status as 'error'")
+				if statusErr := s.Replica().SetCloneStatus("error"); err != nil {
+					logrus.Errorf("Error in setting the clone status as 'error', found error:%v", statusErr)
 					return err
 				}
 				return err
