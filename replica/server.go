@@ -187,10 +187,8 @@ func (s *Server) PrevStatus() (State, Info) {
 	return Closed, info
 }
 
-/*
-* Stats() returns the revisionCache and Peerdetails
-* TODO: What to return in Stats and GetUsage if s.r is nil?
- */
+// Stats returns the revisionCache and Peerdetails
+// TODO: What to return in Stats and GetUsage if s.r is nil?
 func (s *Server) Stats() *types.Stats {
 	r := s.r
 	var revisionCache int64
