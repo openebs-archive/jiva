@@ -228,34 +228,6 @@ func (c *ReplicaClient) Coalesce(from, to string) error {
 	}
 }
 
-func sendHTTPRequest(remote, method string, action string, data []byte) (*http.Response, error) {
-	httpClient := &http.Client{Timeout: time.Duration(5 * time.Second)}
-
-	url := fmt.Sprintf("http://%s/v1-ssync/%s", remote, action)
-
-	var req *http.Request
-	var err error
-	if data != nil {
-		req, err = http.NewRequest(method, url, bytes.NewBuffer(data))
-	} else {
-		req, err = http.NewRequest(method, url, nil)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Accept", "application/json")
-
-	q := req.URL.Query()
-	q.Add("begin", strconv.FormatInt(0, 10))
-	q.Add("end", strconv.FormatInt(0, 10))
-	req.URL.RawQuery = q.Encode()
-
-	logrus.Infof("method: %s, url with query string: %s, data len: %d", method, req.URL.String(), len(data))
-
-	return httpClient.Do(req)
-}
-
 func (c *ReplicaClient) SendFile(from, host string, port int) error {
 	var running agent.Process
 	err := c.post(c.syncAgent+"/processes", &agent.Process{
@@ -272,13 +244,6 @@ func (c *ReplicaClient) SendFile(from, host string, port int) error {
 	for {
 		err := c.get(running.Links["self"], &running)
 		if err != nil {
-			_, err1 := sendHTTPRequest(host+":"+strconv.Itoa(port), "POST", "close", nil)
-			if err1 != nil {
-				logrus.Errorf("err %v sending httpReq to %s", err1, host+":"+strconv.Itoa(port))
-			} else {
-				logrus.Infof("sent httpReq to %s", host+":"+strconv.Itoa(port))
-			}
-			//client := &syncClient{host":"strconv.Itoa(port), 5, "", 0, ""}
 			return err
 		}
 

@@ -193,7 +193,7 @@ func (s *Server) launchSync(p *Process) error {
 	} else {
 		args = append(args, p.SrcFile)
 	}
-	args = append(args, "-timeout", strconv.Itoa(5))
+	args = append(args, "-timeout", strconv.Itoa(7))
 
 	cmd := reexec.Command(args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
