@@ -203,6 +203,8 @@ func (s *Server) launchSync(p *Process) error {
 	} else {
 		args = append(args, p.SrcFile)
 	}
+	//Overwriting default of 2 mins to 7 seconds for ssync client in retrying
+	//to open file on ssync server.
 	args = append(args, "-timeout", strconv.Itoa(7))
 
 	cmd := reexec.Command(args...)
