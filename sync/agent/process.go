@@ -100,8 +100,18 @@ func (s *Server) CreateProcess(rw http.ResponseWriter, req *http.Request) error 
 	p.Id = id
 	p.Type = "process"
 	s.processes[p.Id] = &p
-	s.processesByPort[p.Port] = &p
 
+	//Need to add to map only if listener is created
+	//Adding otherwise can cause problem in below case:
+	//Consider listener is created on port 9759, and, due to reason that
+	//ssync client is crashed, that ssync server process is just staying
+	//During this time, if another replica have listener on 9759 and asked this
+	//replica to help in rebuilding, can make this entry go off if added to map.
+	//Later, this entry again can get alloted and can cause 'bind port failed',
+	//as ssync server still exists.
+	if gotNextPort == true {
+		s.processesByPort[p.Port] = &p
+	}
 	s.Unlock()
 
 	p.ExitCode = -2
