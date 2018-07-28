@@ -14,6 +14,7 @@ import (
 )
 
 func (s *Server) ListReplicas(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("List Replicas")
 	apiContext := api.GetApiContext(req)
 	resp := client.GenericCollection{}
 	resp.Data = append(resp.Data, s.Replica(apiContext))
@@ -28,6 +29,7 @@ func (s *Server) Replica(apiContext *api.ApiContext) *Replica {
 }
 
 func (s *Server) GetReplica(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("GetReplica")
 	apiContext := api.GetApiContext(req)
 	r := s.Replica(apiContext)
 	if mux.Vars(req)["id"] == r.Id {
@@ -39,14 +41,17 @@ func (s *Server) GetReplica(rw http.ResponseWriter, req *http.Request) error {
 }
 
 func (s *Server) GetReplicaStats(apiContext *api.ApiContext) *types.Stats {
+	logrus.Infof("Get Replica Stats")
 	return s.s.Stats()
 }
 
 func (s *Server) GetUsage(apiContext *api.ApiContext) (*types.VolUsage, error) {
+	logrus.Infof("GetUsage")
 	return s.s.GetUsage()
 }
 
 func (s *Server) GetStats(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("GetStats")
 	var stats *types.Stats
 	apiContext := api.GetApiContext(req)
 	stats = s.GetReplicaStats(apiContext)
@@ -66,6 +71,7 @@ func (s *Server) GetStats(rw http.ResponseWriter, req *http.Request) error {
 }
 
 func (s *Server) GetVolUsage(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("Get Volume Usage")
 	apiContext := api.GetApiContext(req)
 	usage, _ := s.GetUsage(apiContext)
 
@@ -96,6 +102,7 @@ func (s *Server) doOp(req *http.Request, err error) error {
 }
 
 func (s *Server) SetRebuilding(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("SetRebuilding")
 	var input RebuildingInput
 	apiContext := api.GetApiContext(req)
 	if err := apiContext.Read(&input); err != nil && err != io.EOF {
@@ -106,6 +113,7 @@ func (s *Server) SetRebuilding(rw http.ResponseWriter, req *http.Request) error 
 }
 
 func (s *Server) Create(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("Create")
 	var input CreateInput
 	apiContext := api.GetApiContext(req)
 	if err := apiContext.Read(&input); err != nil && err != io.EOF {
@@ -125,10 +133,12 @@ func (s *Server) Create(rw http.ResponseWriter, req *http.Request) error {
 }
 
 func (s *Server) OpenReplica(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("OpenReplica")
 	return s.doOp(req, s.s.Open())
 }
 
 func (s *Server) Resize(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("Resize")
 	var input ResizeInput
 	apiContext := api.GetApiContext(req)
 	if err := apiContext.Read(&input); err != nil {
@@ -139,6 +149,7 @@ func (s *Server) Resize(rw http.ResponseWriter, req *http.Request) error {
 }
 
 func (s *Server) RemoveDisk(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("RemoveDisk")
 	var input RemoveDiskInput
 	apiContext := api.GetApiContext(req)
 	if err := apiContext.Read(&input); err != nil {
@@ -149,6 +160,7 @@ func (s *Server) RemoveDisk(rw http.ResponseWriter, req *http.Request) error {
 }
 
 func (s *Server) ReplaceDisk(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("ReplaceDisk")
 	var input ReplaceDiskInput
 	apiContext := api.GetApiContext(req)
 	if err := apiContext.Read(&input); err != nil {
@@ -159,6 +171,7 @@ func (s *Server) ReplaceDisk(rw http.ResponseWriter, req *http.Request) error {
 }
 
 func (s *Server) PrepareRemoveDisk(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("Prepare Remove Disk")
 	var input PrepareRemoveDiskInput
 	apiContext := api.GetApiContext(req)
 	if err := apiContext.Read(&input); err != nil && err != io.EOF {
@@ -179,6 +192,7 @@ func (s *Server) PrepareRemoveDisk(rw http.ResponseWriter, req *http.Request) er
 }
 
 func (s *Server) SnapshotReplica(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("Snapshot Recplica")
 	var input SnapshotInput
 	apiContext := api.GetApiContext(req)
 	if err := apiContext.Read(&input); err != nil && err != io.EOF {
@@ -197,6 +211,7 @@ func (s *Server) SnapshotReplica(rw http.ResponseWriter, req *http.Request) erro
 }
 
 func (s *Server) RevertReplica(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("RevertReplica")
 	var input RevertInput
 	apiContext := api.GetApiContext(req)
 	if err := apiContext.Read(&input); err != nil && err != io.EOF {
@@ -216,14 +231,15 @@ func (s *Server) RevertReplica(rw http.ResponseWriter, req *http.Request) error 
 
 func (s *Server) ReloadReplica(rw http.ResponseWriter, req *http.Request) error {
 	var err error
+	logrus.Infof("Reload Replica")
 	if err = s.doOp(req, s.s.Reload()); err != nil {
 		logrus.Errorf("error in reloadReplica %v", err)
 	}
 	return err
-
 }
 
 func (s *Server) UpdateCloneInfo(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("Update Clone Info")
 	var input CloneUpdateInput
 	apiContext := api.GetApiContext(req)
 	if err := apiContext.Read(&input); err != nil && err != io.EOF {
@@ -233,14 +249,17 @@ func (s *Server) UpdateCloneInfo(rw http.ResponseWriter, req *http.Request) erro
 }
 
 func (s *Server) CloseReplica(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("CloseReplica")
 	return s.doOp(req, s.s.Close(true))
 }
 
 func (s *Server) DeleteReplica(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("DeleteReplica")
 	return s.doOp(req, s.s.Delete())
 }
 
 func (s *Server) StartReplica(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("StartReplica")
 	var action Action
 	apiContext := api.GetApiContext(req)
 	if err := apiContext.Read(&action); err != nil && err != io.EOF {
@@ -250,6 +269,7 @@ func (s *Server) StartReplica(rw http.ResponseWriter, req *http.Request) error {
 }
 
 func (s *Server) SetRevisionCounter(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("SetRevisionCounter")
 	var input RevisionCounter
 	apiContext := api.GetApiContext(req)
 	if err := apiContext.Read(&input); err != nil && err != io.EOF {
@@ -260,6 +280,7 @@ func (s *Server) SetRevisionCounter(rw http.ResponseWriter, req *http.Request) e
 }
 
 func (s *Server) UpdatePeerDetails(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Infof("UpdatePeerDetails")
 	var input PeerDetails
 	var details types.PeerDetails
 	apiContext := api.GetApiContext(req)

@@ -89,7 +89,7 @@ verify_replica_cnt() {
 		date
 		replica_cnt=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
 		i=`expr $i + 1`
-		if [ "$i" == 50 ]; then
+		if [ "$i" == 100 ]; then
 			echo $2 " -- failed"
 			collect_logs_and_exit
 		fi
@@ -119,6 +119,21 @@ verify_rw_status() {
 		sleep 2
 	done
 	echo "0"
+}
+
+verify_rw_rep_count() {
+       i=0
+       count=""
+       while [ "$count" != "$1" ]; do
+               count=`get_rw_rep_count`
+               i=`expr $i + 1`
+               if [ "$i" == 50 ]; then
+                       echo "1"
+                       return
+               fi
+               sleep 2
+       done
+       echo "0"
 }
 
 #returns number of replicas connected to controller in RW mode
@@ -202,7 +217,7 @@ verify_vol_status() {
 			rw_status="RW"
 		fi
 		i=`expr $i + 1`
-		if [ "$i" == 50 ]; then
+		if [ "$i" == 100 ]; then
 			echo $2 " -- failed"
 			collect_logs_and_exit
 		fi
@@ -531,6 +546,29 @@ test_three_replica_stop_start() {
 	cleanup
 }
 
+test_ctrl_stop_start() {
+       echo "-----------------Test_three_replica_stop_start---------------"
+       orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+       replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+       replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+       replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+
+       if [ $(verify_rw_rep_count "3") != 0 ]; then
+               echo "test_ctrl_stop_start() Verify_rw_rep_count failed"
+               collect_logs_and_exit
+       fi
+
+       docker stop $orig_controller_id
+       docker start $orig_controller_id
+
+       if [ $(verify_rw_rep_count "3") != 0 ]; then
+               echo "test_ctrl_stop_start() Verify_rw_rep_count failed"
+               collect_logs_and_exit
+       fi
+
+       cleanup
+}
+
 test_replica_reregistration() {
 	echo "----------------Test_replica_reregistration------------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
@@ -744,6 +782,7 @@ prepare_test_env
 #test_single_replica_stop_start
 #test_two_replica_stop_start
 test_three_replica_stop_start
+test_ctrl_stop_start
 test_replica_reregistration
 run_data_integrity_test
 create_snapshot "$CONTROLLER_IP"

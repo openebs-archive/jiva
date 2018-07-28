@@ -459,14 +459,10 @@ func (c *Controller) RemoveReplicaNoLock(address string) error {
 	for i, r := range c.replicas {
 		if r.Address == address {
 			if len(c.replicas) == 1 && c.frontend.State() == types.StateUp {
-				if r.Mode == "ERR" {
-					if c.frontend != nil {
-						c.StartSignalled = false
-						c.MaxRevReplica = ""
-						c.frontend.Shutdown()
-					}
-				} else {
-					return fmt.Errorf("Cannot remove last replica if volume is up")
+				if c.frontend != nil {
+					c.StartSignalled = false
+					c.MaxRevReplica = ""
+					c.frontend.Shutdown()
 				}
 			}
 			foundregrep = 0
@@ -527,6 +523,8 @@ func (c *Controller) ListReplicas() []types.Replica {
 }
 
 func (c *Controller) ListQuorumReplicas() []types.Replica {
+	c.Lock()
+	defer c.Unlock()
 	return c.quorumReplicas
 }
 

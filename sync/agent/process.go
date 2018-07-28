@@ -76,6 +76,8 @@ func (s *Server) GetProcess(rw http.ResponseWriter, req *http.Request) error {
 
 func (s *Server) CreateProcess(rw http.ResponseWriter, req *http.Request) error {
 	var p Process
+	var gotNextPort bool
+	gotNextPort = false
 	apiContext := api.GetApiContext(req)
 	if err := apiContext.Read(&p); err != nil {
 		return err
@@ -90,6 +92,7 @@ func (s *Server) CreateProcess(rw http.ResponseWriter, req *http.Request) error 
 			s.Unlock()
 			return err
 		}
+		gotNextPort = true
 	}
 
 	s.processCounter++
@@ -107,7 +110,9 @@ func (s *Server) CreateProcess(rw http.ResponseWriter, req *http.Request) error 
 			logrus.Errorf("Failed to launch %#v: %v", p, err)
 		}
 		s.Lock()
-		delete(s.processesByPort, p.Port)
+		if gotNextPort == true {
+			delete(s.processesByPort, p.Port)
+		}
 		s.Unlock()
 	}()
 
@@ -188,6 +193,7 @@ func (s *Server) launchSync(p *Process) error {
 	} else {
 		args = append(args, p.SrcFile)
 	}
+	args = append(args, "-timeout", strconv.Itoa(5))
 
 	cmd := reexec.Command(args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{

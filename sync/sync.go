@@ -2,7 +2,6 @@ package sync
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -444,11 +443,11 @@ func (t *Task) syncFile(from, to string, fromClient *replicaClient.ReplicaClient
 	logrus.Infof("Synchronizing %s to %s@%s:%d", from, to, host, port)
 	err = fromClient.SendFile(from, host, port)
 	if err != nil {
-		if err1 := os.Remove(to); err1 != nil {
-			logrus.Errorf("Remove %s failed with err %v", to, err1)
-		} else {
-			logrus.Infof("Removed %s due to err in sync", to)
-		}
+		//		if err1 := os.Remove(to); err1 != nil {
+		//			logrus.Errorf("Remove %s failed with err %v", to, err1)
+		//		} else {
+		//			logrus.Infof("Removed %s due to err in sync", to)
+		//		}
 		logrus.Infof("Failed synchronizing %s to %s@%s:%d: %v", from, to, host, port, err)
 	} else {
 		logrus.Infof("Done synchronizing %s to %s@%s:%d", from, to, host, port)

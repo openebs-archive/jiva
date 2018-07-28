@@ -18,7 +18,7 @@ const (
 )
 
 const (
-	MagicVersion = uint16(0x1b01) // LongHorn01
+	MagicVersion = uint16(0x1b02) // Jiva02
 )
 
 type Message struct {

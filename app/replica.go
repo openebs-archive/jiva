@@ -86,7 +86,7 @@ func CheckReplicaState(frontendIP string, replicaIP string) (string, error) {
 func AutoConfigureReplica(s *replica.Server, frontendIP string, address string, replicaType string) {
 checkagain:
 	state, err := CheckReplicaState(frontendIP, address)
-	logrus.Infof("checkreplicastate %v %v", state, err)
+	logrus.Infof("Replicastate: %v err:%v", state, err)
 	if err == nil && (state == "" || state == "ERR") {
 		s.Close(false)
 	} else {
@@ -95,6 +95,7 @@ checkagain:
 	}
 	AutoRmReplica(frontendIP, address)
 	AutoAddReplica(s, frontendIP, address, replicaType)
+	logrus.Infof("Waiting on MonitorChannel")
 	select {
 	case <-s.MonitorChannel:
 		logrus.Infof("Restart AutoConfigure Process")
@@ -110,7 +111,7 @@ func CloneReplica(s *replica.Server, address string, cloneIP string, snapName st
 		return err
 	}
 	if s.Replica() != nil {
-		s.Replica().SetCloneStatus("completed")
+		err = s.Replica().SetCloneStatus("completed")
 	}
 	return err
 }
@@ -174,6 +175,9 @@ func startReplica(c *cli.Context) error {
 		return err
 	}
 
+	logrus.Infof("Starting replica having replicaType: %v, frontendIP: %v, size: %v, dir: %v", replicaType, frontendIP, size, dir)
+	logrus.Infof("Setting replicaAddr: %v, controlAddr: %v, dataAddr: %v, syncAddr: %v", address, controlAddress, dataAddress, syncAddress)
+
 	var resp error
 	controlResp := make(chan error)
 	syncResp := make(chan error)
@@ -233,19 +237,31 @@ func startReplica(c *cli.Context) error {
 		status := s.Replica().GetCloneStatus()
 		if status != "completed" {
 			logrus.Infof("Set clone status as inProgress")
-			s.Replica().SetCloneStatus("inProgress")
+			if err = s.Replica().SetCloneStatus("inProgress"); err != nil {
+				logrus.Error("Error in setting the clone status as 'inProgress'")
+				return err
+			}
 			if err = CloneReplica(s, "tcp://"+address, cloneIP, snapName); err != nil {
-				logrus.Infof("Set clone status as error")
-				s.Replica().SetCloneStatus("error")
+				logrus.Error("Error in cloning replica, setting clone status as 'error'")
+				if statusErr := s.Replica().SetCloneStatus("error"); err != nil {
+					logrus.Errorf("Error in setting the clone status as 'error', found error:%v", statusErr)
+					return err
+				}
 				return err
 			}
 		}
 		logrus.Infof("Set clone status as Completed")
-		s.Replica().SetCloneStatus("completed")
+		if err := s.Replica().SetCloneStatus("completed"); err != nil {
+			logrus.Error("Error in setting the clone status as 'completed'")
+			return err
+		}
 		logrus.Infof("Clone process completed successfully\n")
 	} else {
 		logrus.Infof("Set clone status as NA")
-		s.Replica().SetCloneStatus("NA")
+		if err := s.Replica().SetCloneStatus("NA"); err != nil {
+			logrus.Error("Error in setting the clone status as 'NA'")
+			return err
+		}
 	}
 	select {
 	case resp = <-controlResp:
