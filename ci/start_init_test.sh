@@ -463,11 +463,9 @@ test_three_replica_stop_start() {
 	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
 
 	sleep 5
-	#run_ios_to_test_stop_start &
-	#sleep 8
 
 	count=0
-	while [ "$count" != 100 ]; do
+	while [ "$count" != 5 ]; do
 		docker stop $orig_controller_id &
 		docker stop $replica1_id &
 		wait
@@ -479,9 +477,8 @@ test_three_replica_stop_start() {
 		count=`expr $count + 1`
 	done
 
-	wait
-	cleanup
-	exit 0
+	run_ios_to_test_stop_start &
+	sleep 8
 
 	docker stop $replica1_id
 	if [ $(verify_rw_status "RW") == 0 ]; then
@@ -779,8 +776,8 @@ verify_clone_status() {
 }
 
 prepare_test_env
-#test_single_replica_stop_start
-#test_two_replica_stop_start
+test_single_replica_stop_start
+test_two_replica_stop_start
 test_three_replica_stop_start
 test_ctrl_stop_start
 test_replica_reregistration
