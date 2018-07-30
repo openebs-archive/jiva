@@ -192,6 +192,14 @@ func (s *Server) launchSync(p *Process) error {
 	if p.Host != "" {
 		args = append(args, "-host", p.Host)
 	}
+
+	//Overwriting default of 2 mins to 7 seconds for ssync client in retrying
+	//to open file on ssync server.
+	//When the ssync server restarts and opens listener on same port that
+	//ssync client is trying to connect for 120 seconds, it can cause corruption
+	//as ssync client and server are looking at different files.
+	args = append(args, "-timeout", strconv.Itoa(7))
+
 	if p.Port != 0 {
 		args = append(args, "-port", strconv.Itoa(p.Port))
 	}
@@ -203,12 +211,6 @@ func (s *Server) launchSync(p *Process) error {
 	} else {
 		args = append(args, p.SrcFile)
 	}
-	//Overwriting default of 2 mins to 7 seconds for ssync client in retrying
-	//to open file on ssync server.
-	//When the ssync server restarts and opens listener on same port that
-	//ssync client is trying to connect for 120 seconds, it can cause corruption
-	//as ssync client and server are looking at different files.
-	args = append(args, "-timeout", strconv.Itoa(7))
 
 	cmd := reexec.Command(args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{

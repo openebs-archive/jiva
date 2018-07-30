@@ -542,7 +542,15 @@ func (r *Replica) DisplayChain() ([]string, error) {
 	for cur != "" {
 		disk, ok := r.diskData[cur]
 		if !ok {
-			return nil, fmt.Errorf("Failed to find metadata for %s", cur)
+			cur1 := r.info.Head
+			for cur1 != "" {
+				logrus.Errorf("cur1: %s", cur1)
+				if _, ok1 := r.diskData[cur1]; !ok1 {
+					break
+				}
+				cur1 = r.diskData[cur1].Parent
+			}
+			return nil, fmt.Errorf("Failed to find metadata for %s in DisplayChain", cur)
 		}
 		if !disk.Removed {
 			result = append(result, cur)
@@ -563,6 +571,14 @@ func (r *Replica) Chain() ([]string, error) {
 	for cur != "" {
 		result = append(result, cur)
 		if _, ok := r.diskData[cur]; !ok {
+			cur1 := r.info.Head
+			for cur1 != "" {
+				logrus.Errorf("cur1: %s", cur1)
+				if _, ok1 := r.diskData[cur1]; !ok1 {
+					break
+				}
+				cur1 = r.diskData[cur1].Parent
+			}
 			return nil, fmt.Errorf("Failed to find metadata for %s", cur)
 		}
 		cur = r.diskData[cur].Parent
