@@ -101,7 +101,7 @@ func (s *Server) GetVolUsage(rw http.ResponseWriter, req *http.Request) error {
 
 func (s *Server) doOp(req *http.Request, err error) error {
 	if err != nil {
-		logrus.Errorf("Error in doOp %v", err)
+		logrus.Errorf("Error %v in doOp: %v", err, req.RequestURI)
 		return err
 	}
 
@@ -250,8 +250,12 @@ func (s *Server) RevertReplica(rw http.ResponseWriter, req *http.Request) error 
 }
 
 func (s *Server) ReloadReplica(rw http.ResponseWriter, req *http.Request) error {
+	var err error
 	logrus.Infof("Reload Replica")
-	return s.doOp(req, s.s.Reload())
+	if err = s.doOp(req, s.s.Reload()); err != nil {
+		logrus.Errorf("error in reloadReplica %v", err)
+	}
+	return err
 }
 
 func (s *Server) UpdateCloneInfo(rw http.ResponseWriter, req *http.Request) error {

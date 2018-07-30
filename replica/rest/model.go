@@ -207,7 +207,6 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		r.RevisionCounter = strconv.FormatInt(rep.GetRevisionCounter(), 10)
 		r.CloneStatus = rep.GetCloneStatus()
 	}
-
 	return r
 }
 

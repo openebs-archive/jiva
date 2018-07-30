@@ -378,10 +378,12 @@ func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server
 
 	if state == "closed" && info.Rebuilding {
 		if err := server.Open(); err != nil {
+			logrus.Errorf("Error during open in checkAndResetFailedRebuild")
 			return err
 		}
 
 		if err := server.SetRebuilding(false); err != nil {
+			logrus.Errorf("Error during setRebuilding in checkAndResetFailedRebuild")
 			return err
 		}
 
@@ -394,14 +396,19 @@ func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server
 func (t *Task) reloadAndVerify(address string, repClient *replicaClient.ReplicaClient) error {
 	_, err := repClient.ReloadReplica()
 	if err != nil {
+		logrus.Errorf("Error in reloadreplica %s", address)
 		return err
 	}
 
 	if err := t.client.VerifyRebuildReplica(rest.EncodeID(address)); err != nil {
+		logrus.Errorf("Error in verifyRebuildReplica %s", address)
 		return err
 	}
 
-	return repClient.SetRebuilding(false)
+	if err = repClient.SetRebuilding(false); err != nil {
+		logrus.Errorf("Error in setRebuilding %s", address)
+	}
+	return err
 }
 
 func (t *Task) syncFiles(fromClient *replicaClient.ReplicaClient, toClient *replicaClient.ReplicaClient, disks []string) error {

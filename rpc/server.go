@@ -61,6 +61,7 @@ func (s *Server) readWrite(ret chan<- error) {
 	for {
 		msg, err := s.wire.Read()
 		if err == io.EOF {
+			logrus.Errorf("Received EOF: %v", err)
 			ret <- err
 			break
 		} else if err != nil {

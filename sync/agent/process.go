@@ -76,6 +76,8 @@ func (s *Server) GetProcess(rw http.ResponseWriter, req *http.Request) error {
 
 func (s *Server) CreateProcess(rw http.ResponseWriter, req *http.Request) error {
 	var p Process
+	var gotNextPort bool
+	gotNextPort = false
 	apiContext := api.GetApiContext(req)
 	if err := apiContext.Read(&p); err != nil {
 		return err
@@ -90,6 +92,7 @@ func (s *Server) CreateProcess(rw http.ResponseWriter, req *http.Request) error 
 			s.Unlock()
 			return err
 		}
+		gotNextPort = true
 	}
 
 	s.processCounter++
@@ -97,8 +100,18 @@ func (s *Server) CreateProcess(rw http.ResponseWriter, req *http.Request) error 
 	p.Id = id
 	p.Type = "process"
 	s.processes[p.Id] = &p
-	s.processesByPort[p.Port] = &p
 
+	//Need to add to map only if listener is created
+	//Adding otherwise can cause problem in below case:
+	//Consider listener is created on port 9759, and, due to reason that
+	//ssync client is crashed, that ssync server process is just staying
+	//During this time, if another replica have listener on 9759 and asked this
+	//replica to help in rebuilding, can make this entry go off if added to map.
+	//Later, this entry again can get alloted and can cause 'bind port failed',
+	//as ssync server still exists.
+	if gotNextPort == true {
+		s.processesByPort[p.Port] = &p
+	}
 	s.Unlock()
 
 	p.ExitCode = -2
@@ -107,7 +120,9 @@ func (s *Server) CreateProcess(rw http.ResponseWriter, req *http.Request) error 
 			logrus.Errorf("Failed to launch %#v: %v", p, err)
 		}
 		s.Lock()
-		delete(s.processesByPort, p.Port)
+		if gotNextPort == true {
+			delete(s.processesByPort, p.Port)
+		}
 		s.Unlock()
 	}()
 
@@ -177,6 +192,14 @@ func (s *Server) launchSync(p *Process) error {
 	if p.Host != "" {
 		args = append(args, "-host", p.Host)
 	}
+
+	//Overwriting default of 2 mins to 7 seconds for ssync client in retrying
+	//to open file on ssync server.
+	//When the ssync server restarts and opens listener on same port that
+	//ssync client is trying to connect for 120 seconds, it can cause corruption
+	//as ssync client and server are looking at different files.
+	args = append(args, "-timeout", strconv.Itoa(7))
+
 	if p.Port != 0 {
 		args = append(args, "-port", strconv.Itoa(p.Port))
 	}

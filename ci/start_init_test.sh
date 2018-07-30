@@ -21,6 +21,31 @@ collect_logs_and_exit() {
 	echo "--------------------------REPLICA 3  LOGS ---------------------------------"
 	curl http://$REPLICA_IP3:9502/v1/replicas | jq
 
+	#Take system output
+	ps -auxwww
+	top -n 10 -b
+	netstat -nap
+
+#	i=0
+#	while [ "$i" != 10 ]; do
+#		i=`expr $i + 1`
+#		echo "CONTROLLER TRACE>>"
+#		curl http://$CONTROLLER_IP:9501/debug/pprof/goroutine?debug=2
+#		echo "REPLICA 1 TRACE>>"
+#		curl http://$REPLICA_IP1:9502/debug/pprof/goroutine?debug=2
+#		echo "REPLICA 2 TRACE>>"
+#		curl http://$REPLICA_IP2:9502/debug/pprof/goroutine?debug=2
+#		echo "REPLICA 3 TRACE>>"
+#		curl http://$REPLICA_IP3:9502/debug/pprof/goroutine?debug=2
+#		sleep 5
+#	done
+
+	echo "ls VOL1>>"
+	ls -ltr /tmp/vol1/
+	echo "ls VOL2>>"
+	ls -ltr /tmp/vol2/
+	echo "ls VOL3>>"
+	ls -ltr /tmp/vol3/
 	#Below is to get stack traces of longhorn processes
 	kill -SIGABRT $(ps -auxwww | grep -w longhorn | grep -v grep | awk '{print $2}')
 
@@ -64,7 +89,7 @@ verify_replica_cnt() {
 		date
 		replica_cnt=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
 		i=`expr $i + 1`
-		if [ "$i" == 50 ]; then
+		if [ "$i" == 100 ]; then
 			echo $2 " -- failed"
 			collect_logs_and_exit
 		fi
@@ -192,7 +217,7 @@ verify_vol_status() {
 			rw_status="RW"
 		fi
 		i=`expr $i + 1`
-		if [ "$i" == 50 ]; then
+		if [ "$i" == 100 ]; then
 			echo $2 " -- failed"
 			collect_logs_and_exit
 		fi
@@ -438,6 +463,20 @@ test_three_replica_stop_start() {
 	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
 
 	sleep 5
+
+	count=0
+	while [ "$count" != 5 ]; do
+		docker stop $orig_controller_id &
+		docker stop $replica1_id &
+		wait
+		sleep 5
+		docker start $orig_controller_id
+		docker start $replica1_id
+		verify_replica_cnt "3" "Three replica count test when controller restarted multiple times"
+		verify_vol_status "RW" "when there are 3 replicas and controller restarted multiple times"
+		count=`expr $count + 1`
+	done
+
 	run_ios_to_test_stop_start &
 	sleep 8
 

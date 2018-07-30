@@ -92,6 +92,7 @@ func (c *ReplicaClient) Revert(name, created string) error {
 func (c *ReplicaClient) Close() error {
 	r, err := c.GetReplica()
 	if err != nil {
+		logrus.Errorf("getReplica in close failed")
 		return err
 	}
 
@@ -101,6 +102,7 @@ func (c *ReplicaClient) Close() error {
 func (c *ReplicaClient) SetRebuilding(rebuilding bool) error {
 	r, err := c.GetReplica()
 	if err != nil {
+		logrus.Errorf("getReplica in setrebuilding failed %v", rebuilding)
 		return err
 	}
 
@@ -112,6 +114,7 @@ func (c *ReplicaClient) SetRebuilding(rebuilding bool) error {
 func (c *ReplicaClient) RemoveDisk(disk string) error {
 	r, err := c.GetReplica()
 	if err != nil {
+		logrus.Errorf("getReplica in removeDisk failed")
 		return err
 	}
 

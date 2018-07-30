@@ -160,6 +160,7 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 	}
 
 	if err := os.Mkdir(dir, 0700); err != nil && !os.IsExist(err) {
+		logrus.Errorf("Error %v in mkdir %v", err, dir)
 		return nil, err
 	}
 
@@ -541,7 +542,15 @@ func (r *Replica) DisplayChain() ([]string, error) {
 	for cur != "" {
 		disk, ok := r.diskData[cur]
 		if !ok {
-			return nil, fmt.Errorf("Failed to find metadata for %s", cur)
+			cur1 := r.info.Head
+			for cur1 != "" {
+				logrus.Errorf("cur1: %s", cur1)
+				if _, ok1 := r.diskData[cur1]; !ok1 {
+					break
+				}
+				cur1 = r.diskData[cur1].Parent
+			}
+			return nil, fmt.Errorf("Failed to find metadata for %s in DisplayChain", cur)
 		}
 		if !disk.Removed {
 			result = append(result, cur)
@@ -562,6 +571,14 @@ func (r *Replica) Chain() ([]string, error) {
 	for cur != "" {
 		result = append(result, cur)
 		if _, ok := r.diskData[cur]; !ok {
+			cur1 := r.info.Head
+			for cur1 != "" {
+				logrus.Errorf("cur1: %s", cur1)
+				if _, ok1 := r.diskData[cur1]; !ok1 {
+					break
+				}
+				cur1 = r.diskData[cur1].Parent
+			}
 			return nil, fmt.Errorf("Failed to find metadata for %s", cur)
 		}
 		cur = r.diskData[cur].Parent
@@ -601,15 +618,18 @@ func (r *Replica) encodeToFile(obj interface{}, file string) error {
 
 	f, err := os.Create(r.diskPath(file + ".tmp"))
 	if err != nil {
+		logrus.Errorf("Error %v in creating tmp file %s", err, file)
 		return err
 	}
 	defer f.Close()
 
 	if err := json.NewEncoder(f).Encode(&obj); err != nil {
+		logrus.Errorf("Error %v in encoder to file %s", err, file)
 		return err
 	}
 
 	if err := f.Close(); err != nil {
+		logrus.Errorf("Error %v in encoder while closing file %s", err, file)
 		return err
 	}
 
@@ -875,6 +895,7 @@ func (r *Replica) openLiveChain() error {
 		parent := chain[i]
 		f, err := r.openFile(parent, 0)
 		if err != nil {
+			logrus.Errorf("error %v in openFile %s", err, parent)
 			return err
 		}
 
@@ -898,6 +919,7 @@ func (r *Replica) readMetadata() (bool, error) {
 	for _, file := range files {
 		if file.Name() == volumeMetaData {
 			if err := r.unmarshalFile(file.Name(), &r.info); err != nil {
+				logrus.Errorf("Error %v in unmarshalFile %s", err, file.Name())
 				return false, err
 			}
 			r.volume.sectorSize = defaultSectorSize
@@ -926,6 +948,7 @@ func (r *Replica) readMetadata() (bool, error) {
 func (r *Replica) readDiskData(file string) error {
 	var data disk
 	if err := r.unmarshalFile(file, &data); err != nil {
+		logrus.Errorf("Error %v in unmarshalFile %s during readDisk", err, file)
 		return err
 	}
 
