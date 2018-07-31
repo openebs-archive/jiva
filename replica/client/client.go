@@ -240,6 +240,7 @@ func (c *ReplicaClient) SendFile(from, host string, port int) error {
 		return err
 	}
 
+	successCount := 0
 	start := 250 * time.Millisecond
 	for {
 		err := c.get(running.Links["self"], &running)
@@ -255,7 +256,11 @@ func (c *ReplicaClient) SendFile(from, host string, port int) error {
 				start = 1 * time.Second
 			}
 		case 0:
-			return nil
+			successCount++
+			if successCount == 2 {
+				return nil
+			}
+			time.Sleep(start)
 		default:
 			return fmt.Errorf("ExitCode: %d", running.ExitCode)
 		}
