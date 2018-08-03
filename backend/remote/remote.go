@@ -268,21 +268,6 @@ func (rf *Factory) Create(address string) (types.Backend, error) {
 	return r, nil
 }
 
-func (rf *Factory) SignalToAdd(address string, action string) error {
-	controlAddress, _, _, err := util.ParseAddresses(address + ":9502")
-	if err != nil {
-		return err
-	}
-	r := &Remote{
-		Name:       address,
-		replicaURL: fmt.Sprintf("http://%s/v1/replicas/1", controlAddress),
-		httpClient: &http.Client{
-			Timeout: timeout,
-		},
-	}
-	return r.doAction("start", &map[string]string{"Action": action})
-}
-
 func (r *Remote) monitorPing(client *rpc.Client) {
 	ticker := time.NewTicker(pingInveral)
 	defer ticker.Stop()

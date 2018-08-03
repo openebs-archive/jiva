@@ -266,9 +266,16 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 		if c.MaxRevReplica == register.Address {
 			logrus.Infof("Replica %v signalled to start again %d:%d", c.MaxRevReplica,
 				len(c.RegisteredReplicas), c.replicaCount)
-			c.signalToAdd()
+			if err := c.factory.SignalToAdd(c.MaxRevReplica, "start"); err != nil {
+				logrus.Errorf("Replica %v is not able to send 'start' signal, found err: %s",
+					c.MaxRevReplica, err.Error())
+				delete(c.RegisteredReplicas, c.MaxRevReplica)
+				c.MaxRevReplica = ""
+				c.StartSignalled = false
+				return err
+			}
 		} else {
-			logrus.Infof("Can signal only to %s.. can't signal to %s %d:%d",
+			logrus.Infof("Can signal only to %s ,can't signal to %s, no of registered replicas are %d and replica count is %d",
 				c.MaxRevReplica, register.Address, len(c.RegisteredReplicas), c.replicaCount)
 			return nil
 		}
@@ -288,13 +295,20 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 
 	if (len(c.RegisteredReplicas) >= ((c.replicaCount / 2) + 1)) &&
 		((len(c.RegisteredReplicas) + len(c.RegisteredQuorumReplicas)) >= (((c.quorumReplicaCount + c.replicaCount) / 2) + 1)) {
-		c.signalToAdd()
-		c.StartSignalled = true
-		logrus.Infof("Replica %v signalled to start %d:%d", c.MaxRevReplica,
+		logrus.Infof("Replica %v signalled to start, no of registered replicas are %d and replica count is %d", c.MaxRevReplica,
 			len(c.RegisteredReplicas), c.replicaCount)
+		if err := c.factory.SignalToAdd(c.MaxRevReplica, "start"); err != nil {
+			logrus.Errorf("Replica %v is not able to send 'start' signal, found err: %s", c.MaxRevReplica, err.Error())
+			delete(c.RegisteredReplicas, c.MaxRevReplica)
+			c.MaxRevReplica = ""
+			return err
+		}
+		c.StartSignalled = true
 		return nil
 	}
 
+	logrus.Warning("No of yet to be registered replicas are less than ", c.replicaCount,
+		" , No of registered replicas: ", len(c.RegisteredReplicas))
 	return nil
 }
 
@@ -662,7 +676,7 @@ func (c *Controller) Start(addresses ...string) error {
 	}
 
 	if len(c.replicas) > 0 {
-		logrus.Infof("alreay %d replicas are started and added", len(c.replicas))
+		logrus.Infof("already %d replicas are started and added", len(c.replicas))
 		return nil
 	}
 
@@ -725,6 +739,7 @@ func (c *Controller) Start(addresses ...string) error {
 			c.factory.SignalToAdd(regrep, "add")
 		}
 	}
+	logrus.Info("Update volume status")
 	c.UpdateVolStatus()
 
 	return nil
