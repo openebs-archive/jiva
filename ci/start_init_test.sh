@@ -373,37 +373,44 @@ test_single_replica_stop_start() {
 	cleanup
 }
 
-test_two_replica_stop_start_in_debug_build() {
-	echo "----------------Test_two_replica_stop_start_in_debug_build---------------"
+test_two_replica_stop_start() {
+	echo "----------------Test_two_replica_stop_start---------------"
 	orig_controller_id=$(start_debug_controller "$CONTROLLER_IP" "store1" "2")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
 	sleep 1
 
-    # Inject the delay in sending 'start' signal and hence crash before getting 
-    # 'start' signal.
+	# Inject the delay in sending 'start' signal and hence crash before getting 
+	# 'start' signal.
 	docker stop $replica1_id
 	sleep 3
 
-    # start the replica with debug build and wait for start signal.
+	# start the replica with debug build and wait for start signal.
 	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
 	sleep 5
 
-	verify_replica_cnt "2" "Two replica count test1 in debug build"
+	verify_replica_cnt "2" "Two replica count test1"
 	# This will delay sync between replicas
 	run_ios_to_test_stop_start
 
 	docker stop $replica2_id
 	verify_replica_cnt "1" "Two replica count test when one is stopped"
 	verify_vol_status "RO" "when there are 2 replicas and one is stopped"
-	verify_controller_rep_state "$REPLICA_IP3" "RW" "Replica2 status after stopping replica1 in 2 replicas case"
+	verify_controller_rep_state "$REPLICA_IP3" "RW" "Replica3 status after stopping replica2 in 2 replicas case"
 
 	docker start $replica2_id
-	verify_replica_cnt "2" "Two replica count test2 in debug build"
+	verify_replica_cnt "2" "Two replica count test2"
 
+	verify_controller_quorum "2" "when there are 2 replicas and one is restarted"
+	verify_vol_status "RW" "when there are 2 replicas and one is restarted"
 
-	verify_controller_quorum "2" "when there are 2 replicas and one is crashed and another one is spawned"
-	verify_vol_status "RW" "when there are 2 replicas and one is spawned"
+	# Stopping the debug_controller and starting the original one (non debug)
+	docker stop $orig_controller_id
+	sleep 2
+
+	# Starting the original controller
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
+	sleep 10
 
 	count=0
 	while [ "$count" != 5 ]; do
@@ -412,11 +419,11 @@ test_two_replica_stop_start_in_debug_build() {
 		docker start $replica2_id &
 		sleep `echo "$count * 0.3" | bc`
 		docker stop $replica3_id
-		# Replica2 might be in Registering mode with status as 'closed' or its rebuild is done with mode as 'RW'
+		# Replica1 might be in Registering mode with status as 'closed' or its rebuild is done with mode as 'RW'
 		verify_rep_state 1 "Replica2 status after restarting it, and stopping other one in 2 replicas case" "$REPLICA_IP2" "RW"
 
 		docker start $replica3_id
-		verify_replica_cnt "2" "Two replica count test3 in debug build"
+		verify_replica_cnt "2" "Two replica count test3"
 		verify_vol_status "RW" "when there are 2 replicas and replicas restarted multiple times"
 
 		count=`expr $count + 1`
@@ -431,79 +438,9 @@ test_two_replica_stop_start_in_debug_build() {
 
 	docker start $replica2_id
 	verify_vol_status "RO" "when there are 2 replicas and are brought down. Then, only one started"
-	verify_rep_state 1 "Replica2 status after stopping both, and starting it" "$REPLICA_IP2" "NA"
+	verify_rep_state 1 "Replica1 status after stopping both, and starting it" "$REPLICA_IP2" "NA"
 
 	docker start $replica3_id
-	verify_vol_status "RW" "when there are 2 replicas and are brought down. Then, both are started"
-	verify_replica_cnt "2" "when there are 2 replicas and are brought down. Then, both are started"
-
-	reader_exit=`docker logs $orig_controller_id 2>&1 | grep "Exiting rpc reader" | wc -l`
-	writer_exit=`docker logs $orig_controller_id 2>&1 | grep "Exiting rpc writer" | wc -l`
-	loop_exit=`docker logs $orig_controller_id 2>&1 | grep "Exiting rpc loop" | wc -l`
-	if [ "$reader_exit" == 0 ]; then
-		collect_logs_and_exit
-	fi
-	if [ "$writer_exit" == 0 ]; then
-		collect_logs_and_exit
-	fi
-	if [ "$loop_exit" == 0 ]; then
-		collect_logs_and_exit
-	fi
-
-	cleanup
-}
-
-
-test_two_replica_stop_start() {
-	echo "----------------Test_two_replica_stop_start---------------"
-	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
-	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
-	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
-	sleep 5
-	verify_replica_cnt "2" "Two replica count test1"
-	# This will delay sync between replicas
-	run_ios_to_test_stop_start
-
-	docker stop $replica1_id
-	verify_replica_cnt "1" "Two replica count test when one is stopped"
-	verify_vol_status "RO" "when there are 2 replicas and one is stopped"
-	verify_controller_rep_state "$REPLICA_IP2" "RW" "Replica2 status after stopping replica1 in 2 replicas case"
-
-	docker start $replica1_id
-	verify_replica_cnt "2" "Two replica count test2"
-
-	verify_controller_quorum "2" "when there are 2 replicas and one is restarted"
-	verify_vol_status "RW" "when there are 2 replicas and one is restarted"
-
-	count=0
-	while [ "$count" != 5 ]; do
-		docker stop $replica1_id
-
-		docker start $replica1_id &
-		sleep `echo "$count * 0.3" | bc`
-		docker stop $replica2_id
-		# Replica1 might be in Registering mode with status as 'closed' or its rebuild is done with mode as 'RW'
-		verify_rep_state 1 "Replica1 status after restarting it, and stopping other one in 2 replicas case" "$REPLICA_IP1" "RW"
-
-		docker start $replica2_id
-		verify_replica_cnt "2" "Two replica count test3"
-		verify_vol_status "RW" "when there are 2 replicas and replicas restarted multiple times"
-
-		count=`expr $count + 1`
-	done
-	verify_controller_quorum "2" "when there are 2 replicas and they are restarted multiple times"
-	verify_vol_status "RW" "when there are 2 replicas and they are restarted multiple times"
-
-	docker stop $replica1_id
-	docker stop $replica2_id
-	verify_vol_status "RO" "when there are 2 replicas and both are stopped"
-	verify_replica_cnt "0" "Two replica count test when both are stopped"
-
-	docker start $replica1_id
-	verify_vol_status "RO" "when there are 2 replicas and are brought down. Then, only one started"
-	verify_rep_state 1 "Replica1 status after stopping both, and starting it" "$REPLICA_IP1" "NA"
-
-	docker start $replica2_id
 	verify_vol_status "RW" "when there are 2 replicas and are brought down. Then, both are started"
 	verify_replica_cnt "2" "when there are 2 replicas and are brought down. Then, both are started"
 
@@ -870,7 +807,6 @@ test_two_replica_stop_start
 test_three_replica_stop_start
 test_ctrl_stop_start
 test_replica_reregistration
-test_two_replica_stop_start_in_debug_build
 run_data_integrity_test
 create_snapshot "$CONTROLLER_IP"
 test_clone_feature
