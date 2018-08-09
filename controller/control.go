@@ -266,11 +266,7 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 		if c.MaxRevReplica == register.Address {
 			logrus.Infof("Replica %v signalled to start again %d:%d", c.MaxRevReplica,
 				len(c.RegisteredReplicas), c.replicaCount)
-			if err := c.factory.SignalToAdd(c.MaxRevReplica, "start"); err != nil {
-				logrus.Errorf("Replica %v is not able to send 'start' signal, found err: %s",
-					c.MaxRevReplica, err.Error())
-				delete(c.RegisteredReplicas, c.MaxRevReplica)
-				c.MaxRevReplica = ""
+			if err := c.signalReplica(); err != nil {
 				c.StartSignalled = false
 				return err
 			}
@@ -297,10 +293,7 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 		((len(c.RegisteredReplicas) + len(c.RegisteredQuorumReplicas)) >= (((c.quorumReplicaCount + c.replicaCount) / 2) + 1)) {
 		logrus.Infof("Replica %v signalled to start, no of registered replicas are %d and replica count is %d", c.MaxRevReplica,
 			len(c.RegisteredReplicas), c.replicaCount)
-		if err := c.factory.SignalToAdd(c.MaxRevReplica, "start"); err != nil {
-			logrus.Errorf("Replica %v is not able to send 'start' signal, found err: %s", c.MaxRevReplica, err.Error())
-			delete(c.RegisteredReplicas, c.MaxRevReplica)
-			c.MaxRevReplica = ""
+		if err := c.signalReplica(); err != nil {
 			return err
 		}
 		c.StartSignalled = true
@@ -309,6 +302,17 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 
 	logrus.Warning("No of yet to be registered replicas are less than ", c.replicaCount,
 		" , No of registered replicas: ", len(c.RegisteredReplicas))
+	return nil
+}
+
+func (c *Controller) signalReplica() error {
+	if err := c.factory.SignalToAdd(c.MaxRevReplica, "start"); err != nil {
+		logrus.Errorf("Replica %v is not able to send 'start' signal, found err: %s",
+			c.MaxRevReplica, err.Error())
+		delete(c.RegisteredReplicas, c.MaxRevReplica)
+		c.MaxRevReplica = ""
+		return err
+	}
 	return nil
 }
 

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/replica/rest"
 	"github.com/openebs/jiva/rpc"
 	"github.com/openebs/jiva/types"
@@ -266,6 +267,22 @@ func (rf *Factory) Create(address string) (types.Backend, error) {
 	go r.monitorPing(rpc)
 
 	return r, nil
+}
+
+func (rf *Factory) SignalToAdd(address string, action string) error {
+	controlAddress, _, _, err := util.ParseAddresses(address + ":9502")
+	if err != nil {
+		return err
+	}
+	r := &Remote{
+		Name:       address,
+		replicaURL: fmt.Sprintf("http://%s/v1/replicas/1", controlAddress),
+		httpClient: &http.Client{
+			Timeout: timeout,
+		},
+	}
+	time.Sleep(inject.SignalToAddTimeout)
+	return r.doAction("start", &map[string]string{"Action": action})
 }
 
 func (r *Remote) monitorPing(client *rpc.Client) {
