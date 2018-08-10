@@ -240,6 +240,7 @@ func (c *ReplicaClient) SendFile(from, host string, port int) error {
 		return err
 	}
 
+	successCount := 0
 	start := 250 * time.Millisecond
 	for {
 		err := c.get(running.Links["self"], &running)
@@ -255,7 +256,16 @@ func (c *ReplicaClient) SendFile(from, host string, port int) error {
 				start = 1 * time.Second
 			}
 		case 0:
-			return nil
+			/*
+			* During sync process, degraded replica receives exitCode as success
+			* in cases like restart of healthy replica.
+			* Below changes verifies the exitCode once again - PR101
+			 */
+			successCount++
+			if successCount == 2 {
+				return nil
+			}
+			time.Sleep(start)
 		default:
 			return fmt.Errorf("ExitCode: %d", running.ExitCode)
 		}
