@@ -5,6 +5,7 @@ source $(dirname $0)/version
 
 cd $(dirname $0)/../package
 
+TAG=${TAG:-${VERSION}-DEBUG}
 REPO=${REPO:-openebs}
 
 if [ ! -x ../bin/debug/longhorn ]; then
@@ -13,6 +14,6 @@ fi
 
 cp ../bin/debug/longhorn* .
 cp /usr/src/tgt/pkg/tgt_*.deb .
-docker build -t ${REPO}/jiva:DEBUG .
+docker build -t ${REPO}/jiva:${TAG} .
 
-echo Built ${REPO}/jiva:DEBUG
+echo Built ${REPO}/jiva:${TAG}

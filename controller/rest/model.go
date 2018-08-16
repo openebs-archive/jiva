@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/controller"
 	"github.com/openebs/jiva/types"
 	"github.com/rancher/go-rancher/api"
@@ -125,10 +124,8 @@ func NewVolume(context *api.ApiContext, name string, readOnly bool, replicas int
 	}
 
 	if replicas == 0 {
-		logrus.Info("Building url for action 'start'")
 		v.Actions["start"] = context.UrlBuilder.ActionLink(v.Resource, "start")
 	} else {
-		logrus.Info("Building url for actions 'shutdown', 'snapshot' and 'revert'")
 		v.Actions["shutdown"] = context.UrlBuilder.ActionLink(v.Resource, "shutdown")
 		v.Actions["snapshot"] = context.UrlBuilder.ActionLink(v.Resource, "snapshot")
 		v.Actions["revert"] = context.UrlBuilder.ActionLink(v.Resource, "revert")

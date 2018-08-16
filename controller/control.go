@@ -305,6 +305,10 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 	return nil
 }
 
+// signalReplica is a wrapper over SignalToAdd which is used as utility
+// function by registerReplica. It sends a POST request to replica to
+// start and delete the replica from map in case of error.
+// No need to take lock as a lock has been already taken by the callee.
 func (c *Controller) signalReplica() error {
 	if err := c.factory.SignalToAdd(c.MaxRevReplica, "start"); err != nil {
 		logrus.Errorf("Replica %v is not able to send 'start' signal, found err: %s",
