@@ -441,7 +441,7 @@ test_two_replica_stop_start() {
 	verify_controller_quorum "2" "when there are 2 replicas and they are restarted multiple times"
 	verify_vol_status "RW" "when there are 2 replicas and they are restarted multiple times"
 
-	docker stop $rreplica1_id
+	docker stop $replica1_id
 	docker stop $replica2_id
 	verify_vol_status "RO" "when there are 2 replicas and both are stopped"
 	verify_replica_cnt "0" "Two replica count test when both are stopped"
