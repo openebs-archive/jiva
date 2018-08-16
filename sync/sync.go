@@ -501,7 +501,7 @@ func (t *Task) getToReplica(address string) (rest.Replica, error) {
 	for _, r := range replicas {
 		if r.Address == address {
 			if r.Mode != "WO" {
-				return rest.Replica{}, fmt.Errorf("Replica %s is not in mode WO got: %s", address, r.Mode)
+				return rest.Replica{}, fmt.Errorf("Replica %s is not in mode WO, got: %s", address, r.Mode)
 			}
 			return r, nil
 		}

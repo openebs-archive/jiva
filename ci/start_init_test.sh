@@ -78,8 +78,9 @@ prepare_test_env() {
 	mkdir -p /mnt/store /mnt/store2
 
 	docker network create --subnet=172.18.0.0/16 stg-net
-	JI=$(docker images | grep openebs/jiva | awk '{print $1":"$2}' | head -1)
-	echo "Run CI tests on $JI"
+	JI=$(docker images | grep openebs/jiva | awk '{print $1":"$2}' | awk 'NR == 2 {print}')
+	JI_DEBUG=$(docker images | grep openebs/jiva | awk '{print $1":"$2}' | awk 'NR == 1 {print}')
+	echo "Run CI tests on $JI and $JI_DEBUG"
 }
 
 verify_replica_cnt() {
@@ -329,6 +330,13 @@ start_replica() {
 	echo "$replica_id"
 }
 
+# start_controller CONTROLLER_IP (debug build)
+start_debug_controller() {
+	controller_id=$(docker run -d --net stg-net --ip $1 -P --expose 3260 --expose 9501 --expose 9502-9504 $JI_DEBUG \
+			env REPLICATION_FACTOR="$3" launch controller --frontend gotgt --frontendIP "$1" "$2")
+	echo "$controller_id"
+}
+
 # start_cloned_replica CONTROLLER_IP  CLONED_CONTROLLER_IP CLONED_REPLICA_IP folder_name
 start_cloned_replica() {
 	cloned_replica_id=$(docker run -d -it --net stg-net --ip "$3" -P --expose 9502-9504 -v /tmp/"$4":/"$4" $JI \
@@ -365,12 +373,40 @@ test_single_replica_stop_start() {
 	cleanup
 }
 
+# This will start a controller with debug build which delays the registration
+# process of replica and verifies if in case a replica goes down after sending
+# request for registeration to controller, controller should send 'start' signal
+# to other replica after verifying the replication factor.
+test_replica_ip_change() {
+	echo "----------------Test_replica_ip_change---------------"
+	start_debug_controller "$CONTROLLER_IP" "store1" "2"
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2"
+	sleep 1
+
+	echo "Stopping replica with IP: $REPLICA_IP1"
+	# Injected the delay in sending 'start' signal in the debug_controller
+	# and hence crash the replica before getting 'start' signal.
+	docker stop $replica1_id
+	sleep 3
+
+	echo "Starting another replica with different IP: $REPLICA_IP3"
+	# start the other replica and wait for any one of the two replicas to be
+	# registered and get 'start' signal.
+	start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3"
+	sleep 5
+
+	verify_replica_cnt "2" "Two replica count test1"
+	cleanup
+}
+
 test_two_replica_stop_start() {
 	echo "----------------Test_two_replica_stop_start---------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
 	sleep 5
+
 	verify_replica_cnt "2" "Two replica count test1"
 	# This will delay sync between replicas
 	run_ios_to_test_stop_start
@@ -777,6 +813,7 @@ verify_clone_status() {
 
 prepare_test_env
 test_single_replica_stop_start
+test_replica_ip_change
 test_two_replica_stop_start
 test_three_replica_stop_start
 test_ctrl_stop_start

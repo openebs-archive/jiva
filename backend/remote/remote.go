@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/replica/rest"
 	"github.com/openebs/jiva/rpc"
 	"github.com/openebs/jiva/types"
@@ -280,6 +281,7 @@ func (rf *Factory) SignalToAdd(address string, action string) error {
 			Timeout: timeout,
 		},
 	}
+	time.Sleep(inject.SignalToAddTimeout)
 	return r.doAction("start", &map[string]string{"Action": action})
 }
 

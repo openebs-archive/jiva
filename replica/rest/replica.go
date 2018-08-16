@@ -145,7 +145,7 @@ func (s *Server) Create(rw http.ResponseWriter, req *http.Request) error {
 }
 
 func (s *Server) OpenReplica(rw http.ResponseWriter, req *http.Request) error {
-	logrus.Infof("OpenReplica")
+	logrus.Infof("Got signal: 'open', proceed to open replica")
 	return s.doOp(req, s.s.Open())
 }
 
