@@ -214,7 +214,7 @@ verify_go_routine_leak() {
     passed=0
     req_cnt=0
     while [ "$i" != 30 ]; do
-            curl http://$2:9503
+            curl http://$2:9503 &
             i=`expr $i + 1`
             sleep 2
     done

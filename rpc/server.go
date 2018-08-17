@@ -54,7 +54,6 @@ func (s *Server) Handle() error {
 			return nil
 		case err = <-ret:
 			if err != nil {
-				s.wire.conn.Close()
 				return err
 			}
 		}
