@@ -38,7 +38,6 @@ func (s *Server) ListenAndServe() error {
 			logrus.Errorf("failed to accept connection %v", err)
 			continue
 		}
-
 		err = conn.SetKeepAlive(true)
 		if err != nil {
 			logrus.Errorf("failed to accept connection %v", err)
