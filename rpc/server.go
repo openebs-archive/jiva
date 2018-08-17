@@ -35,7 +35,10 @@ func (s *Server) Handle() error {
 		err error
 	)
 	defer func() {
-		s.monitorChan <- struct{}{}
+		select {
+		case s.monitorChan <- struct{}{}:
+		default:
+		}
 	}()
 	ret := make(chan error)
 	go s.readWrite(ret)
