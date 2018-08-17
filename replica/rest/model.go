@@ -27,6 +27,10 @@ type Replica struct {
 	CloneStatus       string                      `json:"clonestatus"`
 }
 
+type DeleteReplicaOutput struct {
+	client.Resource
+}
+
 type Stats struct {
 	client.Resource
 	ReplicaCounter  int64  `json:"replicacounter"`
@@ -210,25 +214,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 	return r
 }
 
-func NewSchema() *client.Schemas {
-	schemas := &client.Schemas{}
-
-	schemas.AddType("error", client.ServerApiError{})
-	schemas.AddType("apiVersion", client.Resource{})
-	schemas.AddType("schema", client.Schema{})
-	schemas.AddType("createInput", CreateInput{})
-	schemas.AddType("rebuildingInput", RebuildingInput{})
-	schemas.AddType("snapshotInput", SnapshotInput{})
-	schemas.AddType("removediskInput", RemoveDiskInput{})
-	schemas.AddType("revertInput", RevertInput{})
-	schemas.AddType("prepareRemoveDiskInput", PrepareRemoveDiskInput{})
-	schemas.AddType("prepareRemoveDiskOutput", PrepareRemoveDiskOutput{})
-	schemas.AddType("revisionCounter", RevisionCounter{})
-	schemas.AddType("replicaCounter", ReplicaCounter{})
-	schemas.AddType("replacediskInput", ReplaceDiskInput{})
-	replica := schemas.AddType("replica", Replica{})
-
-	replica.ResourceMethods = []string{"GET", "DELETE"}
+func setReplicaResourceActions(replica *client.Schema) {
 	replica.ResourceActions = map[string]client.Action{
 		"close": {
 			Output: "replica",
@@ -274,6 +260,32 @@ func NewSchema() *client.Schemas {
 			Output: "replica",
 		},
 	}
+}
+
+func NewSchema() *client.Schemas {
+	schemas := &client.Schemas{}
+
+	schemas.AddType("error", client.ServerApiError{})
+	schemas.AddType("apiVersion", client.Resource{})
+	schemas.AddType("schema", client.Schema{})
+	schemas.AddType("createInput", CreateInput{})
+	schemas.AddType("rebuildingInput", RebuildingInput{})
+	schemas.AddType("snapshotInput", SnapshotInput{})
+	schemas.AddType("removediskInput", RemoveDiskInput{})
+	schemas.AddType("revertInput", RevertInput{})
+	schemas.AddType("prepareRemoveDiskInput", PrepareRemoveDiskInput{})
+	schemas.AddType("prepareRemoveDiskOutput", PrepareRemoveDiskOutput{})
+	schemas.AddType("revisionCounter", RevisionCounter{})
+	schemas.AddType("replicaCounter", ReplicaCounter{})
+	schemas.AddType("replacediskInput", ReplaceDiskInput{})
+
+	delete := schemas.AddType("delete", DeleteReplicaOutput{})
+	delete.ResourceMethods = []string{"DELETE"}
+
+	replica := schemas.AddType("replica", Replica{})
+
+	replica.ResourceMethods = []string{"GET", "DELETE"}
+	setReplicaResourceActions(replica)
 
 	return schemas
 }

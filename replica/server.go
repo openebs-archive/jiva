@@ -317,7 +317,7 @@ func (s *Server) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) {
 	return s.r.PrepareRemoveDisk(name)
 }
 
-func (s *Server) Delete() error {
+func (s *Server) CheckPreDeleteConditions() error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -326,12 +326,33 @@ func (s *Server) Delete() error {
 		return nil
 	}
 
-	logrus.Infof("Deleting volume")
+	logrus.Infof("Closing volume")
 	if err := s.r.Close(); err != nil {
 		return err
 	}
+	return nil
+}
 
-	err := s.r.Delete()
+func (s *Server) Delete() error {
+	err := s.CheckPreDeleteConditions()
+	if err != nil {
+		return err
+	}
+
+	logrus.Info("Delete the metadata and revision counter file")
+	err = s.r.Delete()
+	s.r = nil
+	return err
+}
+
+func (s *Server) DeleteAll() error {
+	err := s.CheckPreDeleteConditions()
+	if err != nil {
+		return err
+	}
+
+	logrus.Infof("Deleting all the contents of the volume")
+	err = s.r.DeleteAll()
 	s.r = nil
 	return err
 }

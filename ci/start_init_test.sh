@@ -342,6 +342,34 @@ get_replica_count() {
 	echo "$replicaCount"
 }
 
+verify_delete_replica() {
+    old_replica_count=$(get_replica_count $CONTROLLER_IP)
+    echo "$old_replica_count"
+    curl -X "POST" http://$CONTROLLER_IP:9501/v1/delete | jq
+    new_replica_count=$(get_replica_count $CONTROLLER_IP)
+    echo "$new_replica_count"
+    verify_replica_cnt "0" "Zero replica count test"
+}
+
+test_two_replica_delete() {
+	echo "----------------Test_two_replica_delete--------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	sleep 5
+	verify_replica_cnt "2" "Two replica count test1"
+	# This will delay sync between replicas
+	run_ios_to_test_stop_start
+	verify_delete_replica "Delete replicas test2"
+	sleep 5
+
+	docker stop $replica1_id
+	docker stop $replica2_id
+	docker stop $orig_controller_id
+	cleanup
+}
+
+
 test_single_replica_stop_start() {
 	echo "----------------Test_single_replica_stop_start--------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
@@ -778,6 +806,7 @@ verify_clone_status() {
 prepare_test_env
 test_single_replica_stop_start
 test_two_replica_stop_start
+test_two_replica_delete
 test_three_replica_stop_start
 test_ctrl_stop_start
 test_replica_reregistration

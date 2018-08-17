@@ -995,6 +995,20 @@ func (r *Replica) Delete() error {
 	return nil
 }
 
+func (r *Replica) DeleteAll() error {
+	r.Lock()
+	defer r.Unlock()
+
+	for name := range r.diskData {
+		if name != r.info.BackingFileName {
+			r.rmDisk(name)
+		}
+	}
+
+	os.RemoveAll(r.dir)
+	return nil
+}
+
 func (r *Replica) Snapshot(name string, userCreated bool, created string) error {
 	r.Lock()
 	defer r.Unlock()

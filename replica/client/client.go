@@ -39,6 +39,7 @@ func NewReplicaClient(address string) (*ReplicaClient, error) {
 	u, err := url.Parse(address)
 	if err != nil {
 		return nil, err
+
 	}
 
 	parts := strings.Split(u.Host, ":")
@@ -75,6 +76,23 @@ func (c *ReplicaClient) Create(size string) error {
 	return c.post(r.Actions["create"], rest.CreateInput{
 		Size: size,
 	}, nil)
+}
+
+func (c *ReplicaClient) Delete(path string) error {
+	_, err := c.GetReplica()
+	if err != nil {
+		return err
+	}
+	deleteAPI := c.address + path
+	req, err := http.NewRequest("DELETE", deleteAPI, nil)
+	if err != nil {
+		return err
+	}
+	_, err = c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *ReplicaClient) Revert(name, created string) error {
