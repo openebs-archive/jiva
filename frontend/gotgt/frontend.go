@@ -88,6 +88,7 @@ func (t *goTgt) Startup(name string, frontendIP string, clusterIP string, size, 
 	t.SectorSize = int(sectorSize)
 	t.rw = rw
 	t.clusterIP = clusterIP
+	logrus.Info("Start SCSI target")
 	if err := t.startScsiTarget(t.cfg); err != nil {
 		return err
 	}
