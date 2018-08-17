@@ -3,6 +3,7 @@ package rest
 import (
 	"errors"
 	"net/http"
+	"sync"
 
 	"github.com/Sirupsen/logrus"
 	replicaClient "github.com/openebs/jiva/replica/client"
@@ -14,12 +15,12 @@ const (
 	zeroReplica     = "No of replicas are zero"
 	repClientErr    = "Error in creating replica client"
 	deletionSuccess = "Replica deleted successfully"
-	deletionErr     = "Error in making 'Delete' request to replica"
+	deletionErr     = "Error deleting replica"
 )
 
 type DeletedReplica struct {
 	Replica string `json:"replica"`
-	Error   error  `json:"error"`
+	Error   error  `json:"error,omitempty"`
 	Msg     string `json:"msg"`
 }
 
@@ -49,29 +50,36 @@ func (s *Server) DeleteVolume(rw http.ResponseWriter, req *http.Request) error {
 	var (
 		volumeNotFound  = errors.New("Volume not found")
 		deletedReplicas DeletedReplicas
+		wg              sync.WaitGroup
 	)
 	apiContext := api.GetApiContext(req)
-
-	if len(s.c.ListReplicas()) == 0 {
+	replicaCount := len(s.c.ListReplicas())
+	if replicaCount == 0 {
 		deletedReplicas.appendReplicas(volumeNotFound, "", zeroReplica)
 		apiContext.Write(SetDeleteReplicaOutput(deletedReplicas))
 		return nil
 	}
+	wg.Add(replicaCount)
 	for _, replica := range s.c.ListReplicas() {
-		repClient, err := replicaClient.NewReplicaClient(replica.Address)
-		if err != nil {
-			logrus.Infof("Error in delete operation of replica %v , found error %v", replica.Address, err)
-			deletedReplicas.appendReplicas(err, replica.Address, repClientErr)
-			continue
-		}
-		logrus.Info("Sending delete request to replica : ", replica.Address)
-		if err := repClient.Delete("/delete"); err != nil {
-			logrus.Infof("Error in delete operation of replica %v , found error %v", replica.Address, err)
-			deletedReplicas.appendReplicas(err, replica.Address, deletionErr)
-			continue
-		}
-		deletedReplicas.appendReplicas(nil, replica.Address, deletionSuccess)
+		addr := replica.Address
+		go func(addr string) {
+			defer wg.Done()
+			repClient, err := replicaClient.NewReplicaClient(addr)
+			if err != nil {
+				logrus.Infof("Error in delete operation of replica %v , found error %v", addr, err)
+				deletedReplicas.appendReplicas(err, addr, repClientErr)
+				return
+			}
+			logrus.Info("Sending delete request to replica : ", addr)
+			if err := repClient.Delete("/delete"); err != nil {
+				logrus.Infof("Error in delete operation of replica %v , found error %v", addr, err)
+				deletedReplicas.appendReplicas(err, addr, deletionErr)
+				return
+			}
+			deletedReplicas.appendReplicas(nil, addr, deletionSuccess)
+		}(addr)
 	}
+	wg.Wait()
 	apiContext.Write(SetDeleteReplicaOutput(deletedReplicas))
 	return nil
 }

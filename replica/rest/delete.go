@@ -15,7 +15,7 @@ func (s *Server) DeleteVolume(rw http.ResponseWriter, req *http.Request) error {
 	apiContext := api.GetApiContext(req)
 	err := s.s.DeleteAll()
 	if err != nil {
-		logrus.Errorf("Error %v in doOp: %v", err, req.RequestURI)
+		logrus.Errorf("Error in deleting the volume, found error: %v", err)
 		return err
 	}
 	apiContext.Write(&DeleteReplicaOutput{

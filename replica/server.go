@@ -317,10 +317,10 @@ func (s *Server) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) {
 	return s.r.PrepareRemoveDisk(name)
 }
 
+// CheckPreDeleteConditions checks whether any replica exists or not,
+// in case if it exists, it closes all the connections with the replica
+// and delete the entry from the controller.
 func (s *Server) CheckPreDeleteConditions() error {
-	s.Lock()
-	defer s.Unlock()
-
 	if s.r == nil {
 		logrus.Infof("Delete is not performed as s.r is nil")
 		return nil
@@ -333,7 +333,11 @@ func (s *Server) CheckPreDeleteConditions() error {
 	return nil
 }
 
+// Delete deletes the volume metadata and revision counter file.
 func (s *Server) Delete() error {
+	s.Lock()
+	defer s.Unlock()
+
 	err := s.CheckPreDeleteConditions()
 	if err != nil {
 		return err
@@ -345,7 +349,11 @@ func (s *Server) Delete() error {
 	return err
 }
 
+// DeleteAll deletes all the contents of the mounted directory.
 func (s *Server) DeleteAll() error {
+	s.Lock()
+	defer s.Unlock()
+
 	err := s.CheckPreDeleteConditions()
 	if err != nil {
 		return err
