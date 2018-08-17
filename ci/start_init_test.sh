@@ -361,10 +361,19 @@ test_two_replica_delete() {
 	# This will delay sync between replicas
 	run_ios_to_test_stop_start
 	verify_delete_replica "Delete replicas test2"
-	sleep 5
 
 	docker stop $replica1_id
 	docker stop $replica2_id
+    sleep 5
+
+    docker start $replica1_id
+	docker start $replica2_id
+    sleep 5
+
+	docker stop $replica1_id
+    verify_delete_replica "Delete replicas test2"
+
+    docker stop $replica2_id
 	docker stop $orig_controller_id
 	cleanup
 }
@@ -804,14 +813,14 @@ verify_clone_status() {
 }
 
 prepare_test_env
-test_single_replica_stop_start
-test_two_replica_stop_start
+#test_single_replica_stop_start
+#test_two_replica_stop_start
 test_two_replica_delete
-test_three_replica_stop_start
-test_ctrl_stop_start
-test_replica_reregistration
-run_data_integrity_test
-create_snapshot "$CONTROLLER_IP"
-test_clone_feature
-run_vdbench_test_on_volume
-run_libiscsi_test_suite
+#test_three_replica_stop_start
+#test_ctrl_stop_start
+#test_replica_reregistration
+#run_data_integrity_test
+#create_snapshot "$CONTROLLER_IP"
+#test_clone_feature
+#run_vdbench_test_on_volume
+#run_libiscsi_test_suite
