@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	zeroReplica     = "No of replicas are zero"
+	zeroReplica     = "No replicas registered with this controller instance"
 	repClientErr    = "Error in creating replica client"
 	deletionSuccess = "Replica deleted successfully"
 	deletionErr     = "Error deleting replica"
