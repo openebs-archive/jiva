@@ -414,18 +414,18 @@ test_two_replica_delete() {
 
 	docker stop $replica1_id
 	docker stop $replica2_id
-        sleep 5
+	sleep 5
 
-        docker start $replica1_id
+	docker start $replica1_id
 	docker start $replica2_id
-        sleep 5
-        verify_replica_cnt "2" "Two replica count test3"
+	sleep 5
+	verify_replica_cnt "2" "Two replica count test3"
 
 	docker stop $replica1_id
-        verify_replica_cnt "1" "One replica count test4"
-        verify_delete_replica_unsuccess "1" "Delete replicas with RF=2 and 1 registered replica test5"
+	verify_replica_cnt "1" "One replica count test4"
+	verify_delete_replica_unsuccess "1" "Delete replicas with RF=2 and 1 registered replica test5"
 
-        docker stop $replica2_id
+	docker stop $replica2_id
 	docker stop $orig_controller_id
 	cleanup
 }
