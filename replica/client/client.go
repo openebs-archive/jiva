@@ -39,7 +39,6 @@ func NewReplicaClient(address string) (*ReplicaClient, error) {
 	u, err := url.Parse(address)
 	if err != nil {
 		return nil, err
-
 	}
 
 	parts := strings.Split(u.Host, ":")

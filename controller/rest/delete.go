@@ -1,17 +1,19 @@
 package rest
 
 import (
-	"errors"
+	"fmt"
 	"net/http"
 	"sync"
 
 	"github.com/Sirupsen/logrus"
 	replicaClient "github.com/openebs/jiva/replica/client"
+	"github.com/openebs/jiva/util"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
 )
 
 const (
+	volumeNotFound  = "Volume not found"
 	zeroReplica     = "No replicas registered with this controller instance"
 	repClientErr    = "Error in creating replica client"
 	deletionSuccess = "Replica deleted successfully"
@@ -20,7 +22,7 @@ const (
 
 type DeletedReplica struct {
 	Replica string `json:"replica"`
-	Error   error  `json:"error,omitempty"`
+	Error   string `json:"error,omitempty"`
 	Msg     string `json:"msg"`
 }
 
@@ -28,7 +30,7 @@ type DeletedReplicas struct {
 	DeletedReplicasInfo []DeletedReplica `json:"replicas"`
 }
 
-func (r *DeletedReplicas) appendReplicas(err error, addr, msg string) {
+func (r *DeletedReplicas) appendDeletedReplicas(err, addr, msg string) {
 	deletedReplica := DeletedReplica{
 		Replica: addr,
 		Error:   err,
@@ -37,6 +39,8 @@ func (r *DeletedReplicas) appendReplicas(err error, addr, msg string) {
 	r.DeletedReplicasInfo = append(r.DeletedReplicasInfo, deletedReplica)
 }
 
+// SetDeleteReplicaOutput returns the output containing the list
+// of deleted replicas and other details related to it.
 func SetDeleteReplicaOutput(deletedReplicas DeletedReplicas) *DeleteReplicaOutput {
 	return &DeleteReplicaOutput{
 		client.Resource{
@@ -46,20 +50,9 @@ func SetDeleteReplicaOutput(deletedReplicas DeletedReplicas) *DeleteReplicaOutpu
 	}
 }
 
-func (s *Server) DeleteVolume(rw http.ResponseWriter, req *http.Request) error {
-	var (
-		volumeNotFound  = errors.New("Volume not found")
-		deletedReplicas DeletedReplicas
-		wg              sync.WaitGroup
-	)
-	apiContext := api.GetApiContext(req)
-	replicaCount := len(s.c.ListReplicas())
-	if replicaCount == 0 {
-		deletedReplicas.appendReplicas(volumeNotFound, "", zeroReplica)
-		apiContext.Write(SetDeleteReplicaOutput(deletedReplicas))
-		return nil
-	}
-	wg.Add(replicaCount)
+func (s *Server) delete(replicas *DeletedReplicas, wg *sync.WaitGroup) {
+	s.c.Lock()
+	defer s.c.Unlock()
 	for _, replica := range s.c.ListReplicas() {
 		addr := replica.Address
 		go func(addr string) {
@@ -67,19 +60,48 @@ func (s *Server) DeleteVolume(rw http.ResponseWriter, req *http.Request) error {
 			repClient, err := replicaClient.NewReplicaClient(addr)
 			if err != nil {
 				logrus.Infof("Error in delete operation of replica %v , found error %v", addr, err)
-				deletedReplicas.appendReplicas(err, addr, repClientErr)
+				replicas.appendDeletedReplicas(err.Error(), addr, repClientErr)
 				return
 			}
 			logrus.Info("Sending delete request to replica : ", addr)
 			if err := repClient.Delete("/delete"); err != nil {
 				logrus.Infof("Error in delete operation of replica %v , found error %v", addr, err)
-				deletedReplicas.appendReplicas(err, addr, deletionErr)
+				replicas.appendDeletedReplicas(err.Error(), addr, deletionErr)
 				return
 			}
-			deletedReplicas.appendReplicas(nil, addr, deletionSuccess)
+			replicas.appendDeletedReplicas("", addr, deletionSuccess)
 		}(addr)
 	}
+}
+
+// DeleteVolume handle the delete req call from controller's client.
+// it checks for the replication factor before deleting the replicas
+// if the replica count equal to the replication factor then it will
+// proceed to delete, otherwise return a response explaining the cause
+// of error in response.
+func (s *Server) DeleteVolume(rw http.ResponseWriter, req *http.Request) error {
+	var (
+		replicas DeletedReplicas
+		wg       sync.WaitGroup
+	)
+	apiContext := api.GetApiContext(req)
+	replicaCount := len(s.c.ListReplicas())
+	if replicaCount == 0 {
+		replicas.appendDeletedReplicas(volumeNotFound, "", zeroReplica)
+		apiContext.Write(SetDeleteReplicaOutput(replicas))
+		return nil
+	}
+	replicationFactor := util.CheckReplicationFactor()
+	if replicaCount != replicationFactor {
+		replicationFactorErr := fmt.Sprintf("Replication factor: %d is not equal to replica count: %d",
+			replicationFactor, replicaCount)
+		replicas.appendDeletedReplicas(replicationFactorErr, "", deletionErr)
+		apiContext.Write(SetDeleteReplicaOutput(replicas))
+		return nil
+	}
+	wg.Add(replicaCount)
+	s.delete(&replicas, &wg)
 	wg.Wait()
-	apiContext.Write(SetDeleteReplicaOutput(deletedReplicas))
+	apiContext.Write(SetDeleteReplicaOutput(replicas))
 	return nil
 }

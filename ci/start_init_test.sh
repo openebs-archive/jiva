@@ -373,6 +373,25 @@ get_replica_count() {
 	echo "$replicaCount"
 }
 
+#verify_delete_replica_unsuccess verifies that when RF condition is not met
+#the replicas will not be deleted and error will be returned that replica
+#count is not equal to the RF.
+verify_delete_replica_unsuccess() {
+    expected_error="Error deleting replica" 
+    error=$(curl -X "POST" http://$CONTROLLER_IP:9501/v1/delete | jq '.replicas[0].msg' | tr -d '"')
+    if [ "$error" != "$expected_error" ]; then
+               echo $2"  --failed"
+        collect_logs_and_exit
+    fi
+    #verify whether no of replicas are still the same as it was sent or nor.
+    verify_replica_cnt "$1" "$2"
+    echo $2"  --passed"
+    return
+}
+
+#verify_delete_replica verifies that if the replication factor condition
+#is met then it will delete the replicas.So before calling this function
+#ensure that no of replicas should be equal to the RF.
 verify_delete_replica() {
     old_replica_count=$(get_replica_count $CONTROLLER_IP)
     echo "$old_replica_count"
@@ -395,16 +414,18 @@ test_two_replica_delete() {
 
 	docker stop $replica1_id
 	docker stop $replica2_id
-    sleep 5
+        sleep 5
 
-    docker start $replica1_id
+        docker start $replica1_id
 	docker start $replica2_id
-    sleep 5
+        sleep 5
+        verify_replica_cnt "2" "Two replica count test3"
 
 	docker stop $replica1_id
-    verify_delete_replica "Delete replicas test2"
+        verify_replica_cnt "1" "One replica count test4"
+        verify_delete_replica_unsuccess "1" "Delete replicas with RF=2 and 1 registered replica test5"
 
-    docker stop $replica2_id
+        docker stop $replica2_id
 	docker stop $orig_controller_id
 	cleanup
 }
@@ -876,7 +897,7 @@ prepare_test_env
 test_single_replica_stop_start
 test_two_replica_delete
 test_replica_ip_change
-test_two_replica_stop_start
+est_two_replica_stop_start
 test_three_replica_stop_start
 test_ctrl_stop_start
 test_replica_reregistration

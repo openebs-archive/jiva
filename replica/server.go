@@ -1,6 +1,7 @@
 package replica
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -322,8 +323,7 @@ func (s *Server) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) {
 // and delete the entry from the controller.
 func (s *Server) CheckPreDeleteConditions() error {
 	if s.r == nil {
-		logrus.Infof("Delete is not performed as s.r is nil")
-		return nil
+		return errors.New("s.r is nil")
 	}
 
 	logrus.Infof("Closing volume")

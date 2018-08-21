@@ -1010,15 +1010,6 @@ func (r *Replica) DeleteAll() error {
 	r.Lock()
 	defer r.Unlock()
 
-	for name := range r.diskData {
-		if name != r.info.BackingFileName {
-			if err := r.rmDisk(name); err != nil {
-				logrus.Error("Error in removing disk data, found error : ", err.Error())
-				return err
-			}
-		}
-	}
-
 	if err := os.RemoveAll(r.dir); err != nil {
 		logrus.Error("Error in deleting the dir contents, found error : ", err.Error())
 		return err
