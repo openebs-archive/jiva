@@ -224,7 +224,11 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 	r.insertBackingFile()
 	r.ReplicaType = replicaType
 
-	PreloadLunMap(&r.volume)
+	if err := PreloadLunMap(&r.volume); err != nil {
+		logrus.Error("underlying file system does not support extent mapping")
+		return r, err
+	}
+
 	return r, r.writeVolumeMetaData(true, r.info.Rebuilding)
 }
 
