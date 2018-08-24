@@ -77,6 +77,23 @@ func (c *ReplicaClient) Create(size string) error {
 	}, nil)
 }
 
+func (c *ReplicaClient) Delete(path string) error {
+	_, err := c.GetReplica()
+	if err != nil {
+		return err
+	}
+	deleteAPI := c.address + path
+	req, err := http.NewRequest("DELETE", deleteAPI, nil)
+	if err != nil {
+		return err
+	}
+	_, err = c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c *ReplicaClient) Revert(name, created string) error {
 	r, err := c.GetReplica()
 	if err != nil {

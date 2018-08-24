@@ -1,6 +1,7 @@
 package replica
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -317,21 +318,49 @@ func (s *Server) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) {
 	return s.r.PrepareRemoveDisk(name)
 }
 
+// CheckPreDeleteConditions checks if any replica exists.
+// If it exists, it closes all the connections with the replica
+// and deletes the entry from the controller.
+func (s *Server) CheckPreDeleteConditions() error {
+	if s.r == nil {
+		return errors.New("s.r is nil")
+	}
+
+	logrus.Infof("Closing volume")
+	if err := s.r.Close(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Delete deletes the volume metadata and revision counter file.
 func (s *Server) Delete() error {
 	s.Lock()
 	defer s.Unlock()
 
-	if s.r == nil {
-		logrus.Infof("Delete is not performed as s.r is nil")
-		return nil
-	}
-
-	logrus.Infof("Deleting volume")
-	if err := s.r.Close(); err != nil {
+	err := s.CheckPreDeleteConditions()
+	if err != nil {
 		return err
 	}
 
-	err := s.r.Delete()
+	logrus.Info("Delete the metadata and revision counter file")
+	err = s.r.Delete()
+	s.r = nil
+	return err
+}
+
+// DeleteAll deletes all the contents of the mounted directory.
+func (s *Server) DeleteAll() error {
+	s.Lock()
+	defer s.Unlock()
+
+	err := s.CheckPreDeleteConditions()
+	if err != nil {
+		return err
+	}
+
+	logrus.Infof("Deleting all the contents of the volume")
+	err = s.r.DeleteAll()
 	s.r = nil
 	return err
 }

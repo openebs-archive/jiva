@@ -1,12 +1,13 @@
 package rest
 
 import (
+	"net/http"
+	_ "net/http/pprof" /* for profiling */
+
 	"github.com/gorilla/mux"
 	"github.com/openebs/jiva/replica/rest"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rancher/go-rancher/api"
-	"net/http"
-	_ "net/http/pprof" /* for profiling */
 )
 
 func NewRouter(s *Server) *mux.Router {
@@ -44,6 +45,8 @@ func NewRouter(s *Server) *mux.Router {
 
 	// Journal
 	router.Methods("POST").Path("/v1/journal").Handler(f(schemas, s.ListJournal))
+	// Delete
+	router.Methods("POST").Path("/v1/delete").Handler(f(schemas, s.DeleteVolume))
 
 	router.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
 

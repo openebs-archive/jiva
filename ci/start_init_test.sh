@@ -373,6 +373,64 @@ get_replica_count() {
 	echo "$replicaCount"
 }
 
+#verify_delete_replica_unsuccess verifies that when RF condition is not met
+#the replicas will not be deleted and error will be returned that replica
+#count is not equal to the RF.
+verify_delete_replica_unsuccess() {
+    expected_error="Error deleting replica" 
+    error=$(curl -X "POST" http://$CONTROLLER_IP:9501/v1/delete | jq '.replicas[0].msg' | tr -d '"')
+    if [ "$error" != "$expected_error" ]; then
+               echo $2"  --failed"
+        collect_logs_and_exit
+    fi
+    #verify whether number of replicas are still the same as it was sent or nor.
+    verify_replica_cnt "$1" "$2"
+    echo $2"  --passed"
+    return
+}
+
+#verify_delete_replica verifies that if the replication factor condition
+#is met then it will delete the replicas. So before calling this function
+#ensure that number of replicas should be equal to the RF.
+verify_delete_replica() {
+    old_replica_count=$(get_replica_count $CONTROLLER_IP)
+    echo "$old_replica_count"
+    curl -X "POST" http://$CONTROLLER_IP:9501/v1/delete | jq
+    new_replica_count=$(get_replica_count $CONTROLLER_IP)
+    echo "$new_replica_count"
+    verify_replica_cnt "0" "Zero replica count test"
+}
+
+test_two_replica_delete() {
+	echo "----------------Test_two_replica_delete--------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	sleep 5
+	verify_replica_cnt "2" "Two replica count test1"
+	# This will delay sync between replicas
+	run_ios_to_test_stop_start
+	verify_delete_replica "Delete replicas test2"
+
+	docker stop $replica1_id
+	docker stop $replica2_id
+	sleep 5
+
+	docker start $replica1_id
+	docker start $replica2_id
+	sleep 5
+	verify_replica_cnt "2" "Two replica count test3"
+
+	docker stop $replica1_id
+	verify_replica_cnt "1" "One replica count test4"
+	verify_delete_replica_unsuccess "1" "Delete replicas with RF=2 and 1 registered replica test5"
+
+	docker stop $replica2_id
+	docker stop $orig_controller_id
+	cleanup
+}
+
+
 test_single_replica_stop_start() {
 	echo "----------------Test_single_replica_stop_start--------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
@@ -836,9 +894,10 @@ verify_clone_status() {
 }
 
 prepare_test_env
-test_replica_ip_change
 test_single_replica_stop_start
-test_two_replica_stop_start
+test_two_replica_delete
+test_replica_ip_change
+est_two_replica_stop_start
 test_three_replica_stop_start
 test_ctrl_stop_start
 test_replica_reregistration

@@ -986,12 +986,34 @@ func (r *Replica) Delete() error {
 
 	for name := range r.diskData {
 		if name != r.info.BackingFileName {
-			r.rmDisk(name)
+			if err := r.rmDisk(name); err != nil {
+				logrus.Error("Error in removing disk data, error : ", err.Error())
+				return err
+			}
 		}
 	}
 
-	os.Remove(r.diskPath(volumeMetaData))
-	os.Remove(r.diskPath(revisionCounterFile))
+	err := os.Remove(r.diskPath(volumeMetaData))
+	if err != nil {
+		logrus.Error("Error in removing volume metadata, error : ", err.Error())
+		return err
+	}
+	err = os.Remove(r.diskPath(revisionCounterFile))
+	if err != nil {
+		logrus.Error("Error in removing revision counter file, error : ", err.Error())
+		return err
+	}
+	return nil
+}
+
+func (r *Replica) DeleteAll() error {
+	r.Lock()
+	defer r.Unlock()
+
+	if err := os.RemoveAll(r.dir); err != nil {
+		logrus.Error("Error in deleting the directory contents, error : ", err.Error())
+		return err
+	}
 	return nil
 }
 

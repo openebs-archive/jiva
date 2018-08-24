@@ -10,6 +10,10 @@ import (
 	"github.com/rancher/go-rancher/client"
 )
 
+type DeleteReplicaOutput struct {
+	client.Resource
+	DeletedReplicas
+}
 type Replica struct {
 	client.Resource
 	Address string `json:"address"`
@@ -213,6 +217,8 @@ func NewSchema() *client.Schemas {
 			Output: "snapshotOutput",
 		},
 	}
+	deleteReplica := schemas.AddType("delete", DeleteReplicaOutput{})
+	deleteReplica.ResourceMethods = []string{"POST"}
 
 	return schemas
 }
