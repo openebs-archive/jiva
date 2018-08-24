@@ -59,13 +59,13 @@ func (s *Server) delete(replicas *DeletedReplicas, wg *sync.WaitGroup) {
 			defer wg.Done()
 			repClient, err := replicaClient.NewReplicaClient(addr)
 			if err != nil {
-				logrus.Infof("Error in delete operation of replica %v , found error %v", addr, err)
+				logrus.Infof("Error in delete operation of replica %v , error %v", addr, err)
 				replicas.appendDeletedReplicas(err.Error(), addr, repClientErr)
 				return
 			}
 			logrus.Info("Sending delete request to replica : ", addr)
 			if err := repClient.Delete("/delete"); err != nil {
-				logrus.Infof("Error in delete operation of replica %v , found error %v", addr, err)
+				logrus.Infof("Error in delete operation of replica %v , error %v", addr, err)
 				replicas.appendDeletedReplicas(err.Error(), addr, deletionErr)
 				return
 			}
@@ -74,11 +74,11 @@ func (s *Server) delete(replicas *DeletedReplicas, wg *sync.WaitGroup) {
 	}
 }
 
-// DeleteVolume handle the delete req call from controller's client.
-// it checks for the replication factor before deleting the replicas
-// if the replica count equal to the replication factor then it will
-// proceed to delete, otherwise return a response explaining the cause
-// of error in response.
+// DeleteVolume handles the delete request call from the controller's
+// client. It checks for the replication factor before deleting the
+// replicas. If the replica count is equal to the replication factor
+// then it will proceed to delete. If not, it returns a response
+// explaining the cause of error in response.
 func (s *Server) DeleteVolume(rw http.ResponseWriter, req *http.Request) error {
 	var (
 		replicas DeletedReplicas

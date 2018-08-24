@@ -318,9 +318,9 @@ func (s *Server) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) {
 	return s.r.PrepareRemoveDisk(name)
 }
 
-// CheckPreDeleteConditions checks whether any replica exists or not,
-// in case if it exists, it closes all the connections with the replica
-// and delete the entry from the controller.
+// CheckPreDeleteConditions checks if any replica exists.
+// If it exists, it closes all the connections with the replica
+// and deletes the entry from the controller.
 func (s *Server) CheckPreDeleteConditions() error {
 	if s.r == nil {
 		return errors.New("s.r is nil")

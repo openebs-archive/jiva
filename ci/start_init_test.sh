@@ -383,15 +383,15 @@ verify_delete_replica_unsuccess() {
                echo $2"  --failed"
         collect_logs_and_exit
     fi
-    #verify whether no of replicas are still the same as it was sent or nor.
+    #verify whether number of replicas are still the same as it was sent or nor.
     verify_replica_cnt "$1" "$2"
     echo $2"  --passed"
     return
 }
 
 #verify_delete_replica verifies that if the replication factor condition
-#is met then it will delete the replicas.So before calling this function
-#ensure that no of replicas should be equal to the RF.
+#is met then it will delete the replicas. So before calling this function
+#ensure that number of replicas should be equal to the RF.
 verify_delete_replica() {
     old_replica_count=$(get_replica_count $CONTROLLER_IP)
     echo "$old_replica_count"

@@ -164,7 +164,7 @@ func GetFileActualSize(file string) int64 {
 }
 
 // CheckReplicationFactor returns the value of env var REPLICATION_FACTOR
-// if it's not been set then it returns 0.
+// if it has not been set, then it returns 0.
 func CheckReplicationFactor() int {
 	replicationFactor, _ := strconv.ParseInt(os.Getenv("REPLICATION_FACTOR"), 10, 32)
 	if replicationFactor == 0 {

@@ -8,14 +8,14 @@ import (
 	"github.com/rancher/go-rancher/client"
 )
 
-// DeleteVolume delete all the contents of the volume. It purges all the replica
+// DeleteVolume deletes all the contents of the volume. It purges all the replica
 // files.
 func (s *Server) DeleteVolume(rw http.ResponseWriter, req *http.Request) error {
 	logrus.Infof("DeleteVolume")
 	apiContext := api.GetApiContext(req)
 	err := s.s.DeleteAll()
 	if err != nil {
-		logrus.Errorf("Error in deleting the volume, found error: %v", err)
+		logrus.Errorf("Error in deleting the volume, error: %v", err)
 		return err
 	}
 	apiContext.Write(&DeleteReplicaOutput{

@@ -995,7 +995,7 @@ func (r *Replica) Delete() error {
 
 	err := os.Remove(r.diskPath(volumeMetaData))
 	if err != nil {
-		logrus.Error("Error in removing volume meta data, error : ", err.Error())
+		logrus.Error("Error in removing volume metadata, error : ", err.Error())
 		return err
 	}
 	err = os.Remove(r.diskPath(revisionCounterFile))
@@ -1011,7 +1011,7 @@ func (r *Replica) DeleteAll() error {
 	defer r.Unlock()
 
 	if err := os.RemoveAll(r.dir); err != nil {
-		logrus.Error("Error in deleting the dir contents, found error : ", err.Error())
+		logrus.Error("Error in deleting the directory contents, error : ", err.Error())
 		return err
 	}
 	return nil
