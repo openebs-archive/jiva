@@ -898,16 +898,18 @@ verify_clone_status() {
 # Creating a file system of FAT type which doesn't support extent mapping.
 test_extent_support_file_system() {
 	echo "-----------Run_extent_supported_file_system_test-------------"
+	mkdir -p /tmp/vol1
 	# create a file
-	dd if=/dev/zero of=testfat bs=300M count=10
+	truncate -s 2100M testfat
 	# losetup is used to associate block device
-	# -f find first unused device
-	# -P create a partitioned loop device
-	losetup -fP testfat
-	# make partition
+	# get the free device
+	device=$(sudo losetup -f)
+	# attach the loopback device with regular disk file testfat
+	losetup $device testfat
+	# create a FAT file system
 	mkfs.fat testfat
 	# mount as a block device in /tmp/vol1
-	mount -o loop /dev/loop0 /tmp/vol1
+	mount $device /tmp/vol1
 
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
@@ -915,18 +917,19 @@ test_extent_support_file_system() {
 
 	verify_replica_cnt "0" "Zero replica count test1"
 
-	error=`docker logs $replica1_id 2>&1 | grep "underlying file system does not support extent mapping" | wc -l`
+	docker logs $replica1_id 2>&1 | cat > errorlog.txt 
+	error=$(cat errorlog.txt | grep -w "underlying file system does not support extent mapping" | wc -l)
 
 	if [ "$error" -eq 0  ]; then
 		echo "extent supported file system test failed"
 		umount /tmp/vol1
-		losetup -d /dev/loop0
+		losetup -d $device
 		collect_logs_and_exit
 	else
 		echo "extent support file system test --passed"
 	fi
 	umount /tmp/vol1
-	losetup -d /dev/loop0
+	losetup -d $device
 	cleanup
 }
 
@@ -935,7 +938,7 @@ prepare_test_env
 test_single_replica_stop_start
 test_two_replica_delete
 test_replica_ip_change
-est_two_replica_stop_start
+test_two_replica_stop_start
 test_three_replica_stop_start
 test_ctrl_stop_start
 test_replica_reregistration
