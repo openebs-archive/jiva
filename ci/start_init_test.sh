@@ -917,10 +917,10 @@ test_extent_support_file_system() {
 
 	verify_replica_cnt "0" "Zero replica count test1"
 
-	docker logs $replica1_id 2>&1 | cat > errorlog.txt 
-	error=$(cat errorlog.txt | grep -w "underlying file system does not support extent mapping" | wc -l)
+	error=$(docker logs $replica1_id 2>&1 | grep -w "underlying file system does not support extent mapping")
+	count=$(echo $error | wc -l)
 
-	if [ "$error" -eq 0  ]; then
+	if [ "$count" -eq 0  ]; then
 		echo "extent supported file system test failed"
 		umount /tmp/vol1
 		losetup -d $device
