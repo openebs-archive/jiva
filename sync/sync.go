@@ -216,7 +216,7 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 		ControllerClient := client.NewControllerClient(url)
 		reps, err := ControllerClient.ListReplicas()
 		if err != nil {
-			logrus.Errorf("Failed to get replica list from %s, retry after 2s", url)
+			logrus.Errorf("Failed to get replica list from %s, retry after 2s, error: %s", url, err.Error())
 			time.Sleep(2 * time.Second)
 			continue
 		}
@@ -234,11 +234,11 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 		}
 		fromClient, err := replicaClient.NewReplicaClient(fromReplica.Address)
 		if err != nil {
-			return fmt.Errorf("Failed to create fromClient %s", err)
+			return fmt.Errorf("Failed to create source replica client, error: %s", err.Error())
 		}
 		repl, err := fromClient.GetReplica()
 		if err != nil {
-			return fmt.Errorf("fromClient.GetReplica() failed, %s", err)
+			return fmt.Errorf("Failed to get replica info of the source, error: %s", err.Error())
 		}
 		chain := repl.Chain
 
@@ -246,7 +246,7 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 
 		toClient, err := replicaClient.NewReplicaClient(address)
 		if err != nil {
-			return fmt.Errorf("Failed to create toClient %s", err)
+			return fmt.Errorf("Failed to create client of the clone replica, error: %s", err.Error())
 		}
 		for i, name := range chain {
 			if name == "volume-snap-"+snapName+".img" {
@@ -262,7 +262,7 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 			return fmt.Errorf("Failed to setRebuilding = true, %s", err)
 		}
 		if err = t.syncFiles(fromClient, toClient, chain); err != nil {
-			logrus.Errorf("Sync failed, retry after 2s")
+			logrus.Errorf("Sync failed, retry after 2s, error: %s", err.Error())
 			time.Sleep(2 * time.Second)
 			continue
 		}
@@ -270,10 +270,10 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 
 		_, err = toClient.ReloadReplica()
 		if err != nil {
-			return fmt.Errorf("Failed to reload replica %s", err)
+			return fmt.Errorf("Failed to reload clone replica, error: %s", err.Error())
 		}
 		if err := toClient.SetRebuilding(false); err != nil {
-			return fmt.Errorf("Failed to setRebuilding = false")
+			return fmt.Errorf("Failed to setRebuilding = false, error: %s", err.Error())
 		}
 		return err
 	}
@@ -443,7 +443,7 @@ func (t *Task) syncFile(from, to string, fromClient *replicaClient.ReplicaClient
 	logrus.Infof("Synchronizing %s to %s@%s:%d", from, to, host, port)
 	err = fromClient.SendFile(from, host, port)
 	if err != nil {
-		logrus.Infof("Failed synchronizing %s to %s@%s:%d: %v", from, to, host, port, err)
+		logrus.Errorf("Failed synchronizing %s to %s@%s:%d: %v", from, to, host, port, err)
 	} else {
 		logrus.Infof("Done synchronizing %s to %s@%s:%d", from, to, host, port)
 	}
