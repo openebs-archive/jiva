@@ -893,16 +893,58 @@ verify_clone_status() {
 	echo "0"
 }
 
+# test_extent_support_file_system tests whether the file system supports
+# extent mapping. If it doesnot replica will error out.
+# Creating a file system of FAT type which doesn't support extent mapping.
+test_extent_support_file_system() {
+	echo "-----------Run_extent_supported_file_system_test-------------"
+	mkdir -p /tmp/vol1
+	# create a file
+	truncate -s 2100M testfat
+	# losetup is used to associate block device
+	# get the free device
+	device=$(sudo losetup -f)
+	# attach the loopback device with regular disk file testfat
+	losetup $device testfat
+	# create a FAT file system
+	mkfs.fat testfat
+	# mount as a block device in /tmp/vol1
+	mount $device /tmp/vol1
+
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	sleep 5
+
+	verify_replica_cnt "0" "Zero replica count test1"
+
+	error=$(docker logs $replica1_id 2>&1 | grep -w "underlying file system does not support extent mapping")
+	count=$(echo $error | wc -l)
+
+	if [ "$count" -eq 0  ]; then
+		echo "extent supported file system test failed"
+		umount /tmp/vol1
+		losetup -d $device
+		collect_logs_and_exit
+	else
+		echo "extent support file system test --passed"
+	fi
+	umount /tmp/vol1
+	losetup -d $device
+	cleanup
+}
+
+
 prepare_test_env
 test_single_replica_stop_start
 test_two_replica_delete
 test_replica_ip_change
-est_two_replica_stop_start
+test_two_replica_stop_start
 test_three_replica_stop_start
 test_ctrl_stop_start
 test_replica_reregistration
 run_data_integrity_test
 create_snapshot "$CONTROLLER_IP"
 test_clone_feature
+test_extent_support_file_system
 run_vdbench_test_on_volume
 run_libiscsi_test_suite
