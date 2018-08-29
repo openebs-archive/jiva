@@ -108,12 +108,11 @@ func (s *Server) RegisterReplica(rw http.ResponseWriter, req *http.Request) erro
 
 	localRevCount, _ = strconv.ParseInt(regReplica.RevCount, 10, 64)
 	local := types.RegReplica{
-		Address:    regReplica.Address,
-		RevCount:   localRevCount,
-		PeerDetail: regReplica.PeerDetails,
-		RepType:    regReplica.RepType,
-		UpTime:     regReplica.UpTime,
-		RepState:   regReplica.RepState,
+		Address:  regReplica.Address,
+		RevCount: localRevCount,
+		RepType:  regReplica.RepType,
+		UpTime:   regReplica.UpTime,
+		RepState: regReplica.RepState,
 	}
 	code = http.StatusOK
 	rw.WriteHeader(code)

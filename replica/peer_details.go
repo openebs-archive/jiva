@@ -63,16 +63,17 @@ func (r *Replica) initPeerDetails() error {
 		return err
 	}
 
-	peerDetails, err := r.readPeerDetails()
+	/*peerDetails, err := r.readPeerDetails()
 	if err != nil {
 		logrus.Errorf("readPeerDetails failed %v", err)
 		return err
 	}
+	*/
 	// Don't use r.peerCache directly
 	// r.peerCache is an internal cache, to avoid read from disk
 	// everytime when counter needs to be updated.
 	// And it's protected by peerLock
-	r.peerCache = peerDetails
+	//r.peerCache = peerDetails
 	return nil
 }
 
@@ -90,6 +91,7 @@ func (r *Replica) GetPeerDetails() (types.PeerDetails, error) {
 	return peerDetails, nil
 }
 
+/*
 func (r *Replica) UpdatePeerDetails(peerDetails types.PeerDetails) error {
 	r.peerLock.Lock()
 	defer r.peerLock.Unlock()
@@ -100,4 +102,4 @@ func (r *Replica) UpdatePeerDetails(peerDetails types.PeerDetails) error {
 
 	r.peerCache = peerDetails
 	return nil
-}
+}*/

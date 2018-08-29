@@ -126,10 +126,6 @@ func CreateTempReplica() (*Replica, error) {
 		logrus.Errorf("Error in initRevisionCounter, err:%v", err)
 		return nil, err
 	}
-	if err := r.initPeerDetails(); err != nil {
-		logrus.Errorf("Error in initPeerDetails, err:%v", err)
-		return nil, err
-	}
 	return r, nil
 }
 
@@ -186,11 +182,6 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 	if err := r.initRevisionCounter(); err != nil {
 		return nil, err
 	}
-
-	if err := r.initPeerDetails(); err != nil {
-		return nil, err
-	}
-
 	// Reference r.info.Size because it may have changed from reading
 	// metadata
 	locationSize := r.info.Size / r.volume.sectorSize

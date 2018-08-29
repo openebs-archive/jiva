@@ -101,12 +101,11 @@ type PrepareRebuildOutput struct {
 
 type RegReplica struct {
 	client.Resource
-	Address     string            `json:"Address"`
-	RevCount    string            `json:"RevCount"`
-	PeerDetails types.PeerDetails `json:"PeerDetails"`
-	RepType     string            `json:"RepType"`
-	RepState    string            `json:"RepState"`
-	UpTime      time.Duration     `json:"UpTime"`
+	Address  string        `json:"Address"`
+	RevCount string        `json:"RevCount"`
+	RepType  string        `json:"RepType"`
+	RepState string        `json:"RepState"`
+	UpTime   time.Duration `json:"UpTime"`
 }
 
 func NewVolume(context *api.ApiContext, name string, readOnly bool, replicas int) *Volume {
