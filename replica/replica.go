@@ -622,7 +622,7 @@ func (r *Replica) encodeToFile(obj interface{}, file string) error {
 
 	f, err := os.Create(r.diskPath(file + ".tmp"))
 	if err != nil {
-		logrus.Errorf("failed to create temp file: %s while encoding the data to file: %s", file)
+		logrus.Errorf("failed to create temp file: %s while encoding the data to file", file)
 		return err
 	}
 	defer f.Close()
@@ -899,7 +899,7 @@ func (r *Replica) openLiveChain() error {
 		parent := chain[i]
 		f, err := r.openFile(parent, 0)
 		if err != nil {
-			logrus.Errorf("failed to open live chain with parent: ", parent)
+			logrus.Error("failed to open live chain with existing parent: ", parent)
 			return err
 		}
 
