@@ -356,7 +356,7 @@ start_replica() {
 # start_controller CONTROLLER_IP (debug build)
 start_debug_controller() {
 	controller_id=$(docker run -d --net stg-net --ip $1 -P --expose 3260 --expose 9501 --expose 9502-9504 $JI_DEBUG \
-			env REPLICATION_FACTOR="$3" launch controller --frontend gotgt --frontendIP "$1" "$2")
+			env REPLICATION_FACTOR="$3" DEBUG_TIMEOUT="5" launch controller --frontend gotgt --frontendIP "$1" "$2")
 	echo "$controller_id"
 }
 
@@ -460,7 +460,7 @@ test_single_replica_stop_start() {
 # to other replica after verifying the replication factor.
 test_replica_ip_change() {
 	echo "----------------Test_replica_ip_change---------------"
-	start_debug_controller "$CONTROLLER_IP" "store1" "2"
+	debug_controller_id=$(start_debug_controller "$CONTROLLER_IP" "store1" "2")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2"
 	sleep 1
@@ -471,6 +471,7 @@ test_replica_ip_change() {
 	docker stop $replica1_id
 	sleep 3
 
+	curl -k --data "{ \"timeout\":\"0\" }" -H "Content-Type:application/json" -XPOST $CONTROLLER_IP:9501/timeout
 	echo "Starting another replica with different IP: $REPLICA_IP3"
 	# start the other replica and wait for any one of the two replicas to be
 	# registered and get 'start' signal.

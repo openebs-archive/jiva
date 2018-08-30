@@ -281,7 +281,7 @@ func (rf *Factory) SignalToAdd(address string, action string) error {
 			Timeout: timeout,
 		},
 	}
-	time.Sleep(inject.SignalToAddTimeout)
+	inject.AddTimeout()
 	return r.doAction("start", &map[string]string{"Action": action})
 }
 

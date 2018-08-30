@@ -47,6 +47,8 @@ func NewRouter(s *Server) *mux.Router {
 	router.Methods("POST").Path("/v1/journal").Handler(f(schemas, s.ListJournal))
 	// Delete
 	router.Methods("POST").Path("/v1/delete").Handler(f(schemas, s.DeleteVolume))
+	// Debug
+	router.Methods("POST").Path("/timeout").Handler(f(schemas, s.AddTimeout))
 
 	router.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
 
