@@ -229,7 +229,7 @@ func (c *Controller) signalToAdd() {
 func (c *Controller) registerReplica(register types.RegReplica) error {
 	c.Lock()
 	defer c.Unlock()
-	logrus.Infof("Register Replica, Address: %v Uptime: %v State: %v Type: %v RevisionCount: %v PeerCount: %v",
+	logrus.Infof("Register Replica, Address: %v Uptime: %v State: %v Type: %v RevisionCount: %v",
 		register.Address, register.UpTime, register.RepState, register.RepType, register.RevCount)
 
 	_, ok := c.RegisteredReplicas[register.Address]
