@@ -2,8 +2,16 @@
 
 package inject
 
-import "time"
+import (
+	"os"
+	"strconv"
+	"time"
 
-const (
-	SignalToAddTimeout = 5 * time.Second
+	"github.com/Sirupsen/logrus"
 )
+
+func AddTimeout() {
+	timeout, _ := strconv.Atoi(os.Getenv("DEBUG_TIMEOUT"))
+	logrus.Infof("Add timeout of %vs for debug build", timeout)
+	time.Sleep(time.Duration(timeout) * time.Second)
+}
