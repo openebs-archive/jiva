@@ -410,22 +410,6 @@ func (r *replicator) SetQuorumRevisionCounter(address string, counter int64) err
 	return nil
 }
 
-func (r *replicator) UpdatePeerDetails(replicaCount int, quorumReplicaCount int) error {
-
-	for _, backend := range r.backends {
-		if err := backend.backend.UpdatePeerDetails(replicaCount, quorumReplicaCount); err != nil {
-			return err
-		}
-	}
-
-	for _, backend := range r.quorumBackends {
-		if err := backend.backend.UpdatePeerDetails(replicaCount, quorumReplicaCount); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (r *replicator) SetRebuilding(address string, rebuilding bool) error {
 	backend, ok := r.backends[address]
 	if !ok {

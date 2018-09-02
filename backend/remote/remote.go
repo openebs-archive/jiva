@@ -189,15 +189,6 @@ func (r *Remote) SetRevisionCounter(counter int64) error {
 	return r.doAction("setrevisioncounter", &map[string]string{"counter": localRevCount})
 }
 
-func (r *Remote) UpdatePeerDetails(replicaCount int, quorumReplicaCount int) error {
-	logrus.Infof("Update peer details of %s rc:%d qc:%d", r.Name, replicaCount, quorumReplicaCount)
-	return r.doAction("updatepeerdetails",
-		&map[string]interface{}{
-			"replicacount":       replicaCount,
-			"quorumreplicacount": quorumReplicaCount,
-		})
-}
-
 func (r *Remote) info() (rest.Replica, error) {
 	var replica rest.Replica
 	req, err := http.NewRequest("GET", r.replicaURL, nil)

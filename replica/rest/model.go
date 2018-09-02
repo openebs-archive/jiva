@@ -109,12 +109,6 @@ type ReplicaCounter struct {
 	Counter int64 `json:"counter"`
 }
 
-type PeerDetails struct {
-	client.Resource
-	ReplicaCount       int `json:"replicacount"`
-	QuorumReplicaCount int `json:"quorumreplicacount"`
-}
-
 type Action struct {
 	client.Resource
 	Value string `json:"Action"`
@@ -154,7 +148,6 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["setrevisioncounter"] = true
 		actions["updatecloneinfo"] = true
 		actions["setreplicacounter"] = true
-		actions["updatepeerdetails"] = true
 	case replica.Closed:
 		actions["start"] = true
 		actions["open"] = true
@@ -178,7 +171,6 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["prepareremovedisk"] = true
 		actions["setreplicacounter"] = true
 		actions["updatecloneinfo"] = true
-		actions["updatepeerdetails"] = true
 	case replica.Rebuilding:
 		actions["start"] = true
 		actions["resize"] = true
@@ -189,7 +181,6 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["setrevisioncounter"] = true
 		actions["setreplicacounter"] = true
 		actions["updatecloneinfo"] = true
-		actions["updatepeerdetails"] = true
 	case replica.Error:
 	}
 

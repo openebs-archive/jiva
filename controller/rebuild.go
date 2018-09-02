@@ -106,11 +106,6 @@ func (c *Controller) VerifyRebuildReplica(address string) error {
 	if len(c.quorumReplicas) > c.quorumReplicaCount {
 		c.quorumReplicaCount = len(c.quorumReplicas)
 	}
-	var err1 error
-	err1 = c.backend.UpdatePeerDetails(c.replicaCount, c.quorumReplicaCount)
-	if err1 != nil {
-		logrus.Errorf("Error in updating peer details: %v", err1)
-	}
 	c.UpdateVolStatus()
 	return nil
 }
