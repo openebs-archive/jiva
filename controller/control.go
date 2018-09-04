@@ -320,6 +320,25 @@ func (c *Controller) signalReplica() error {
 	return nil
 }
 
+// IsSnapShotExist verifies whether snapshot with the given name
+// already exists in the given replica.
+func IsSnapShotExist(snapName string, addr string) (bool, error) {
+	chain, err := getReplicaChain(addr)
+	if err != nil {
+		return false, fmt.Errorf("Failed to get replica chain, error: %v", err)
+	}
+	if len(chain) == 0 {
+		return false, fmt.Errorf("No chain list found in replica")
+	}
+	snapshot := fmt.Sprintf("volume-snap-%s.img", snapName)
+	for _, val := range chain {
+		if val == snapshot {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (c *Controller) Snapshot(name string) (string, error) {
 	c.Lock()
 	defer c.Unlock()
@@ -332,6 +351,16 @@ func (c *Controller) Snapshot(name string) (string, error) {
 		return "", err
 	} else if remain <= 0 {
 		return "", fmt.Errorf("Too many snapshots created")
+	}
+
+	for _, replica := range c.ListReplicas() {
+		ok, err := IsSnapShotExist(name, replica.Address)
+		if err != nil {
+			return name, fmt.Errorf("Failed to create snapshot, error: %v", err)
+		}
+		if ok {
+			return name, fmt.Errorf("Snapshot: %s already exists", name)
+		}
 	}
 
 	created := util.Now()

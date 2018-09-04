@@ -837,10 +837,31 @@ run_data_integrity_test() {
 	#Cleanup is not being performed here because this data will be used to test clone feature in the next test
 }
 
-create_snapshot() {
-	echo "--------------create_snapshot-------------"
-	id=`curl http://$1:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
-	curl -H "Content-Type: application/json" -X POST -d '{"name":"snap1"}' http://$CONTROLLER_IP:9501/v1/volumes/$id?action=snapshot
+# create_and_verify_snapshot first creates a snapshot and verifies if it
+# is of type snapshotOutput in case of failure it returns type:error which
+# is success case that the snapshot snap1 does not exists.
+# As a part of negative test we are trying to create the snapshot with the
+# same name which returns snapshot_exists.
+create_and_verify_snapshot() {
+	echo "--------------create_and_verify_snapshot-------------"
+       snapshot_exists="Snapshot: snap1 already exists"
+       id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
+       type=`curl -H "Content-Type: application/json" -X POST -d '{"name":"snap1"}' http://$CONTROLLER_IP:9501/v1/volumes/$id?action=snapshot | jq '.type' | tr -d '"'`
+       if [ "$type" != "snapshotOutput" ];
+       then
+              echo "create and verify snapshot test1 failed"
+              collect_logs_and_exit
+       else
+              echo "create and verify snapshot test1 passed"
+       fi;
+       message=`curl -H "Content-Type: application/json" -X POST -d '{"name":"snap1"}' http://$CONTROLLER_IP:9501/v1/volumes/$id?action=snapshot | jq '      .message' | tr -d '"'`
+       if [ "$message" == "$snapshot_exists" ];
+       then
+              echo "create and verify snapshot test2 passed"
+       else
+              echo "create and verify snapshot test2 failed"
+              collect_logs_and_exit
+       fi;
 }
 
 test_clone_feature() {
@@ -969,7 +990,7 @@ test_three_replica_stop_start
 test_ctrl_stop_start
 test_replica_reregistration
 run_data_integrity_test
-create_snapshot "$CONTROLLER_IP"
+create_and_verify_snapshot
 test_clone_feature
 test_extent_support_file_system
 run_vdbench_test_on_volume
