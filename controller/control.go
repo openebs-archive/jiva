@@ -353,16 +353,19 @@ func (c *Controller) Snapshot(name string) (string, error) {
 		return "", fmt.Errorf("Too many snapshots created")
 	}
 
-	for _, replica := range c.ListReplicas() {
-		ok, err := IsSnapShotExist(name, replica.Address)
-		if err != nil {
-			return name, fmt.Errorf("Failed to create snapshot, error: %v", err)
-		}
-		if ok {
-			return name, fmt.Errorf("Snapshot: %s already exists", name)
-		}
+	replica, err := c.getRWReplica()
+	if err != nil {
+		return name, err
 	}
 
+	ok, err := IsSnapShotExist(name, replica.Address)
+	if err != nil {
+		return name, fmt.Errorf("Failed to create snapshot, error: %v", err)
+	}
+
+	if ok {
+		return name, fmt.Errorf("Snapshot: %s already exists", name)
+	}
 	created := util.Now()
 	return name, c.handleErrorNoLock(c.backend.Snapshot(name, true, created))
 }
