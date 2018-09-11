@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/gorilla/mux"
 	replicaClient "github.com/openebs/jiva/replica/client"
 	"github.com/openebs/jiva/util"
 	"github.com/rancher/go-rancher/api"
@@ -44,7 +45,7 @@ func (r *DeletedReplicas) appendDeletedReplicas(err, addr, msg string) {
 func SetDeleteReplicaOutput(deletedReplicas DeletedReplicas) *DeleteReplicaOutput {
 	return &DeleteReplicaOutput{
 		client.Resource{
-			Type: "delete",
+			Type: "deleteVolumeOutput",
 		},
 		deletedReplicas,
 	}
@@ -84,10 +85,19 @@ func (s *Server) DeleteVolume(rw http.ResponseWriter, req *http.Request) error {
 		replicas DeletedReplicas
 		wg       sync.WaitGroup
 	)
+	logrus.Info("Delete volume")
 	apiContext := api.GetApiContext(req)
+	id := mux.Vars(req)["id"]
+	v := s.getVolume(apiContext, id)
+	if v == nil {
+		rw.WriteHeader(http.StatusNotFound)
+		return fmt.Errorf("%v", volumeNotFound)
+	}
 	replicaCount := len(s.c.ListReplicas())
 	if replicaCount == 0 {
+		logrus.Error(zeroReplica)
 		replicas.appendDeletedReplicas(volumeNotFound, "", zeroReplica)
+		rw.WriteHeader(http.StatusNotFound)
 		apiContext.Write(SetDeleteReplicaOutput(replicas))
 		return nil
 	}
@@ -95,7 +105,9 @@ func (s *Server) DeleteVolume(rw http.ResponseWriter, req *http.Request) error {
 	if replicaCount != replicationFactor {
 		replicationFactorErr := fmt.Sprintf("Replication factor: %d is not equal to replica count: %d",
 			replicationFactor, replicaCount)
+		logrus.Error(replicationFactorErr)
 		replicas.appendDeletedReplicas(replicationFactorErr, "", deletionErr)
+		rw.WriteHeader(http.StatusConflict)
 		apiContext.Write(SetDeleteReplicaOutput(replicas))
 		return nil
 	}

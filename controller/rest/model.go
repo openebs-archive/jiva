@@ -138,6 +138,7 @@ func NewVolume(context *api.ApiContext, name string, readOnly bool, replicas int
 		v.Actions["shutdown"] = context.UrlBuilder.ActionLink(v.Resource, "shutdown")
 		v.Actions["snapshot"] = context.UrlBuilder.ActionLink(v.Resource, "snapshot")
 		v.Actions["revert"] = context.UrlBuilder.ActionLink(v.Resource, "revert")
+		v.Actions["deletevolume"] = context.UrlBuilder.ActionLink(v.Resource, "deletevolume")
 	}
 	return v
 }
@@ -181,6 +182,7 @@ func NewSchema() *client.Schemas {
 	schemas.AddType("revertInput", RevertInput{})
 	schemas.AddType("journalInput", JournalInput{})
 	schemas.AddType("prepareRebuildOutput", PrepareRebuildOutput{})
+	schemas.AddType("deleteVolumeOutput", DeleteReplicaOutput{})
 
 	replica := schemas.AddType("replica", Replica{})
 	replica.CollectionMethods = []string{"GET", "POST"}
@@ -221,9 +223,11 @@ func NewSchema() *client.Schemas {
 			Input:  "snapshotInput",
 			Output: "snapshotOutput",
 		},
+		"deletevolume": {
+			Output: "deleteVolumeOutput",
+		},
 	}
-	deleteReplica := schemas.AddType("delete", DeleteReplicaOutput{})
-	deleteReplica.ResourceMethods = []string{"POST"}
+	volumes.ResourceMethods = []string{"GET", "POST", "DELETE"}
 	timeout := schemas.AddType("timeout", Timeout{})
 	timeout.ResourceMethods = []string{"POST"}
 

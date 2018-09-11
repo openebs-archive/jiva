@@ -378,7 +378,7 @@ get_replica_count() {
 #count is not equal to the RF.
 verify_delete_replica_unsuccess() {
     expected_error="Error deleting replica" 
-    error=$(curl -X "POST" http://$CONTROLLER_IP:9501/v1/delete | jq '.replicas[0].msg' | tr -d '"')
+    error=$(curl -X "DELETE" http://$CONTROLLER_IP:9501/v1/volumes/$id?action=deletevolume | jq '.replicas[0].msg' | tr -d '"')
     if [ "$error" != "$expected_error" ]; then
                echo $2"  --failed"
         collect_logs_and_exit
@@ -395,7 +395,8 @@ verify_delete_replica_unsuccess() {
 verify_delete_replica() {
     old_replica_count=$(get_replica_count $CONTROLLER_IP)
     echo "$old_replica_count"
-    curl -X "POST" http://$CONTROLLER_IP:9501/v1/delete | jq
+    id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
+    curl -X "DELETE" http://$CONTROLLER_IP:9501/v1/volumes/$id?action=deletevolume | jq
     new_replica_count=$(get_replica_count $CONTROLLER_IP)
     echo "$new_replica_count"
     verify_replica_cnt "0" "Zero replica count test"

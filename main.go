@@ -96,6 +96,7 @@ func longhornCli() {
 		app.AddReplicaCmd(),
 		app.LsReplicaCmd(),
 		app.RmReplicaCmd(),
+		app.DelReplicaCmd(),
 		app.SnapshotCmd(),
 		app.BackupCmd(),
 		app.Journal(),

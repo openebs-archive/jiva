@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
@@ -181,6 +182,7 @@ func (s *Server) listVolumes(context *api.ApiContext) []*Volume {
 }
 
 func (s *Server) getVolume(context *api.ApiContext, id string) *Volume {
+	logrus.Info("Get volume info")
 	for _, v := range s.listVolumes(context) {
 		if v.Id == id {
 			return v
