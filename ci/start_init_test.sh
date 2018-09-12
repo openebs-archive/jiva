@@ -909,6 +909,17 @@ test_duplicate_snapshot_failure() {
     cleanup
 }
 
+verify_delete_snapshot() {
+    echo "--------------delete_snapshot-------------"
+    message=curl -H "Content-Type: application/json" -X DELETE -d '{"name":"'$2'"}' http://$CONTROLLER_IP:9501/v1/volumes/$1?action=deletesnapshot
+}
+
+test_delete_snapshot() {
+    echo "-------------Test_delete_snapshot---------"
+    id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
+    verify_delete_snapshot $id "snap1" "Snapshot: snap1 deleted successfully"
+}
+
 test_clone_feature() {
 	echo "-----------------------Test_clone_feature-------------------------"
     id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
@@ -1094,6 +1105,7 @@ test_replica_reregistration
 run_data_integrity_test
 test_clone_feature
 test_duplicate_snapshot_failure
+test_delete_snapshot
 test_extent_support_file_system
 test_upgrades
 run_vdbench_test_on_volume
