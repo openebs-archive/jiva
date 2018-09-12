@@ -64,21 +64,21 @@ func (r *Replica) initRevisionCounter() error {
 		}
 		// file doesn't exist yet
 		if err := r.openRevisionFile(true); err != nil {
-			logrus.Errorf("openRevisionFile failed, %v", err)
+			logrus.Errorf("failed to open revision counter file")
 			return err
 		}
 		if err := r.writeRevisionCounter(0); err != nil {
-			logrus.Errorf("writeRevisionCounter failed, %v", err)
+			logrus.Errorf("failed to update revision counter")
 			return err
 		}
 	} else if err := r.openRevisionFile(false); err != nil {
-		logrus.Errorf("open existing revision counter file failed, %v", err)
+		logrus.Errorf("open existing revision counter file failed")
 		return err
 	}
 
 	counter, err := r.readRevisionCounter()
 	if err != nil {
-		logrus.Errorf("readRevisionCounter failed, %v", err)
+		logrus.Errorf("failed to read revision counter")
 		return err
 	}
 	// Don't use r.revisionCache directly
