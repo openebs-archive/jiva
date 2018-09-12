@@ -122,6 +122,9 @@ func (c *ControllerClient) DeleteVolume() (*rest.DeleteReplicaOutput, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(vol.Actions["deletevolume"]) == 0 {
+		return nil, fmt.Errorf("No volume found")
+	}
 	httpReq, err := http.NewRequest("DELETE", vol.Actions["deletevolume"], nil)
 	if err != nil {
 		return nil, err
