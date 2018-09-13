@@ -301,19 +301,3 @@ func (s *Server) SetRevisionCounter(rw http.ResponseWriter, req *http.Request) e
 	logrus.Infof("SetRevisionCounter to %v", counter)
 	return s.doOp(req, s.s.SetRevisionCounter(counter))
 }
-
-func (s *Server) UpdatePeerDetails(rw http.ResponseWriter, req *http.Request) error {
-	var input PeerDetails
-	var details types.PeerDetails
-	apiContext := api.GetApiContext(req)
-	if err := apiContext.Read(&input); err != nil && err != io.EOF {
-		logrus.Errorf("Err %v during read in updatePeerDetails", err)
-		return err
-	}
-	details.ReplicaCount = input.ReplicaCount
-	details.QuorumReplicaCount = input.QuorumReplicaCount
-	logrus.Infof("UpdatePeerDetails to %v %v", details.ReplicaCount,
-		details.QuorumReplicaCount)
-
-	return s.doOp(req, s.s.UpdatePeerDetails(details))
-}

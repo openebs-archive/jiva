@@ -39,7 +39,6 @@ type Backend interface {
 	GetCloneStatus() (string, error)
 	GetVolUsage() (VolUsage, error)
 	SetRevisionCounter(counter int64) error
-	UpdatePeerDetails(replicaCount int, quorumReplicaCount int) error
 	SetRebuilding(rebuilding bool) error
 	GetMonitorChannel() MonitorChannel
 	StopMonitoring()
@@ -80,12 +79,11 @@ type Replica struct {
 }
 
 type RegReplica struct {
-	Address    string
-	UpTime     time.Duration
-	RevCount   int64
-	RepType    string
-	RepState   string
-	PeerDetail PeerDetails
+	Address  string
+	UpTime   time.Duration
+	RevCount int64
+	RepType  string
+	RepState string
 }
 
 type IOStats struct {
