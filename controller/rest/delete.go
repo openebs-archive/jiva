@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	volumeNotFound  = "Volume not found"
+	volumeNotFound  = "volume not found"
 	zeroReplica     = "No replicas registered with this controller instance"
-	repClientErr    = "Error in creating replica client"
+	repClientErr    = "error in creating replica client"
 	deletionSuccess = "Replica deleted successfully"
 	deletionErr     = "Error deleting replica"
 )
@@ -42,8 +42,8 @@ func (r *DeletedReplicas) appendDeletedReplicas(err, addr, msg string) {
 
 // SetDeleteReplicaOutput returns the output containing the list
 // of deleted replicas and other details related to it.
-func SetDeleteReplicaOutput(deletedReplicas DeletedReplicas) *DeleteReplicaOutput {
-	return &DeleteReplicaOutput{
+func SetDeleteReplicaOutput(deletedReplicas DeletedReplicas) *DeleteVolumeOutput {
+	return &DeleteVolumeOutput{
 		client.Resource{
 			Type: "deleteVolumeOutput",
 		},
@@ -88,9 +88,7 @@ func (s *Server) DeleteVolume(rw http.ResponseWriter, req *http.Request) error {
 	logrus.Info("Delete volume")
 	apiContext := api.GetApiContext(req)
 	id := mux.Vars(req)["id"]
-	v := s.getVolume(apiContext, id)
-	if v == nil {
-		rw.WriteHeader(http.StatusNotFound)
+	if v := s.getVolume(apiContext, id); v == nil {
 		return fmt.Errorf("%v", volumeNotFound)
 	}
 	replicaCount := len(s.c.ListReplicas())
@@ -103,7 +101,7 @@ func (s *Server) DeleteVolume(rw http.ResponseWriter, req *http.Request) error {
 	}
 	replicationFactor := util.CheckReplicationFactor()
 	if replicaCount != replicationFactor {
-		replicationFactorErr := fmt.Sprintf("Replication factor: %d is not equal to replica count: %d",
+		replicationFactorErr := fmt.Sprintf("replication factor: %d is not equal to replica count: %d",
 			replicationFactor, replicaCount)
 		logrus.Error(replicationFactorErr)
 		replicas.appendDeletedReplicas(replicationFactorErr, "", deletionErr)

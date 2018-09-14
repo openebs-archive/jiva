@@ -116,14 +116,14 @@ func (c *ControllerClient) CreateQuorumReplica(address string) (*rest.Replica, e
 	return &resp, err
 }
 
-func (c *ControllerClient) DeleteVolume() (*rest.DeleteReplicaOutput, error) {
-	var resp rest.DeleteReplicaOutput
+func (c *ControllerClient) DeleteVolume() (*rest.DeleteVolumeOutput, error) {
+	var resp rest.DeleteVolumeOutput
 	vol, err := c.GetVolume()
 	if err != nil {
 		return nil, err
 	}
 	if len(vol.Actions["deletevolume"]) == 0 {
-		return nil, fmt.Errorf("No volume found")
+		return nil, fmt.Errorf("no volume found")
 	}
 	httpReq, err := http.NewRequest("DELETE", vol.Actions["deletevolume"], nil)
 	if err != nil {
@@ -135,7 +135,7 @@ func (c *ControllerClient) DeleteVolume() (*rest.DeleteReplicaOutput, error) {
 	}
 	if httpResp.StatusCode >= 300 {
 		content, _ := ioutil.ReadAll(httpResp.Body)
-		return nil, fmt.Errorf("Bad response: %d %s: %s", httpResp.StatusCode, httpResp.Status, content)
+		return nil, fmt.Errorf("Failed to delete volume: %d %s: %s", httpResp.StatusCode, httpResp.Status, content)
 	}
 	if err = json.NewDecoder(httpResp.Body).Decode(&resp); err != nil {
 		return nil, err

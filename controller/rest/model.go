@@ -15,7 +15,7 @@ type Timeout struct {
 	Timeout string `json:"timeout"`
 }
 
-type DeleteReplicaOutput struct {
+type DeleteVolumeOutput struct {
 	client.Resource
 	DeletedReplicas
 }
@@ -182,7 +182,7 @@ func NewSchema() *client.Schemas {
 	schemas.AddType("revertInput", RevertInput{})
 	schemas.AddType("journalInput", JournalInput{})
 	schemas.AddType("prepareRebuildOutput", PrepareRebuildOutput{})
-	schemas.AddType("deleteVolumeOutput", DeleteReplicaOutput{})
+	schemas.AddType("deleteVolumeOutput", DeleteVolumeOutput{})
 
 	replica := schemas.AddType("replica", Replica{})
 	replica.CollectionMethods = []string{"GET", "POST"}

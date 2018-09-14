@@ -9,19 +9,22 @@ import (
 	"github.com/codegangsta/cli"
 )
 
-func DelReplicaCmd() cli.Command {
+func DelVolumeCmd() cli.Command {
 	return cli.Command{
 		Name:      "del-replica",
 		ShortName: "del",
 		Action: func(c *cli.Context) {
-			if err := deleteReplica(c); err != nil {
+			if err := deleteVolume(c); err != nil {
 				logrus.Fatalf("Error running del replica command: %v", err)
 			}
 		},
 	}
 }
 
-func deleteReplica(c *cli.Context) error {
+// deleteVolume is used to delete all the contents of all the
+// replicas. In case a volume is not found it returns error else
+// it prints the details of the deleted replicas and any error if exist.
+func deleteVolume(c *cli.Context) error {
 	controllerClient := getCli(c)
 	out, err := controllerClient.DeleteVolume()
 	if err != nil {
