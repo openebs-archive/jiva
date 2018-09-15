@@ -23,6 +23,7 @@ type diffDisk struct {
 	// index 0 is nil and index 1 is the active write layer
 	files           []types.DiffDisk
 	UserCreatedSnap []bool
+	ReadOnlyIndx    []bool
 	SnapIndx        int
 	Sync            bool
 	sectorSize      int64
@@ -123,7 +124,7 @@ func (d *diffDisk) fullWriteAt(buf []byte, offset int64) (int, error) {
 			d.UsedBlocks++
 		} else if val != target {
 			if d.files[d.location[startSector+i]] != file {
-				if file != nil && int(fileIndx) > d.SnapIndx {
+				if file != nil && int(fileIndx) > d.SnapIndx && !d.ReadOnlyIndx[fileIndx] {
 					createHole(d.files[val], lOffset, length)
 				}
 				file = d.files[d.location[startSector+i]]
@@ -136,7 +137,7 @@ func (d *diffDisk) fullWriteAt(buf []byte, offset int64) (int, error) {
 		}
 		d.location[startSector+i] = target
 	}
-	if (file != nil) && (int(fileIndx) > d.SnapIndx) {
+	if (file != nil) && (int(fileIndx) > d.SnapIndx) && !d.ReadOnlyIndx[fileIndx] {
 		createHole(file, lOffset, length)
 		file = nil
 	}

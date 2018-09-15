@@ -408,13 +408,17 @@ func (t *Task) syncFiles(fromClient *replicaClient.ReplicaClient, toClient *repl
 		if strings.Contains(disk, "volume-head") {
 			return fmt.Errorf("Disk list shouldn't contain volume-head")
 		}
+		fromClient.UpdateDiskMode(disk, "RO")
 		if err := t.syncFile(disk, "", fromClient, toClient); err != nil {
+			fromClient.UpdateDiskMode(disk, "RW")
 			return err
 		}
 
 		if err := t.syncFile(disk+".meta", "", fromClient, toClient); err != nil {
+			fromClient.UpdateDiskMode(disk, "RW")
 			return err
 		}
+		fromClient.UpdateDiskMode(disk, "RW")
 
 	}
 

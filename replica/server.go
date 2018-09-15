@@ -238,6 +238,13 @@ func (s *Server) SetRebuilding(rebuilding bool) error {
 	return s.r.SetRebuilding(rebuilding)
 }
 
+func (s *Server) UpdateDiskMode(disk string, mode string) error {
+	s.Lock()
+	defer s.Unlock()
+
+	return s.r.UpdateDiskMode(disk, mode)
+}
+
 func (s *Server) Resize(size string) error {
 	s.Lock()
 	defer s.Unlock()

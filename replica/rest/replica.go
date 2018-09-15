@@ -122,6 +122,18 @@ func (s *Server) SetRebuilding(rw http.ResponseWriter, req *http.Request) error 
 	return s.doOp(req, s.s.SetRebuilding(input.Rebuilding))
 }
 
+func (s *Server) UpdateDiskMode(rw http.ResponseWriter, req *http.Request) error {
+	var input UpdateDiskModeInput
+	apiContext := api.GetApiContext(req)
+	if err := apiContext.Read(&input); err != nil && err != io.EOF {
+		logrus.Errorf("Err %v in reading for updateDiskMode", err)
+		return err
+	}
+	logrus.Infof("UpdateDiskMode for %v to %v", input.Disk, input.Mode)
+
+	return s.doOp(req, s.s.UpdateDiskMode(input.Disk, input.Mode))
+}
+
 func (s *Server) Create(rw http.ResponseWriter, req *http.Request) error {
 	var input CreateInput
 	apiContext := api.GetApiContext(req)

@@ -1257,6 +1257,11 @@ update_file_sizes() {
 	done
 }
 
+update_disk_mode() {
+	curl -H "Content-Type: application/json" -X POST -d "{\"disk\":\"${1}\", \"mode\":\"${2}\"}" http://$REPLICA_IP1:9502/v1/replicas/1?action=updatediskmode
+	curl -H "Content-Type: application/json" -X POST -d "{\"disk\":\"${1}\", \"mode\":\"${2}\"}" http://$REPLICA_IP2:9502/v1/replicas/1?action=updatediskmode
+}
+
 test_duplicate_data_delete() {
 	echo "----------------Test_two_replica_stop_start---------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
@@ -1385,8 +1390,52 @@ test_duplicate_data_delete() {
 	run_ios 4K 4K
 	update_file_sizes 16 0 0 20 20 20 20 24
 	verify_physical_space_consumed
-	# Size: 40M, Offsets Filled: [4k,8K) in Active File
-	# Size:  0M, Offsets Filled: [0,4K)[8K, 10K) in Snap7(Auto Generated)
+	# Size: 16M, Offsets Filled: [4k,8K) in Active File
+	# Size:  24M, Offsets Filled: [0,4K)[8K, 10K) in Snap7(Auto Generated)
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap6(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap5(Auto Generated)
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap4(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap3(Auto Generated)
+	# Size:  0M, Offsets Filled: [) in Snap2(Auto generated)
+	# Size:  0M, Offsets Filled: [) in Snap1(Auto generated)
+
+	##Verify API to update disk mode
+	create_auto_generated_snapshot "snap8"
+	update_file_sizes 0 0 0 20 20 20 20 24 16
+	verify_physical_space_consumed
+	# Size:  0M, Offsets Filled: [) in Active File
+	# Size: 16M, Offsets Filled: [4k,8K) in Snap8(Auto Generated)
+	# Size: 24M, Offsets Filled: [0,4K)[8K, 10K) in Snap7(Auto Generated)
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap6(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap5(Auto Generated)
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap4(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap3(Auto Generated)
+	# Size:  0M, Offsets Filled: [) in Snap2(Auto generated)
+	# Size:  0M, Offsets Filled: [) in Snap1(Auto generated)
+
+	update_disk_mode "${snaps[8]}" "RO"
+
+	run_ios 2K 5K
+	update_file_sizes 8 0 0 20 20 20 20 24 16
+	verify_physical_space_consumed
+	# Size:  8M, Offsets Filled: [5K,7K) in Active File
+	# Size: 16M, Offsets Filled: [4k,8K) in Snap8(Auto Generated)
+	# Size: 24M, Offsets Filled: [0,4K)[8K, 10K) in Snap7(Auto Generated)
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap6(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap5(Auto Generated)
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap4(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap3(Auto Generated)
+	# Size:  0M, Offsets Filled: [) in Snap2(Auto generated)
+	# Size:  0M, Offsets Filled: [) in Snap1(Auto generated)
+
+	update_disk_mode "${snaps[8]}" "RW"
+
+	run_ios 1K 4K
+	update_file_sizes 12 0 0 20 20 20 20 24 12
+	verify_physical_space_consumed
+	# Size: 12M, Offsets Filled: [4K,7K) in Active File
+	# Size: 12M, Offsets Filled: [5K,8K) in Snap8(Auto Generated)
+	# Size: 24M, Offsets Filled: [0,4K)[8K, 10K) in Snap7(Auto Generated)
 	# Size: 20M, Offsets Filled: [5K,10K) in Snap6(User Created)
 	# Size: 20M, Offsets Filled: [0,5K) in Snap5(Auto Generated)
 	# Size: 20M, Offsets Filled: [5K,10K) in Snap4(User Created)
@@ -1395,6 +1444,10 @@ test_duplicate_data_delete() {
 	# Size:  0M, Offsets Filled: [) in Snap1(Auto generated)
 
 	echo "Test duplicate data delete passed"
+	docker stop $replica1_id
+	docker stop $replica2_id
+	docker stop $orig_controller_id
+	cleanup
 }
 
 
