@@ -22,6 +22,7 @@ func (s *Server) DeleteVolume(rw http.ResponseWriter, req *http.Request) error {
 		client.Resource{
 			Type: "delete",
 		},
+		"In Progress",
 	})
 	return nil
 }

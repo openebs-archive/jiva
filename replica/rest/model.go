@@ -29,6 +29,7 @@ type Replica struct {
 
 type DeleteReplicaOutput struct {
 	client.Resource
+	Status string `json:"status"`
 }
 
 type Stats struct {

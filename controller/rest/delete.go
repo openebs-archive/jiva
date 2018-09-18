@@ -14,11 +14,10 @@ import (
 )
 
 const (
-	volumeNotFound  = "volume not found"
-	zeroReplica     = "No replicas registered with this controller instance"
-	repClientErr    = "error in creating replica client"
-	deletionSuccess = "Replica deleted successfully"
-	deletionErr     = "Error deleting replica"
+	volumeNotFound = "volume not found"
+	zeroReplica    = "No replicas registered with this controller instance"
+	repClientErr   = "error in creating replica client"
+	deletionErr    = "Error deleting replica"
 )
 
 type DeletedReplica struct {
@@ -65,12 +64,13 @@ func (s *Server) delete(replicas *DeletedReplicas, wg *sync.WaitGroup) {
 				return
 			}
 			logrus.Info("Sending delete request to replica : ", addr)
-			if err := repClient.Delete("/delete"); err != nil {
+			status, err := repClient.Delete("/delete")
+			if err != nil {
 				logrus.Infof("Error in delete operation of replica %v , error %v", addr, err)
 				replicas.appendDeletedReplicas(err.Error(), addr, deletionErr)
 				return
 			}
-			replicas.appendDeletedReplicas("", addr, deletionSuccess)
+			replicas.appendDeletedReplicas("", addr, status)
 		}(addr)
 	}
 }

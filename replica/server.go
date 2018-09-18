@@ -360,9 +360,9 @@ func (s *Server) DeleteAll() error {
 	}
 
 	logrus.Infof("Deleting all the contents of the volume")
-	err = s.r.DeleteAll()
+	s.r.DeleteAll()
 	s.r = nil
-	return err
+	return nil
 }
 
 func (s *Server) Close(signalMonitor bool) error {

@@ -1010,15 +1010,16 @@ func (r *Replica) Delete() error {
 	return nil
 }
 
-func (r *Replica) DeleteAll() error {
+func (r *Replica) DeleteAll() {
 	r.Lock()
 	defer r.Unlock()
 
-	if err := os.RemoveAll(r.dir); err != nil {
-		logrus.Error("Error in deleting the directory contents, error : ", err.Error())
-		return err
-	}
-	return nil
+	go func() {
+		if err := os.RemoveAll(r.dir); err != nil {
+			logrus.Error("Error in deleting the directory contents, error : ", err.Error())
+		}
+	}()
+	return
 }
 
 func (r *Replica) Snapshot(name string, userCreated bool, created string) error {

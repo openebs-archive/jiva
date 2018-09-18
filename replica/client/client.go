@@ -77,21 +77,29 @@ func (c *ReplicaClient) Create(size string) error {
 	}, nil)
 }
 
-func (c *ReplicaClient) Delete(path string) error {
+func (c *ReplicaClient) Delete(path string) (string, error) {
+	var resp rest.DeleteReplicaOutput
 	_, err := c.GetReplica()
 	if err != nil {
-		return err
+		return "", err
 	}
 	deleteAPI := c.address + path
 	req, err := http.NewRequest("DELETE", deleteAPI, nil)
 	if err != nil {
-		return err
+		return "", err
 	}
-	_, err = c.httpClient.Do(req)
+	httpResp, err := c.httpClient.Do(req)
 	if err != nil {
-		return err
+		return "", err
 	}
-	return nil
+	if httpResp.StatusCode >= 300 {
+		content, _ := ioutil.ReadAll(httpResp.Body)
+		return "", fmt.Errorf("Failed to delete replica contents: %d %s: %s", httpResp.StatusCode, httpResp.Status, content)
+	}
+	if err = json.NewDecoder(httpResp.Body).Decode(&resp); err != nil {
+		return "", err
+	}
+	return resp.Status, err
 }
 
 func (c *ReplicaClient) Revert(name, created string) error {
