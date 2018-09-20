@@ -77,7 +77,6 @@ func (s *Server) getSize(size int64) int64 {
 func (s *Server) Create(size int64) error {
 	s.Lock()
 	defer s.Unlock()
-
 	state, _ := s.Status()
 
 	if state != Initial {

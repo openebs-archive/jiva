@@ -894,43 +894,68 @@ verify_clone_status() {
 	echo "0"
 }
 
-# test_extent_support_file_system tests whether the file system supports
-# extent mapping. If it doesnot replica will error out.
-# Creating a file system of FAT type which doesn't support extent mapping.
-test_extent_support_file_system() {
-	echo "-----------Run_extent_supported_file_system_test-------------"
-	mkdir -p /tmp/vol1
-	# create a file
-	truncate -s 2100M testfat
+create_device() {
 	# losetup is used to associate block device
 	# get the free device
 	device=$(sudo losetup -f)
-	# attach the loopback device with regular disk file testfat
-	losetup $device testfat
-	# create a FAT file system
-	mkfs.fat testfat
-	# mount as a block device in /tmp/vol1
-	mount $device /tmp/vol1
+	echo $device
+}
 
-	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
-	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
-	sleep 5
-
-	verify_replica_cnt "0" "Zero replica count test1"
-
-	error=$(docker logs $replica1_id 2>&1 | grep -w "underlying file system does not support extent mapping")
+verify_extent_mapping_support() {
+	error=$(docker logs "$1" 2>&1 | grep -w "failed to find extents, error: operation not permitted")
 	count=$(echo $error | wc -l)
 
 	if [ "$count" -eq 0  ]; then
 		echo "extent supported file system test failed"
 		umount /tmp/vol1
-		losetup -d $device
+		wait
+		losetup -d "$2"
 		collect_logs_and_exit
-	else
-		echo "extent support file system test --passed"
 	fi
+	echo "extent support file system test --passed"
+	return
+}
+
+# test_extent_support_file_system tests whether the file system supports
+# extent mapping. If it doesnot replica will error out.
+# Creating a file system of FAT type which doesn't support extent mapping.
+test_extent_support_file_system() {
+	echo "-----------Run_extent_supported_file_system_test-------------"
+	mkdir -p /tmp/vol1 /tmp/vol2
+	device1=$(create_device)
+	# attach the loopback device with regular disk file testfat1
+	truncate -s 2100M testfat1
+	losetup $device1 testfat1
+	# create a FAT file system
+	mkfs.fat testfat1
+	mount $device1 /tmp/vol1
+
+	device2=$(create_device)
+	truncate -s 2100M testfat2
+	losetup $device2 testfat2
+	# create a FAT file system
+	mkfs.fat testfat2
+	mount $device2 /tmp/vol2
+
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	sleep 5
+
+	verify_replica_cnt "0" "Zero replica count test1"
+	sudo docker start $replica1_id
+	sudo docker start $replica2_id
+	sleep 5
+
+	verify_extent_mapping_support "$replica1_id1" "$device1"
+	verify_extent_mapping_support "$replica2_id2" "$device2"
+
 	umount /tmp/vol1
-	losetup -d $device
+	umount /tmp/vol2
+	wait
+	losetup -d $device1
+	losetup -d $device2
+	rm -f testfat1 testfat2
 	cleanup
 }
 

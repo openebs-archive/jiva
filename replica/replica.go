@@ -163,6 +163,9 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 		logrus.Errorf("failed to create directory: %s", dir)
 		return nil, err
 	}
+	if err := findExtents(dir); err != nil {
+		return nil, err
+	}
 
 	r := &Replica{
 		dir:             dir,
@@ -225,8 +228,8 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 	r.ReplicaType = replicaType
 
 	if err := PreloadLunMap(&r.volume); err != nil {
-		logrus.Error("underlying file system does not support extent mapping")
-		return r, err
+		r.Delete()
+		return r, fmt.Errorf("failed to load Lun map, error: %v", err)
 	}
 
 	return r, r.writeVolumeMetaData(true, r.info.Rebuilding)
