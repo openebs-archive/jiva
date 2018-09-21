@@ -79,10 +79,11 @@ func createTempFile(path string) error {
 			}
 		}
 	}
+	defer file.Close()
 	if _, err := file.WriteString("This is temp file\n"); err != nil {
 		return err
 	}
-	return file.Close()
+	return file.Sync()
 }
 
 func findExtents(dir string) error {
@@ -99,9 +100,13 @@ func findExtents(dir string) error {
 	if err != nil {
 		return nil
 	}
+	defer file.Close()
 	fiemapFile := fibmap.NewFibmapFile(file)
 	if _, err := fiemapFile.Fiemap(uint32(fileInfo.Size())); err != 0 {
-		return fmt.Errorf("failed to find extents, error: %v", err.Error())
+		// verify is FIBMAP is supported incase FIEMAP failed
+		if _, err := fiemapFile.FibmapExtents(); err != 0 {
+			return fmt.Errorf("failed to find extents, error: %v", err.Error())
+		}
 	}
 	return nil
 }
