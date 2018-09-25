@@ -180,8 +180,8 @@ func (s *Server) prepareRemoveSnapshot(replica *types.Replica, snapshot string) 
 	return output.Operations, nil
 }
 
-func (s *Server) checkPrerequisits() error {
-	for _, replica := range s.c.ListReplicas() {
+func (s *Server) checkPrerequisits(replicas []types.Replica) error {
+	for _, replica := range replicas {
 		repClient, err := replicaClient.NewReplicaClient(replica.Address)
 		if err != nil {
 			return err
@@ -197,21 +197,21 @@ func (s *Server) checkPrerequisits() error {
 	return nil
 }
 
-func (s *Server) deleteSnapshot(name string) error {
+func (s *Server) deleteSnapshot(replicas []types.Replica, name string) error {
 	s.c.Lock()
 	defer s.c.Unlock()
-	err := s.checkPrerequisits()
+	err := s.checkPrerequisits(replicas)
 	if err != nil {
 		return err
 	}
 	ops := make(map[string][]replica_jiva.PrepareRemoveAction)
-	for _, replica := range s.c.ListReplicas() {
+	for _, replica := range replicas {
 		ops[replica.Address], err = s.prepareRemoveSnapshot(&replica, name)
 		if err != nil {
 			return err
 		}
 	}
-	for _, replica := range s.c.ListReplicas() {
+	for _, replica := range replicas {
 		if err := s.processRemoveSnapshot(&replica, name, ops[replica.Address]); err != nil {
 			return err
 		}
@@ -226,7 +226,8 @@ func (s *Server) DeleteSnapshot(rw http.ResponseWriter, req *http.Request) error
 	if err := apiContext.Read(&input); err != nil {
 		return err
 	}
-	replicaCount := len(s.c.ListReplicas())
+	replicas := s.c.ListReplicas()
+	replicaCount := len(replicas)
 	if replicaCount == 0 {
 		return fmt.Errorf("Number of registered replicas with this controller instance is zero")
 	}
@@ -235,7 +236,7 @@ func (s *Server) DeleteSnapshot(rw http.ResponseWriter, req *http.Request) error
 		return fmt.Errorf("Replica count: %v is not equal to replication factor: %v", replicaCount, replicationFactor)
 	}
 	logrus.Infof("Delete snapshot: %s", input.Name)
-	err := s.deleteSnapshot(input.Name)
+	err := s.deleteSnapshot(replicas, input.Name)
 	if err != nil {
 		return err
 	}

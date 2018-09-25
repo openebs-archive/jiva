@@ -354,6 +354,8 @@ func (c *Controller) Snapshot(name string) (string, error) {
 		name = util.UUID()
 	}
 
+	// remain ensures no of snapshots won't go beyond maximumChainLength
+	// which is 250 by default
 	if remain, err := c.backend.RemainSnapshots(); err != nil {
 		return "", err
 	} else if remain <= 0 {
