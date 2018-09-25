@@ -146,7 +146,6 @@ func (s *Server) CreateReplica(rw http.ResponseWriter, req *http.Request) error 
 	logrus.Infof("Create Replica for address %v", replica.Address)
 
 	if err := s.c.AddReplica(replica.Address); err != nil {
-		logrus.Errorf("can't add replica: %s, error: %v", replica.Address, err)
 		return err
 	}
 
