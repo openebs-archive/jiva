@@ -86,7 +86,7 @@ func createTempFile(path string) error {
 	return file.Sync()
 }
 
-func findExtents(dir string) error {
+func isExtentSupported(dir string) error {
 	path := dir + "/tmpFile.tmp"
 	if err := createTempFile(path); err != nil {
 		return err
