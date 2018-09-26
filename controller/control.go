@@ -216,12 +216,13 @@ func (c *Controller) verifyReplicationFactor() error {
 
 func (c *Controller) addReplica(address string, snapshot bool) error {
 	c.Lock()
-	defer c.Unlock()
 	if ok, err := c.canAdd(address); !ok {
+		c.Unlock()
 		return err
 	}
 	logrus.Info("verify replication factor")
 	if err := c.verifyReplicationFactor(); err != nil {
+		c.Unlock()
 		return fmt.Errorf("can't add %s, error: %v", address, err)
 	}
 
@@ -230,6 +231,9 @@ func (c *Controller) addReplica(address string, snapshot bool) error {
 		logrus.Infof("remote creation addreplica failed %v", err)
 		return err
 	}
+
+	c.Lock()
+	defer c.Unlock()
 
 	err = c.addReplicaNoLock(newBackend, address, snapshot)
 	if err != nil {
