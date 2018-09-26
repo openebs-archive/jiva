@@ -225,7 +225,7 @@ func (c *Controller) addReplica(address string, snapshot bool) error {
 		c.Unlock()
 		return fmt.Errorf("can't add %s, error: %v", address, err)
 	}
-
+	c.Unlock()
 	newBackend, err := c.factory.Create(address)
 	if err != nil {
 		logrus.Infof("remote creation addreplica failed %v", err)
