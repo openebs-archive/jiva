@@ -78,6 +78,14 @@ _push_image:
 #
 # build: deps _install_trash _fetch_longhorn _customize_longhorn _build_longhorn _run_ci _push_image
 #
+golint := $(shell which golint 2> /dev/null )
+
+lint:
+ifndef golint
+	$(error "golint is not available in GOPATH. You can install it - go get -u golang.org/x/lint/golint ")
+endif
+	@echo "Linting with golint"
+	$(shell golint $(shell find . -maxdepth 1 -type d \( ! -iname ".git" ! -iname "vendor" \)) )
 
 build: deps _install_trash ci _run_ci _push_image
 
