@@ -363,7 +363,7 @@ start_debug_controller() {
 # start_cloned_replica CONTROLLER_IP  CLONED_CONTROLLER_IP CLONED_REPLICA_IP folder_name
 start_cloned_replica() {
 	cloned_replica_id=$(docker run -d -it --net stg-net --ip "$3" -P --expose 9502-9504 -v /tmp/"$4":/"$4" $JI \
-		launch replica --type clone --snapName snap1 --cloneIP "$1" --frontendIP "$2" --listen "$3":9502 --size 2g /"$4")
+		launch replica --type clone --snapName snap3 --cloneIP "$1" --frontendIP "$2" --listen "$3":9502 --size 2g /"$4")
 	echo "$cloned_replica_id"
 }
 
@@ -800,14 +800,11 @@ get_scsi_disk() {
 	done
 }
 
-run_data_integrity_test() {
-	echo "--------------------Run_data_integrity_test------------------"
-	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
-	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
-	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
-	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
 
-	sleep 5
+# in this test we write some data on the block device
+# and then verify whether data saved into the replicas
+# are same.
+test_data_integrity() {
 	login_to_volume "$CONTROLLER_IP:3260"
 	sleep 5
 	get_scsi_disk
@@ -817,8 +814,15 @@ run_data_integrity_test() {
 		mount /dev/$device_name /mnt/store
 
 		dd if=/dev/urandom of=file1 bs=4k count=10000
-		hash1=$(md5sum file1 | awk '{print $1}')
+        hash1=$(md5sum file1 | awk '{print $1}')
 		cp file1 /mnt/store
+		umount /mnt/store
+		logout_of_volume
+	    login_to_volume "$CONTROLLER_IP:3260"
+	    get_scsi_disk
+	    sleep 5
+		mount /dev/$device_name /mnt/store
+
 		hash2=$(md5sum /mnt/store/file1 | awk '{print $1}')
 		if [ $hash1 == $hash2 ]; then echo "DI Test: PASSED"
 		else
@@ -834,17 +838,54 @@ run_data_integrity_test() {
 	else
 		echo "Unable to detect iSCSI device, login failed"; collect_logs_and_exit
 	fi
-	#Cleanup is not being performed here because this data will be used to test clone feature in the next test
 }
 
+run_data_integrity_test() {
+	echo "--------------------Run_data_integrity_test------------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+	sleep 5
+	test_data_integrity
+	#Cleanup is not being performed here because this data will be used
+	#to test snapshot feature in the next test.
+    # value of hash1 will be used for clone.
+}
+
+# create_and_verify_snapshot creates a snapshot and verifies if it
+# has message given below (success case) or not (failure case).
+# As a part of negative test we are trying to create the snapshot with the
+# same name which returns snapshot_exists.
 create_snapshot() {
-	echo "--------------create_snapshot-------------"
-	id=`curl http://$1:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
-	curl -H "Content-Type: application/json" -X POST -d '{"name":"snap1"}' http://$CONTROLLER_IP:9501/v1/volumes/$id?action=snapshot
+	message=`curl -H "Content-Type: application/json" -X POST -d '{"name":"'$2'"}' http://$CONTROLLER_IP:9501/v1/volumes/$1?action=snapshot | jq '.message' | tr -d '"'`
+	if [ "$message" == "$3" ] ;
+	then
+		echo "create snapshot test passed"
+	else
+		echo "create snapshot test failed"
+		collect_logs_and_exit
+	fi;
+}
+
+test_duplicate_snapshot_failure() {
+	echo "--------------create_and_verify_snapshot-------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
+	create_snapshot $id "snap1" "Snapshot: snap1 created successfully"
+	create_snapshot $id "snap1" "Snapshot: snap1 already exists"
+	create_snapshot $id "snap2" "Snapshot: snap2 created successfully"
+	sleep 5
+	test_data_integrity
+    cleanup
 }
 
 test_clone_feature() {
 	echo "-----------------------Test_clone_feature-------------------------"
+    id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
+    create_snapshot $id "snap3" "Snapshot: snap3 created successfully"
 	cloned_controller_id=$(start_controller "$CLONED_CONTROLLER_IP" "store2" "1")
 	start_cloned_replica "$CONTROLLER_IP"  "$CLONED_CONTROLLER_IP" "$CLONED_REPLICA_IP" "vol4"
 
@@ -969,8 +1010,8 @@ test_three_replica_stop_start
 test_ctrl_stop_start
 test_replica_reregistration
 run_data_integrity_test
-create_snapshot "$CONTROLLER_IP"
 test_clone_feature
+test_duplicate_snapshot_failure
 test_extent_support_file_system
 run_vdbench_test_on_volume
 run_libiscsi_test_suite

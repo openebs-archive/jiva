@@ -54,6 +54,7 @@ type StartInput struct {
 
 type SnapshotOutput struct {
 	client.Resource
+	Message string `json:"message"`
 }
 
 type VolumeStats struct {

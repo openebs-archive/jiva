@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -142,12 +143,13 @@ func (s *Server) SnapshotVolume(rw http.ResponseWriter, req *http.Request) error
 	if err != nil {
 		return err
 	}
-
+	msg := fmt.Sprintf("Snapshot: %s created successfully", name)
 	apiContext.Write(&SnapshotOutput{
 		client.Resource{
 			Id:   name,
 			Type: "snapshotOutput",
 		},
+		msg,
 	})
 	return nil
 }
