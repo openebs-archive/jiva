@@ -814,8 +814,15 @@ test_data_integrity() {
 		mount /dev/$device_name /mnt/store
 
 		dd if=/dev/urandom of=file1 bs=4k count=10000
-		hash1=$(md5sum file1 | awk '{print $1}')
+        hash1=$(md5sum file1 | awk '{print $1}')
 		cp file1 /mnt/store
+		umount /mnt/store
+		logout_of_volume
+	    login_to_volume "$CONTROLLER_IP:3260"
+	    get_scsi_disk
+	    sleep 5
+		mount /dev/$device_name /mnt/store
+
 		hash2=$(md5sum /mnt/store/file1 | awk '{print $1}')
 		if [ $hash1 == $hash2 ]; then echo "DI Test: PASSED"
 		else
@@ -861,15 +868,18 @@ create_snapshot() {
 	fi;
 }
 
-test_snapshot_feature() {
+test_duplicate_snapshot_failure() {
 	echo "--------------create_and_verify_snapshot-------------"
-    run_data_integrity_test
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
 	id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
 	create_snapshot $id "snap1" "Snapshot: snap1 created successfully"
 	create_snapshot $id "snap1" "Snapshot: snap1 already exists"
 	create_snapshot $id "snap2" "Snapshot: snap2 created successfully"
 	sleep 5
 	test_data_integrity
+    cleanup
 }
 
 test_clone_feature() {
@@ -1001,7 +1011,7 @@ test_ctrl_stop_start
 test_replica_reregistration
 run_data_integrity_test
 test_clone_feature
-test_snapshot_feature
+test_duplicate_snapshot_failure
 test_extent_support_file_system
 run_vdbench_test_on_volume
 run_libiscsi_test_suite
