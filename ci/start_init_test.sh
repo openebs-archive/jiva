@@ -363,7 +363,7 @@ start_debug_controller() {
 # start_cloned_replica CONTROLLER_IP  CLONED_CONTROLLER_IP CLONED_REPLICA_IP folder_name
 start_cloned_replica() {
 	cloned_replica_id=$(docker run -d -it --net stg-net --ip "$3" -P --expose 9502-9504 -v /tmp/"$4":/"$4" $JI \
-		launch replica --type clone --snapName snap1 --cloneIP "$1" --frontendIP "$2" --listen "$3":9502 --size 2g /"$4")
+		launch replica --type clone --snapName snap3 --cloneIP "$1" --frontendIP "$2" --listen "$3":9502 --size 2g /"$4")
 	echo "$cloned_replica_id"
 }
 
@@ -800,14 +800,11 @@ get_scsi_disk() {
 	done
 }
 
-run_data_integrity_test() {
-	echo "--------------------Run_data_integrity_test------------------"
-	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
-	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
-	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
-	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
 
-	sleep 5
+# in this test we write some data on the block device
+# and then verify whether data saved into the replicas
+# are same.
+test_data_integrity() {
 	login_to_volume "$CONTROLLER_IP:3260"
 	sleep 5
 	get_scsi_disk
@@ -834,34 +831,47 @@ run_data_integrity_test() {
 	else
 		echo "Unable to detect iSCSI device, login failed"; collect_logs_and_exit
 	fi
-	#Cleanup is not being performed here because this data will be used to test clone feature in the next test
 }
 
-# create_and_verify_snapshot first creates a snapshot and verifies if it
-# is of type snapshotOutput in case of failure it returns type:error which
-# is success case that the snapshot snap1 does not exists.
+run_data_integrity_test() {
+	echo "--------------------Run_data_integrity_test------------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+	sleep 5
+	test_data_integrity
+	#Cleanup is not being performed here because this data will be used
+	#to test snapshot feature in the next test.
+}
+
+# create_and_verify_snapshot creates a snapshot and verifies if it
+# has message given below (success case) or not (failure case).
 # As a part of negative test we are trying to create the snapshot with the
 # same name which returns snapshot_exists.
 create_and_verify_snapshot() {
+	snap='"snap'$2'"'
+	message=`curl -H "Content-Type: application/json" -X POST -d '{"name":"snap'$2'"}' http://$CONTROLLER_IP:9501/v1/volumes/$1?action=snapshot | jq '.message' | tr -d '"'`
+	if [ "$message" == "$3" ] ;
+	then
+		echo "create and verify snapshot test passed"
+		return
+	else
+		echo "create and verify snapshot test failed"
+		collect_logs_and_exit
+	fi;
+}
+
+test_snapshot_feature() {
 	echo "--------------create_and_verify_snapshot-------------"
-       snapshot_exists="Snapshot: snap1 already exists"
-       id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
-       type=`curl -H "Content-Type: application/json" -X POST -d '{"name":"snap1"}' http://$CONTROLLER_IP:9501/v1/volumes/$id?action=snapshot | jq '.type' | tr -d '"'`
-       if [ "$type" != "snapshotOutput" ];
-       then
-              echo "create and verify snapshot test1 failed"
-              collect_logs_and_exit
-       else
-              echo "create and verify snapshot test1 passed"
-       fi;
-       message=`curl -H "Content-Type: application/json" -X POST -d '{"name":"snap1"}' http://$CONTROLLER_IP:9501/v1/volumes/$id?action=snapshot | jq '      .message' | tr -d '"'`
-       if [ "$message" == "$snapshot_exists" ];
-       then
-              echo "create and verify snapshot test2 passed"
-       else
-              echo "create and verify snapshot test2 failed"
-              collect_logs_and_exit
-       fi;
+	id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
+	create_and_verify_snapshot $id "1" "Snapshot: snap1 created successfully"
+	create_and_verify_snapshot $id "1" "Snapshot: snap1 already exists"
+	create_and_verify_snapshot $id "2" "Snapshot: snap2 created successfully"
+	create_and_verify_snapshot $id "3" "Snapshot: snap3 created successfully"
+	clonehash=$hash1
+	sleep 5
+	test_data_integrity
 }
 
 test_clone_feature() {
@@ -883,7 +893,7 @@ test_clone_feature() {
 		mount /dev/$device_name /mnt/store2
 
 		hash3=$(md5sum /mnt/store2/file1 | awk '{print $1}')
-		if [ $hash1 == $hash3 ]; then
+		if [ $clonehash == $hash3 ]; then
 			umount /mnt/store2
 			logout_of_volume
 			echo "DI Test: PASSED"
@@ -990,7 +1000,7 @@ test_three_replica_stop_start
 test_ctrl_stop_start
 test_replica_reregistration
 run_data_integrity_test
-create_and_verify_snapshot
+test_snapshot_feature
 test_clone_feature
 test_extent_support_file_system
 run_vdbench_test_on_volume
