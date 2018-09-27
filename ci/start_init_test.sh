@@ -843,39 +843,39 @@ run_data_integrity_test() {
 	test_data_integrity
 	#Cleanup is not being performed here because this data will be used
 	#to test snapshot feature in the next test.
+    # value of hash1 will be used for clone.
 }
 
 # create_and_verify_snapshot creates a snapshot and verifies if it
 # has message given below (success case) or not (failure case).
 # As a part of negative test we are trying to create the snapshot with the
 # same name which returns snapshot_exists.
-create_and_verify_snapshot() {
-	snap='"snap'$2'"'
-	message=`curl -H "Content-Type: application/json" -X POST -d '{"name":"snap'$2'"}' http://$CONTROLLER_IP:9501/v1/volumes/$1?action=snapshot | jq '.message' | tr -d '"'`
+create_snapshot() {
+	message=`curl -H "Content-Type: application/json" -X POST -d '{"name":"'$2'"}' http://$CONTROLLER_IP:9501/v1/volumes/$1?action=snapshot | jq '.message' | tr -d '"'`
 	if [ "$message" == "$3" ] ;
 	then
-		echo "create and verify snapshot test passed"
-		return
+		echo "create snapshot test passed"
 	else
-		echo "create and verify snapshot test failed"
+		echo "create snapshot test failed"
 		collect_logs_and_exit
 	fi;
 }
 
 test_snapshot_feature() {
 	echo "--------------create_and_verify_snapshot-------------"
+    run_data_integrity_test
 	id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
-	create_and_verify_snapshot $id "1" "Snapshot: snap1 created successfully"
-	create_and_verify_snapshot $id "1" "Snapshot: snap1 already exists"
-	create_and_verify_snapshot $id "2" "Snapshot: snap2 created successfully"
-	create_and_verify_snapshot $id "3" "Snapshot: snap3 created successfully"
-	clonehash=$hash1
+	create_snapshot $id "snap1" "Snapshot: snap1 created successfully"
+	create_snapshot $id "snap1" "Snapshot: snap1 already exists"
+	create_snapshot $id "snap2" "Snapshot: snap2 created successfully"
 	sleep 5
 	test_data_integrity
 }
 
 test_clone_feature() {
 	echo "-----------------------Test_clone_feature-------------------------"
+    id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
+    create_snapshot $id "snap3" "Snapshot: snap3 created successfully"
 	cloned_controller_id=$(start_controller "$CLONED_CONTROLLER_IP" "store2" "1")
 	start_cloned_replica "$CONTROLLER_IP"  "$CLONED_CONTROLLER_IP" "$CLONED_REPLICA_IP" "vol4"
 
@@ -893,7 +893,7 @@ test_clone_feature() {
 		mount /dev/$device_name /mnt/store2
 
 		hash3=$(md5sum /mnt/store2/file1 | awk '{print $1}')
-		if [ $clonehash == $hash3 ]; then
+		if [ $hash1 == $hash3 ]; then
 			umount /mnt/store2
 			logout_of_volume
 			echo "DI Test: PASSED"
@@ -1000,8 +1000,8 @@ test_three_replica_stop_start
 test_ctrl_stop_start
 test_replica_reregistration
 run_data_integrity_test
-test_snapshot_feature
 test_clone_feature
+test_snapshot_feature
 test_extent_support_file_system
 run_vdbench_test_on_volume
 run_libiscsi_test_suite
