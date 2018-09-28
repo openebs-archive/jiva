@@ -186,11 +186,10 @@ Register:
 
 	if volume.ReplicaCount == 0 {
 		revisionCount := Replica.GetRevisionCounter()
-		peerDetails, _ := Replica.GetPeerDetails()
 		replicaType := "quorum"
 		upTime := time.Since(Replica.ReplicaStartTime)
 		state, _ := server.PrevStatus()
-		_ = t.client.Register(parts[0], revisionCount, peerDetails, replicaType, upTime, string(state))
+		_ = t.client.Register(parts[0], revisionCount, replicaType, upTime, string(state))
 		select {
 		case <-ticker.C:
 			goto Register
@@ -306,12 +305,11 @@ Register:
 	parts := strings.Split(addr[1], ":")
 	if volume.ReplicaCount == 0 {
 		revisionCount := Replica.GetRevisionCounter()
-		peerDetails, _ := Replica.GetPeerDetails()
 		replicaType := "Backend"
 		upTime := time.Since(Replica.ReplicaStartTime)
 		state, _ := server.PrevStatus()
 		logrus.Infof("Register replica at controller")
-		err := t.client.Register(parts[0], revisionCount, peerDetails, replicaType, upTime, string(state))
+		err := t.client.Register(parts[0], revisionCount, replicaType, upTime, string(state))
 		if err != nil {
 			logrus.Errorf("Error in sending register command, error: %s", err)
 		}

@@ -13,7 +13,6 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/controller/rest"
-	"github.com/openebs/jiva/types"
 )
 
 type ControllerClient struct {
@@ -192,14 +191,13 @@ func (c *ControllerClient) GetVolume() (*rest.Volume, error) {
 	return &volumes.Data[0], nil
 }
 
-func (c *ControllerClient) Register(address string, revisionCount int64, peerDetails types.PeerDetails, replicaType string, upTime time.Duration, state string) error {
+func (c *ControllerClient) Register(address string, revisionCount int64, replicaType string, upTime time.Duration, state string) error {
 	err := c.post("/register", &rest.RegReplica{
-		Address:     address,
-		RevCount:    strconv.FormatInt(revisionCount, 10),
-		PeerDetails: peerDetails,
-		RepType:     replicaType,
-		UpTime:      upTime,
-		RepState:    state,
+		Address:  address,
+		RevCount: strconv.FormatInt(revisionCount, 10),
+		RepType:  replicaType,
+		UpTime:   upTime,
+		RepState: state,
 	}, nil)
 	return err
 }

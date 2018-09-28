@@ -126,10 +126,6 @@ func CreateTempReplica() (*Replica, error) {
 		logrus.Errorf("Error in initializing revision counter while creating temp replica")
 		return nil, err
 	}
-	if err := r.initPeerDetails(); err != nil {
-		logrus.Errorf("Error in initializing peer details while creating temp replica")
-		return nil, err
-	}
 	return r, nil
 }
 
@@ -184,10 +180,6 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 		return nil, err
 	}
 	if err := r.initRevisionCounter(); err != nil {
-		return nil, err
-	}
-
-	if err := r.initPeerDetails(); err != nil {
 		return nil, err
 	}
 

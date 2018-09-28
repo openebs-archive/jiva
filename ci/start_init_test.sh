@@ -1027,6 +1027,60 @@ test_extent_support_file_system() {
 	cleanup
 }
 
+upgrade_controller() {
+       docker stop $orig_controller_id
+       docker rm $orig_controller_id
+       orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+}
+
+upgrade_replicas() {
+       docker stop $replica1_id
+       docker rm $replica1_id
+       replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+       docker stop $replica2_id
+       docker rm $replica2_id
+       replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+       docker stop $replica3_id
+       docker rm $replica3_id
+       replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+}
+
+test_upgrade() {
+	# This test is being performend because there is a change in the
+	# data structures used for communication between controller and replica.
+	echo "----------------Test_upgrade----------------"
+	docker pull $1
+	UPGRADED_JI=$JI
+	JI=$1
+
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+
+	verify_replica_cnt "3" "Three replica count test in controller upgrade"
+	run_ios_to_test_stop_start &
+	sleep 8
+
+	JI=$UPGRADED_JI
+	if [ "$2" == "controller-replica" ]; then
+		upgrade_controller
+		upgrade_replicas
+	else
+		upgrade_replicas
+		upgrade_controller
+	fi
+	verify_replica_cnt "3" "Three replica count test in controller upgrade"
+	wait
+	test_data_integrity
+
+	cleanup
+}
+
+test_upgrades() {
+       test_upgrade "openebs/jiva:0.6.0" "controller-replica"
+       test_upgrade "openebs/jiva:0.7.0" "replica-controller"
+}
 
 prepare_test_env
 test_single_replica_stop_start
@@ -1041,5 +1095,6 @@ run_data_integrity_test
 test_clone_feature
 test_duplicate_snapshot_failure
 test_extent_support_file_system
+test_upgrades
 run_vdbench_test_on_volume
 run_libiscsi_test_suite

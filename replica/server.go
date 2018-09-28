@@ -201,18 +201,14 @@ func (s *Server) PrevStatus() (State, Info) {
 func (s *Server) Stats() *types.Stats {
 	r := s.r
 	var revisionCache int64
-	var replicaCount int64
 
 	revisionCache = 0
-	replicaCount = 0
 	if r != nil {
 		revisionCache = r.revisionCache
-		replicaCount = int64(r.peerCache.ReplicaCount)
 	}
 
 	stats1 := &types.Stats{
 		RevisionCounter: revisionCache,
-		ReplicaCounter:  replicaCount,
 	}
 	return stats1
 }
@@ -426,18 +422,6 @@ func (s *Server) SetRevisionCounter(counter int64) error {
 		return nil
 	}
 	return s.r.SetRevisionCounter(counter)
-}
-
-func (s *Server) UpdatePeerDetails(peerDetails types.PeerDetails) error {
-
-	s.Lock()
-	defer s.Unlock()
-
-	if s.r == nil {
-		logrus.Infof("s.r is nil during updatePeerDetails")
-		return nil
-	}
-	return s.r.UpdatePeerDetails(peerDetails)
 }
 
 func (s *Server) PingResponse() error {

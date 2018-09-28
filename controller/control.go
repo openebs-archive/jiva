@@ -184,10 +184,6 @@ func (c *Controller) addQuorumReplica(address string, snapshot bool) error {
 		return fmt.Errorf("Fail to set revision counter for %v: %v", address, err)
 	}
 
-	if err := c.backend.UpdatePeerDetails(c.replicaCount, c.quorumReplicaCount); err != nil {
-		return fmt.Errorf("Fail to set revision counter for %v: %v", address, err)
-	}
-
 	if err := c.backend.SetRebuilding(address, false); err != nil {
 		return fmt.Errorf("Failed to set rebuild : %v", true)
 	}
@@ -251,8 +247,8 @@ func (c *Controller) signalToAdd() {
 func (c *Controller) registerReplica(register types.RegReplica) error {
 	c.Lock()
 	defer c.Unlock()
-	logrus.Infof("Register Replica, Address: %v Uptime: %v State: %v Type: %v RevisionCount: %v PeerCount: %v",
-		register.Address, register.UpTime, register.RepState, register.RepType, register.RevCount, register.PeerDetail.ReplicaCount)
+	logrus.Infof("Register Replica, Address: %v Uptime: %v State: %v Type: %v RevisionCount: %v",
+		register.Address, register.UpTime, register.RepState, register.RepType, register.RevCount)
 
 	_, ok := c.RegisteredReplicas[register.Address]
 	if !ok {
@@ -261,12 +257,6 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 			logrus.Infof("Quorum replica Address %v already present in registered list", register.Address)
 			return nil
 		}
-	}
-	if c.quorumReplicaCount < register.PeerDetail.QuorumReplicaCount {
-		c.quorumReplicaCount = register.PeerDetail.QuorumReplicaCount
-	}
-	if c.replicaCount < register.PeerDetail.ReplicaCount {
-		c.replicaCount = register.PeerDetail.ReplicaCount
 	}
 
 	if register.RepType == "quorum" {
