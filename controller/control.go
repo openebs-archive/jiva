@@ -103,22 +103,25 @@ func (c *Controller) RegisterReplica(register types.RegReplica) error {
 	return c.registerReplica(register)
 }
 
-func (c *Controller) hasWOReplica() bool {
+func (c *Controller) hasWOReplica() (string, bool) {
+	logrus.Info("check if any WO replica available")
 	for _, i := range c.replicas {
 		if i.Mode == types.WO {
-			return true
+			return i.Address, true
 		}
 	}
-	return false
+	return "", false
 }
 
 func (c *Controller) canAdd(address string) (bool, error) {
 	if c.hasReplica(address) {
-		return false, fmt.Errorf("%s is already added", address)
+		logrus.Warning("replica %s is already added with this controller instance", address)
+		return false, fmt.Errorf("replica: %s is already added", address)
 	}
-	if c.hasWOReplica() {
-		return false, fmt.Errorf("Can only have one WO replica %s at a time",
-			address)
+	if woReplica, ok := c.hasWOReplica(); ok {
+		logrus.Warning("can have only one WO replica at a time, found WO replica: %s", woReplica)
+		return false, fmt.Errorf("can only have one WO replica at a time, found WO Replica: %s",
+			woReplica)
 	}
 	return true, nil
 }
@@ -200,15 +203,29 @@ func (c *Controller) addQuorumReplica(address string, snapshot bool) error {
 	return nil
 }
 
+func (c *Controller) verifyReplicationFactor() error {
+	replicationFactor := util.CheckReplicationFactor()
+	if replicationFactor == 0 {
+		return fmt.Errorf("REPLICATION_FACTOR not set")
+	}
+	if replicationFactor == len(c.replicas) {
+		return fmt.Errorf("replication factor: %v, added replicas: %v", replicationFactor, len(c.replicas))
+	}
+	return nil
+}
+
 func (c *Controller) addReplica(address string, snapshot bool) error {
 	c.Lock()
 	if ok, err := c.canAdd(address); !ok {
 		c.Unlock()
-		logrus.Infof("addReplica %s cant add %v", address, err)
 		return err
 	}
+	logrus.Info("verify replication factor")
+	if err := c.verifyReplicationFactor(); err != nil {
+		c.Unlock()
+		return fmt.Errorf("can't add %s, error: %v", address, err)
+	}
 	c.Unlock()
-
 	newBackend, err := c.factory.Create(address)
 	if err != nil {
 		logrus.Infof("remote creation addreplica failed %v", err)
@@ -470,6 +487,7 @@ func (c *Controller) addReplicaNoLock(newBackend types.Backend, address string, 
 			newBackend.Close()
 			return err
 		}
+		// This replica is not added to backend yet
 		if err = newBackend.Snapshot(uuid, false, created); err != nil {
 			newBackend.Close()
 			return err
@@ -489,6 +507,7 @@ func (c *Controller) addReplicaNoLock(newBackend types.Backend, address string, 
 }
 
 func (c *Controller) hasReplica(address string) bool {
+	logrus.Infof("check if replica %s is already added", address)
 	for _, i := range c.replicas {
 		if i.Address == address {
 			return true

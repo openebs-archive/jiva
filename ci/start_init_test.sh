@@ -430,6 +430,33 @@ test_two_replica_delete() {
 	cleanup
 }
 
+test_replication_factor() {
+	echo "----------------Test_replication_factor--------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	verify_replica_cnt "1" "Single replica count test"
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	sleep 5
+
+	verify_replica_cnt "1" "Single replica count test"
+	add_replica_exit=$(docker logs $orig_controller_id 2>&1 | grep "error: replication factor: 1, added replicas: 1" | wc -l)
+	if [ "$add_replica_exit" == 0 ]; then
+		collect_logs_and_exit
+	fi
+
+	sudo docker stop $replica1_id
+	sudo docker start $replica1_id
+	sleep 5
+
+	verify_replica_cnt "1" "Single replica count test"
+	add_replica_exit=$(docker logs $orig_controller_id 2>&1 | grep "error: replication factor: 1, added replicas: 1" | wc -l)
+	if [ "$add_replica_exit" == 0 ]; then
+		collect_logs_and_exit
+	fi
+
+	echo "test_replication_factor --passed"
+	cleanup
+}
 
 test_single_replica_stop_start() {
 	echo "----------------Test_single_replica_stop_start--------------"
@@ -1003,6 +1030,7 @@ test_extent_support_file_system() {
 
 prepare_test_env
 test_single_replica_stop_start
+test_replication_factor
 test_two_replica_delete
 test_replica_ip_change
 test_two_replica_stop_start
