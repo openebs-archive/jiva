@@ -145,7 +145,7 @@ func (s *Server) SnapshotVolume(rw http.ResponseWriter, req *http.Request) error
 	}
 	msg := fmt.Sprintf("Snapshot: %s created successfully", name)
 	apiContext.Write(&SnapshotOutput{
-		Resource: client.Resource{
+		client.Resource{
 			Id:   name,
 			Type: "snapshotOutput",
 		},

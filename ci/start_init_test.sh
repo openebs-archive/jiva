@@ -877,7 +877,7 @@ run_data_integrity_test() {
 	test_data_integrity
 	#Cleanup is not being performed here because this data will be used
 	#to test snapshot feature in the next test.
-    # value of hash1 will be used for clone.
+	# value of hash1 will be used for clone.
 }
 
 # create_and_verify_snapshot creates a snapshot and verifies if it
@@ -896,8 +896,8 @@ create_snapshot() {
 }
 
 test_duplicate_snapshot_failure() {
-	echo "--------------create_and_verify_snapshot-------------"
-	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+	echo "--------------Test_duplicate_snapshot_failure-------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
 	id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
@@ -906,24 +906,32 @@ test_duplicate_snapshot_failure() {
 	create_snapshot $id "snap2" "Snapshot: snap2 created successfully"
 	sleep 5
 	test_data_integrity
-    cleanup
 }
 
 verify_delete_snapshot() {
-    echo "--------------delete_snapshot-------------"
-    message=curl -H "Content-Type: application/json" -X DELETE -d '{"name":"'$2'"}' http://$CONTROLLER_IP:9501/v1/volumes/$1?action=deletesnapshot
+	output_type=$(curl -H "Content-Type: application/json" -X DELETE -d '{"name":"'$2'"}' http://$CONTROLLER_IP:9501/v1/volumes/$1?action=deletesnapshot | jq '.type' | tr -d '"')
+	if [ "$output_type" == "$3" ] ;
+	then
+		echo "delete snapshot test passed"
+	else
+		echo "delete snapshot test failed"
+		collect_logs_and_exit
+	fi;
 }
 
 test_delete_snapshot() {
-    echo "-------------Test_delete_snapshot---------"
-    id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
-    verify_delete_snapshot $id "snap1" "Snapshot: snap1 deleted successfully"
+	echo "-------------Test_delete_snapshot---------"
+	id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
+	verify_delete_snapshot $id "snap1" "snapshotOutput"
+	verify_delete_snapshot $id "snap2" "snapshotOutput"
+	verify_delete_snapshot $id "snap3" "error"
+	cleanup
 }
 
 test_clone_feature() {
 	echo "-----------------------Test_clone_feature-------------------------"
-    id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
-    create_snapshot $id "snap3" "Snapshot: snap3 created successfully"
+	id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
+	create_snapshot $id "snap3" "Snapshot: snap3 created successfully"
 	cloned_controller_id=$(start_controller "$CLONED_CONTROLLER_IP" "store2" "1")
 	start_cloned_replica "$CONTROLLER_IP"  "$CLONED_CONTROLLER_IP" "$CLONED_REPLICA_IP" "vol4"
 

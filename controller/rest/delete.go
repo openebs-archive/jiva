@@ -241,12 +241,13 @@ func (s *Server) DeleteSnapshot(rw http.ResponseWriter, req *http.Request) error
 		return err
 	}
 
+	msg := fmt.Sprintf("Snapshot: %s deleted successfully", input.Name)
 	apiContext.Write(&SnapshotOutput{
-		Resource: client.Resource{
+		client.Resource{
 			Id:   input.Name,
 			Type: "snapshotOutput",
 		},
-		Message: "Snapshot deleted successfully",
+		msg,
 	})
 	return nil
 }
