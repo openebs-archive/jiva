@@ -209,7 +209,7 @@ func (c *Controller) verifyReplicationFactor() error {
 		return fmt.Errorf("REPLICATION_FACTOR not set")
 	}
 	if replicationFactor == len(c.replicas) {
-		return fmt.Errorf("replication factor: %v, registered Replicas: %v", replicationFactor, len(c.replicas))
+		return fmt.Errorf("replication factor: %v, added replicas: %v", replicationFactor, len(c.replicas))
 	}
 	return nil
 }

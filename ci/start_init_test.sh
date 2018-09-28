@@ -434,22 +434,22 @@ test_replication_factor() {
 	echo "----------------Test_replication_factor--------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	verify_replica_cnt "1" "Single replica count test"
 	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
 	sleep 5
 
 	verify_replica_cnt "1" "Single replica count test"
-	add_replica_exit=$(docker logs $orig_controller_id 2>&1 | grep "error: replication factor: 1, registered Replicas: 1" | wc -l)
+	add_replica_exit=$(docker logs $orig_controller_id 2>&1 | grep "error: replication factor: 1, added replicas: 1" | wc -l)
 	if [ "$add_replica_exit" == 0 ]; then
 		collect_logs_and_exit
 	fi
 
 	sudo docker stop $replica1_id
-	wait
 	sudo docker start $replica1_id
 	sleep 5
 
 	verify_replica_cnt "1" "Single replica count test"
-	add_replica_exit=$(docker logs $orig_controller_id 2>&1 | grep "error: replication factor: 1, registered Replicas: 1" | wc -l)
+	add_replica_exit=$(docker logs $orig_controller_id 2>&1 | grep "error: replication factor: 1, added replicas: 1" | wc -l)
 	if [ "$add_replica_exit" == 0 ]; then
 		collect_logs_and_exit
 	fi
