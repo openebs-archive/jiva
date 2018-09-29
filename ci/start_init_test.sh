@@ -923,7 +923,7 @@ test_delete_snapshot() {
 	echo "-------------Test_delete_snapshot---------"
 	id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
 	verify_delete_snapshot $id "snap1" "snapshotOutput"
-	verify_delete_snapshot $id "snap2" "snapshotOutput"
+	verify_delete_snapshot $id "snap2" "error"
 	verify_delete_snapshot $id "snap3" "error"
 	cleanup
 }

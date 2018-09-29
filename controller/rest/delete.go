@@ -8,6 +8,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	replica_jiva "github.com/openebs/jiva/replica"
 	replicaClient "github.com/openebs/jiva/replica/client"
+	replica_rest "github.com/openebs/jiva/replica/rest"
 	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
 	"github.com/rancher/go-rancher/api"
@@ -182,11 +183,7 @@ func (s *Server) prepareRemoveSnapshot(replica *types.Replica, snapshot string) 
 
 func (s *Server) checkPrerequisits(replicas []types.Replica) error {
 	for _, replica := range replicas {
-		repClient, err := replicaClient.NewReplicaClient(replica.Address)
-		if err != nil {
-			return err
-		}
-		replicaInfo, err := repClient.GetReplica()
+		replicaInfo, err := getReplicaInfo(replica.Address)
 		if err != nil {
 			return err
 		}
@@ -197,9 +194,44 @@ func (s *Server) checkPrerequisits(replicas []types.Replica) error {
 	return nil
 }
 
+func getReplicaInfo(addr string) (replica_rest.Replica, error) {
+	repClient, err := replicaClient.NewReplicaClient(addr)
+	if err != nil {
+		return replica_rest.Replica{}, err
+	}
+	replicaInfo, err := repClient.GetReplica()
+	if err != nil {
+		return replica_rest.Replica{}, err
+	}
+	return replicaInfo, nil
+}
+
+func isRemovable(replicas []types.Replica, name string) error {
+	var replica types.Replica
+	for _, replica = range replicas {
+		if replica.Mode == "RW" {
+			break
+		}
+	}
+	info, err := getReplicaInfo(replica.Address)
+	if err != nil {
+		return err
+	}
+	snapName := fmt.Sprintf("volume-snap-%s.img", name)
+	if info.Chain[1] == snapName {
+		return fmt.Errorf("can't delete latest snapshot %s", snapName)
+	}
+	return nil
+}
+
 func (s *Server) deleteSnapshot(replicas []types.Replica, name string) error {
 	s.c.Lock()
 	defer s.c.Unlock()
+	logrus.Infof("check if snapshot %s is removable", name)
+	if err := isRemovable(replicas, name); err != nil {
+		return err
+	}
+	logrus.Info("check prerequisits")
 	err := s.checkPrerequisits(replicas)
 	if err != nil {
 		return err
