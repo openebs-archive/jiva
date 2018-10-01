@@ -1144,6 +1144,44 @@ test_replica_controller_continuous_stop_start() {
 	echo "Test_replica_controller_continuous_stop_start passed"
 }
 
+test_volume_resize() {
+	echo "----------------Test_volume_resize---------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	verify_rw_rep_count "2"
+	id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
+	curl -H "Content-Type: application/json" -X POST -d '{"name":"store1", "size": "10G"}' http://$CONTROLLER_IP:9501/v1/volumes/$id?action=resize
+
+	upgraded_size=$((10*1024*1024*1024))
+	size=`curl http://$REPLICA_IP1:9502/v1/replicas/1 | jq '.size' | tr -d '"'`
+	if [[ $size != $upgraded_size ]]; then
+		echo "Resize test failed"
+	fi
+	size=`curl http://$REPLICA_IP2:9502/v1/replicas/1 | jq '.size' | tr -d '"'`
+	if [[ $size != $upgraded_size ]]; then
+		echo "Resize test failed"
+	fi
+	di_test_on_raw_disk "2M"
+	sleep 5
+	# Test pod restarts on same node
+	docker stop $replica1_id
+	docker start $replica1_id
+	verify_rw_rep_count "2"
+	di_test_on_raw_disk "2M"
+	docker stop $replica1_id
+	docker stop $replica2_id
+	docker start $replica1_id
+	docker start $replica2_id
+	verify_rw_rep_count "2"
+	di_test_on_raw_disk "2M"
+	docker stop $orig_controller_id
+	docker start $orig_controller_id
+	verify_rw_rep_count "2"
+	di_test_on_raw_disk "2M"
+	echo "Resize test passed"
+}
+
 prepare_test_env
 test_single_replica_stop_start
 test_replication_factor
@@ -1154,6 +1192,7 @@ test_three_replica_stop_start
 test_ctrl_stop_start
 test_replica_reregistration
 test_replica_controller_continuous_stop_start
+test_volume_resize
 run_data_integrity_test_with_fs_creation
 test_clone_feature
 test_duplicate_snapshot_failure

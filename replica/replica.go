@@ -296,6 +296,8 @@ func (r *Replica) Resize(obj interface{}) error {
 			return nil
 		}
 	}
+	r.Lock()
+	defer r.Unlock()
 	if r.info.Size > sizeInBytes {
 		return fmt.Errorf("Previous size %d is greater than %d", r.info.Size, sizeInBytes)
 	}
@@ -304,6 +306,8 @@ func (r *Replica) Resize(obj interface{}) error {
 			return err
 		}
 	}
+	byteArray := make([]byte, (sizeInBytes-r.info.Size)/4096)
+	r.volume.location = append(r.volume.location, byteArray...)
 	r.info.Size = sizeInBytes
 	return r.encodeToFile(&r.info, volumeMetaData)
 }
