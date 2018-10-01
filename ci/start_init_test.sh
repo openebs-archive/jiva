@@ -1179,6 +1179,7 @@ test_volume_resize() {
 	docker start $orig_controller_id
 	verify_rw_rep_count "2"
 	di_test_on_raw_disk "2M"
+	cleanup
 	echo "Resize test passed"
 }
 
