@@ -70,7 +70,7 @@ _run_ci:
 	sudo ./ci/start_init_test.sh
 
 _push_image:
-	cd $(GOPATH)/src/github.com/openebs/jiva && ./scripts/push
+	cd $(GOPATH)/src/github.com/openebs/jiva && IMAGE_REPO="openebs/jiva" ./scripts/push
 
 #
 # Will build the go based binaries
