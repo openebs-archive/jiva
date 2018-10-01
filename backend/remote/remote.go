@@ -248,7 +248,7 @@ func (rf *Factory) Create(address string) (types.Backend, error) {
 		return nil, err
 	}
 
-	rpc := rpc.NewClient(conn)
+	rpc := rpc.NewClient(conn, r.closeChan)
 	r.ReaderWriterAt = rpc
 
 	if err := r.open(); err != nil {

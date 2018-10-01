@@ -867,7 +867,7 @@ test_data_integrity() {
 	fi
 }
 
-run_data_integrity_test() {
+run_data_integrity_test_with_fs_creation() {
 	echo "--------------------Run_data_integrity_test------------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
@@ -1082,6 +1082,68 @@ test_upgrades() {
        test_upgrade "openebs/jiva:0.7.0" "replica-controller"
 }
 
+di_test_on_raw_disk() {
+	echo "----------------Test_di_on_raw_disk---------------"
+	login_to_volume "$CONTROLLER_IP:3260"
+	sleep 5
+	get_scsi_disk
+	if [ "$device_name"!="" ]; then
+		# This tests resize feature
+		rm test_file1 test_file2
+		if [ "$1" != "" ]; then
+			dd if=/dev/urandom of=test_file1 bs=4K count=4K
+			dd if=test_file1 of=/dev/$device_name bs=4K count=4K seek=$1
+			dd if=/dev/$device_name of=test_file2 bs=4K count=4K skip=$1
+			hash1=$(md5sum test_file1 | awk '{print $1}')
+			hash2=$(md5sum test_file2 | awk '{print $1}')
+			if [ $hash1 == $hash2 ]; then echo "DI Test: PASSED"
+			else
+				echo "DI Test: FAILED"; collect_logs_and_exit1
+			fi
+			logout_of_volume
+			sleep 5
+			login_to_volume "$CONTROLLER_IP:3260"
+			sleep 5
+			get_scsi_disk
+			dd if=/dev/$device_name of=test_file3 bs=4K count=4K skip=$1
+			hash1=$(md5sum test_file1 | awk '{print $1}')
+			hash3=$(md5sum test_file3 | awk '{print $1}')
+			if [ $hash1 == $hash3 ]; then echo "DI Test: PASSED"
+			else
+				fdisk -l
+				logout_of_volume
+				echo "DI Test: FAILED"; exit; collect_logs_and_exit
+			fi
+			logout_of_volume
+		fi
+	fi
+	echo "Test_di_on_raw_disk passed"
+}
+
+test_replica_controller_continuous_stop_start() {
+	echo "----------------Test_replica_controller_continuous_stop_start-----------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	verify_rw_rep_count "1"
+	di_test_on_raw_disk "1K"
+	sleep 5
+
+	# Test pod restarts on same node
+	docker stop $replica1_id
+	docker start $replica1_id
+	verify_rw_rep_count "1"
+	di_test_on_raw_disk "1K"
+	docker stop $replica1_id
+	docker start $replica1_id
+	verify_rw_rep_count "1"
+	di_test_on_raw_disk "1K"
+	docker stop $orig_controller_id
+	docker start $orig_controller_id
+	verify_rw_rep_count "1"
+	di_test_on_raw_disk "1K"
+	echo "Test_replica_controller_continuous_stop_start passed"
+}
+
 prepare_test_env
 test_single_replica_stop_start
 test_replication_factor
@@ -1091,7 +1153,8 @@ test_two_replica_stop_start
 test_three_replica_stop_start
 test_ctrl_stop_start
 test_replica_reregistration
-run_data_integrity_test
+test_replica_controller_continuous_stop_start
+run_data_integrity_test_with_fs_creation
 test_clone_feature
 test_duplicate_snapshot_failure
 test_extent_support_file_system
