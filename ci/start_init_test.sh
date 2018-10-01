@@ -113,7 +113,7 @@ verify_rw_status() {
 			rw_status="RW"
 		fi
 		i=`expr $i + 1`
-		if [ "$i" == 50 ]; then
+		if [ "$i" == 100 ]; then
 			echo "1"
 			return
 		fi
