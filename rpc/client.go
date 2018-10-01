@@ -44,6 +44,7 @@ type Client struct {
 	requests  chan *Message
 	send      chan *Message
 	responses chan *Message
+	closeChan chan struct{}
 	seq       uint32
 	messages  map[uint32]*Message
 	wire      *Wire
@@ -52,7 +53,7 @@ type Client struct {
 }
 
 //NewClient replica client
-func NewClient(conn net.Conn) *Client {
+func NewClient(conn net.Conn, closeChan chan struct{}) *Client {
 	c := &Client{
 		wire:      NewWire(conn),
 		peerAddr:  conn.RemoteAddr().String(),
@@ -61,6 +62,7 @@ func NewClient(conn net.Conn) *Client {
 		send:      make(chan *Message, 1024),
 		responses: make(chan *Message, 1024),
 		messages:  map[uint32]*Message{},
+		closeChan: closeChan,
 	}
 	go c.loop()
 	go c.write()
@@ -131,6 +133,10 @@ func (c *Client) operation(op uint32, buf []byte, offset int64) (int, error) {
 
 			return time.After(opPingTimeout)
 		}(msg.Type)
+
+		if c.err != nil {
+			return 0, c.err
+		}
 
 		c.requests <- &msg
 
@@ -241,6 +247,8 @@ func (c *Client) handleRequest(req *Message) {
 func (c *Client) handleResponse(resp *Message) {
 	if resp.transportErr != nil {
 		c.err = resp.transportErr
+		c.closeChan <- struct{}{}
+		time.Sleep(2 * time.Second)
 		// Terminate all in flight
 		for _, msg := range c.messages {
 			c.replyError(msg)
