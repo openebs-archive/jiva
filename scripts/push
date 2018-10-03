@@ -1,31 +1,95 @@
 #!/bin/bash
 set -e
 
+if [ -z ${IMAGE_REPO} ];
+then
+  echo "Error: IMAGE_REPO is not specified";
+  exit 1
+fi
+
 source "$(dirname $0)/version"
 IMAGEID=$( docker images -q openebs/jiva:${VERSION} )
+echo $IMAGEID 
+if [ -z ${IMAGEID} ];
+then
+  echo "Error: unable to get IMAGEID for ${IMAGE_REPO}:${VERSION}";
+  exit 1
+fi
 
-if [ ! -z "${DNAME}" ] && [ ! -z "${DPASS}" ]; 
-then 
-  docker login -u "${DNAME}" -p "${DPASS}"; 
-  #Push the development build images to jiva-ci docker hub repository
-  docker tag ${IMAGEID} openebs/jiva-ci:${VERSION}
-  docker push openebs/jiva-ci:${VERSION};
-  docker tag ${IMAGEID} openebs/jiva:ci
-  docker push openebs/jiva:ci;
-  if [ ! -z "${TRAVIS_TAG}" ] || [ ! -z "${RELEASE_TAG}" ];
+# Generate a uniqe tag based on the commit and tag
+BUILD_ID=$(git describe --tags --always)
+
+# Determine the current branch
+CURRENT_BRANCH=""
+if [ -z ${TRAVIS_BRANCH} ];
+then
+  CURRENT_BRANCH=$(git branch | grep \* | cut -d ' ' -f2)
+else
+  CURRENT_BRANCH=${TRAVIS_BRANCH}
+fi
+
+#Depending on the branch where builds are generated, 
+# set the tag CI (fixed) and build tags.
+BUILD_TAG="${CURRENT_BRANCH}-${BUILD_ID}"
+CI_TAG="${CURRENT_BRANCH}-ci"
+if [ ${CURRENT_BRANCH} = "master" ]; then
+  CI_TAG="ci"
+fi
+
+echo "Set the fixed ci image tag as: ${CI_TAG}"
+echo "Set the build/unique image tag as: ${BUILD_TAG}"
+
+function TagAndPushImage() {
+  REPO="$1"
+  TAG="$2"
+  
+  IMAGE_URI="${REPO}:${TAG}";
+  sudo docker tag ${IMAGEID} ${IMAGE_URI};
+  echo " push ${IMAGE_URI}";
+  sudo docker push ${IMAGE_URI};
+}
+
+if [ ! -z "${DNAME}" ] && [ ! -z "${DPASS}" ];
+then
+  sudo docker login -u "${DNAME}" -p "${DPASS}";
+
+  # Push CI tagged image - :ci or :branch-ci
+  TagAndPushImage "${IMAGE_REPO}" "${CI_TAG}"
+
+  # Push unique tagged image - :master-<uuid> or :branch-<uuid>
+  # This unique/build image will be pushed to corresponding ci repo. 
+  TagAndPushImage "${IMAGE_REPO}-ci" "${BUILD_TAG}"
+
+
+  if [ ! -z "${TRAVIS_TAG}" ] ;
   then
-    #Push the release tag image to jiva docker hub repository
-    #When a git hub is tagged with a release, the travis will
-    #hold the release tag in env TRAVIS_TAG
-    if [ ! -z "${TRAVIS_TAG}" ];
-    then
-      RELEASE_TAG=${TRAVIS_TAG}
-    fi
-    docker tag ${IMAGEID} openebs/jiva:${RELEASE_TAG}
-    docker push openebs/jiva:${RELEASE_TAG};
-    docker tag ${IMAGEID} openebs/jiva:latest
-    docker push openebs/jiva:latest;
+    # Push with different tags if tagged as a release
+    # When github is tagged with a release, then Travis will
+    # set the release tag in env TRAVIS_TAG
+    TagAndPushImage "${IMAGE_REPO}" "${TRAVIS_TAG}"
+    TagAndPushImage "${IMAGE_REPO}" "latest"
   fi;
 else
-  echo "No docker credentials provided. Skip uploading openebs/jiva:${VERSION} to docker hub"; 
+  echo "No docker credentials provided. Skip uploading ${IMAGE_REPO} to docker hub";
 fi;
+
+# Push ci image to quay.io for security scanning
+if [ ! -z "${QNAME}" ] && [ ! -z "${QPASS}" ]; 
+then 
+  sudo docker login -u "${QNAME}" -p "${QPASS}" quay.io;
+
+  # Push CI tagged image - :ci or :branch-ci
+  TagAndPushImage "quay.io/${IMAGE_REPO}" "${CI_TAG}"
+
+  if [ ! -z "${TRAVIS_TAG}" ] ;
+  then
+    # Push with different tags if tagged as a release
+    # When github is tagged with a release, then Travis will
+    # set the release tag in env TRAVIS_TAG
+    TagAndPushImage "quay.io/${IMAGE_REPO}" "${TRAVIS_TAG}"
+    TagAndPushImage "quay.io/${IMAGE_REPO}" "latest"
+  fi;
+else
+  echo "No docker credentials provided. Skip uploading ${IMAGE_REPO} to quay";
+fi;
+
