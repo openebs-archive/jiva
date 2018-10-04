@@ -222,7 +222,7 @@ func startReplica(c *cli.Context) error {
 			syncResp <- cmd.Run()
 		}()
 	}
-	go replica.DrillHoles()
+	go replica.CreateHoles()
 	if frontendIP != "" {
 		if address == ":9502" {
 			address = "localhost:9502"

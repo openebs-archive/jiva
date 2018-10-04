@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"syscall"
+	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/types"
 	"github.com/yasker/backupstore"
 )
@@ -177,30 +179,39 @@ func (rb *Backup) findIndex(id string) int {
 	return -1
 }
 
-type hole struct {
+type Hole struct {
 	f      types.DiffDisk
 	offset int64
 	len    int64
 }
 
-var Driller = make(chan hole, 1000000)
+var HoleCreatorChan = make(chan Hole, 1000000)
 
-func DrillHoles() error {
+func CreateHoles() error {
+	retryCount := 0
 	for {
-		drill := <-Driller
-		if err := syscall.Fallocate(int(drill.f.Fd()), 0x01|0x02, drill.offset*4096, drill.len*4096); err != nil {
-			fmt.Println("ERROR: ", err)
+		hole := <-HoleCreatorChan
+	retry:
+		if err := syscall.Fallocate(int(hole.f.Fd()), 0x01|0x02, hole.offset*4096, hole.len*4096); err != nil {
+			logrus.Errorf("ERROR in creating hole: %v, Retry_Count: %v", err, retryCount)
+			time.Sleep(1)
+			retryCount++
+			if retryCount == 5 {
+				logrus.Fatalf("Error Creating holes: %v", err)
+			}
+			goto retry
 		}
+		retryCount = 0
 	}
 }
 
-func createHole(f types.DiffDisk, offset int64, len int64) {
-	drill := hole{
+func sendToCreateHole(f types.DiffDisk, offset int64, len int64) {
+	hole := Hole{
 		f:      f,
 		offset: offset,
 		len:    len,
 	}
-	Driller <- drill
+	HoleCreatorChan <- hole
 }
 
 func preload(d *diffDisk) error {
@@ -228,7 +239,7 @@ func preload(d *diffDisk) error {
 			if d.location[offset] != 0 {
 				if d.files[d.location[offset]] != file {
 					if file != nil && fileIndx > userCreatedSnapIndx && !d.ReadOnlyIndx[fileIndx] {
-						createHole(file, lOffset, length)
+						sendToCreateHole(file, lOffset, length)
 					}
 					file = d.files[d.location[offset]]
 					fileIndx = d.location[offset]
@@ -242,7 +253,7 @@ func preload(d *diffDisk) error {
 			d.UsedBlocks++
 		}
 		if file != nil && fileIndx > userCreatedSnapIndx && !d.ReadOnlyIndx[fileIndx] {
-			createHole(file, lOffset, length)
+			sendToCreateHole(file, lOffset, length)
 			file = nil
 		}
 

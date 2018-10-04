@@ -125,7 +125,7 @@ func (d *diffDisk) fullWriteAt(buf []byte, offset int64) (int, error) {
 		} else if val != target {
 			if d.files[d.location[startSector+i]] != file {
 				if file != nil && int(fileIndx) > d.SnapIndx && !d.ReadOnlyIndx[fileIndx] {
-					createHole(d.files[val], lOffset, length)
+					sendToCreateHole(d.files[val], lOffset, length)
 				}
 				file = d.files[d.location[startSector+i]]
 				fileIndx = d.location[offset]
@@ -138,7 +138,7 @@ func (d *diffDisk) fullWriteAt(buf []byte, offset int64) (int, error) {
 		d.location[startSector+i] = target
 	}
 	if (file != nil) && (int(fileIndx) > d.SnapIndx) && !d.ReadOnlyIndx[fileIndx] {
-		createHole(file, lOffset, length)
+		sendToCreateHole(file, lOffset, length)
 		file = nil
 	}
 	return c, err
