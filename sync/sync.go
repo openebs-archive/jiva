@@ -403,6 +403,7 @@ func (t *Task) reloadAndVerify(address string, repClient *replicaClient.ReplicaC
 
 func (t *Task) syncFiles(fromClient *replicaClient.ReplicaClient, toClient *replicaClient.ReplicaClient, disks []string) error {
 	for i := range disks {
+		//We are syncing from the oldest snapshots to newer ones
 		disk := disks[len(disks)-1-i]
 		if strings.Contains(disk, "volume-head") {
 			return fmt.Errorf("Disk list shouldn't contain volume-head")

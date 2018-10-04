@@ -191,6 +191,7 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 	}
 	r.volume.location = make([]byte, locationSize)
 	r.volume.files = []types.DiffDisk{nil}
+	r.volume.UserCreatedSnap = []bool{false}
 
 	if r.readOnly && !exists {
 		return nil, os.ErrNotExist
@@ -255,6 +256,7 @@ func (r *Replica) insertBackingFile() {
 	d := disk{Name: r.info.BackingFile.Name}
 	r.activeDiskData = append([]*disk{{}, &d}, r.activeDiskData[1:]...)
 	r.volume.files = append([]types.DiffDisk{nil, r.info.BackingFile.Disk}, r.volume.files[1:]...)
+	r.volume.UserCreatedSnap = append([]bool{false, false}, r.volume.UserCreatedSnap[1:]...)
 	r.diskData[d.Name] = &d
 }
 
@@ -830,6 +832,10 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 
 	r.info = info
 	r.volume.files = append(r.volume.files, f)
+	if userCreated {
+		r.volume.SnapIndx = len(r.volume.files) - 2
+	}
+	r.volume.UserCreatedSnap = append(r.volume.UserCreatedSnap, userCreated)
 	r.activeDiskData = append(r.activeDiskData, &newHeadDisk)
 
 	return nil
@@ -899,6 +905,11 @@ func (r *Replica) openLiveChain() error {
 		}
 
 		r.volume.files = append(r.volume.files, f)
+		userCreated := r.diskData[parent].UserCreated
+		r.volume.UserCreatedSnap = append(r.volume.UserCreatedSnap, userCreated)
+		if userCreated {
+			r.volume.SnapIndx = len(chain) - i - 1
+		}
 		r.activeDiskData = append(r.activeDiskData, r.diskData[parent])
 	}
 	return nil

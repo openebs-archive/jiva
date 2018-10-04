@@ -3,7 +3,9 @@ package replica
 import (
 	"fmt"
 	"os"
+	"syscall"
 
+	"github.com/openebs/jiva/types"
 	"github.com/yasker/backupstore"
 )
 
@@ -175,24 +177,77 @@ func (rb *Backup) findIndex(id string) int {
 	return -1
 }
 
+type hole struct {
+	f      types.DiffDisk
+	offset int64
+	len    int64
+}
+
+var Driller = make(chan hole, 1000000)
+
+func DrillHoles() error {
+	for {
+		drill := <-Driller
+		if err := syscall.Fallocate(int(drill.f.Fd()), 0x01|0x02, drill.offset*4096, drill.len*4096); err != nil {
+			fmt.Println("ERROR: ", err)
+		}
+	}
+}
+
+func createHole(f types.DiffDisk, offset int64, len int64) {
+	drill := hole{
+		f:      f,
+		offset: offset,
+		len:    len,
+	}
+	Driller <- drill
+}
+
 func preload(d *diffDisk) error {
+	var file types.DiffDisk
+	var length int64
+	var lOffset int64
+	var fileIndx byte
+	var userCreatedSnapIndx byte
 	for i, f := range d.files {
 		if i == 0 {
 			continue
 		}
 		if i == 1 {
+			//TODO Check if this zeroing is needed
 			// Reinitialize to zero so that we can detect holes in the base snapshot
 			for j := 0; j < len(d.location); j++ {
 				d.location[j] = 0
 			}
 		}
+		if d.UserCreatedSnap[i] {
+			userCreatedSnapIndx = byte(i)
+		}
 		generator := newGenerator(d, f)
 		for offset := range generator.Generate() {
+			if d.location[offset] != 0 {
+				if d.files[d.location[offset]] != file {
+					if file != nil && fileIndx > userCreatedSnapIndx {
+						createHole(file, lOffset, length)
+					}
+					file = d.files[d.location[offset]]
+					fileIndx = d.location[offset]
+					length = 1
+					lOffset = offset
+				} else {
+					length++
+				}
+			}
 			d.location[offset] = byte(i)
 			d.UsedBlocks++
 		}
+		if file != nil && fileIndx > userCreatedSnapIndx {
+			createHole(file, lOffset, length)
+			file = nil
+		}
 
 		if generator.Err() != nil {
+			fmt.Println("GENERATOR ERROR")
 			return generator.Err()
 		}
 	}

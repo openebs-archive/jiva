@@ -132,6 +132,7 @@ func (r *replicator) ReadAt(buf []byte, off int64) (int, error) {
 		if err == nil {
 			break
 		}
+		//TODO Update this log
 		logrus.Error("Replicator.ReadAt:", index, err)
 		retError.Errors[r.readerIndex[index]] = err
 		index = (index + 1) % readersLen

@@ -57,6 +57,7 @@ func (u *UsedGenerator) findExtents(c chan<- int64) {
 
 		for _, extent := range extents {
 			start = extent.Logical + extent.Length
+
 			for i := int64(0); i < int64(extent.Length); i += u.d.sectorSize {
 				c <- (int64(extent.Logical) + i) / u.d.sectorSize
 			}
