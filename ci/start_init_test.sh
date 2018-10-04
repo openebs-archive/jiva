@@ -1150,7 +1150,7 @@ test_replica_controller_continuous_stop_start() {
 
 test_volume_resize() {
 	echo "----------------Test_volume_resize---------------"
-	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
 	verify_rw_rep_count "2"
