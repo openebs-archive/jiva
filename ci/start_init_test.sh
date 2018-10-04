@@ -880,7 +880,7 @@ run_data_integrity_test_with_fs_creation() {
 	test_data_integrity
 	#Cleanup is not being performed here because this data will be used
 	#to test snapshot feature in the next test.
-    # value of hash1 will be used for clone.
+	# value of hash1 will be used for clone.
 }
 
 # create_and_verify_snapshot creates a snapshot and verifies if it
@@ -900,22 +900,23 @@ create_snapshot() {
 
 test_duplicate_snapshot_failure() {
 	echo "--------------create_and_verify_snapshot-------------"
-	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	verify_rw_rep_count "2"
 	id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
 	create_snapshot $id "snap1" "Snapshot: snap1 created successfully"
 	create_snapshot $id "snap1" "Snapshot: snap1 already exists"
 	create_snapshot $id "snap2" "Snapshot: snap2 created successfully"
 	sleep 5
 	test_data_integrity
-    cleanup
+	cleanup
 }
 
 test_clone_feature() {
 	echo "-----------------------Test_clone_feature-------------------------"
-    id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
-    create_snapshot $id "snap3" "Snapshot: snap3 created successfully"
+	id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
+	create_snapshot $id "snap3" "Snapshot: snap3 created successfully"
 	cloned_controller_id=$(start_controller "$CLONED_CONTROLLER_IP" "store2" "1")
 	start_cloned_replica "$CONTROLLER_IP"  "$CLONED_CONTROLLER_IP" "$CLONED_REPLICA_IP" "vol4"
 
