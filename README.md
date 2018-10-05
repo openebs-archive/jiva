@@ -15,7 +15,7 @@ Both controller and replica can be launched using this same image, *openebs/jiva
 
 The scheduling of the controller and replica containers of an OpenEBS Volume is managed by *maya* that integrates itself into Container Orchestrators like Kubernetes, Docker Swarm, Mesos or Nomad. 
 
-OpenEBS v0.4.0, provides integration into Kubernetes Clusters. Please follow [OpenEBS documentation](http://openebs.readthedocs.io/en/latest/), if you are using Kubernetes.
+OpenEBS v0.4.0, provides integration into Kubernetes Clusters. Please follow [OpenEBS documentation](https://docs.openebs.io/), if you are using Kubernetes.
 
 For other types of Container Orchestrators like Docker Swarm, Mesos, Nomad, etc., the following instructions will help you to quickly setup an OpenEBS Volume (exposed via iSCSI) with 2 replicas. To enable redundancy, the replicas have to be run on different hosts.
 
@@ -105,7 +105,7 @@ Portal : 172.18.200.101:3260
 IQN : iqn.2016-09.com.openebs.jiva:demo-vol1
 
 
-*For further info, checkout http://openebs.readthedocs.io/en/latest/ or join the slack# http://slack.openebs.io*
+*For further info, checkout https://docs.openebs.io/ or join the slack# http://slack.openebs.io*
 
 ## Inspiration and Credit
 
