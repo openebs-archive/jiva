@@ -105,7 +105,7 @@ Portal : 172.18.200.101:3260
 IQN : iqn.2016-09.com.openebs.jiva:demo-vol1
 
 
-*For further info, checkout https://docs.openebs.io/ or join the slack# http://slack.openebs.io*
+*For further info, checkout https://docs.openebs.io/ or join the slack# https://slack.openebs.io*
 
 ## Inspiration and Credit
 
