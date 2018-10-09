@@ -595,14 +595,16 @@ func (c *Controller) SetReplicaMode(address string, mode types.Mode) error {
 	switch mode {
 	case types.ERR:
 		c.Lock()
-		defer c.Unlock()
+		c.setReplicaModeNoLock(address, mode)
+		c.Unlock()
 	case types.RW:
-		c.Lock()
-		defer c.Unlock()
+		c.RLock()
+		c.setReplicaModeNoLock(address, mode)
+		c.RUnlock()
 	default:
 		return fmt.Errorf("Can not set to mode %s", mode)
 	}
-	c.setReplicaModeNoLock(address, mode)
+
 	return nil
 }
 
@@ -808,9 +810,9 @@ func (c *Controller) WriteAt(b []byte, off int64) (int, error) {
 		time.Sleep(1 * time.Second)
 		return 0, err
 	}
-	defer c.Unlock()
 	if off < 0 || off+int64(len(b)) > c.size {
 		err := fmt.Errorf("EOF: Write of %v bytes at offset %v is beyond volume size %v", len(b), off, c.size)
+		c.Unlock()
 		return 0, err
 	}
 	n, err := c.backend.WriteAt(b, off)
@@ -824,26 +826,31 @@ func (c *Controller) WriteAt(b []byte, off int64) (int, error) {
 			}
 		}
 		if n == len(b) && errh == nil {
+			c.Unlock()
 			return n, nil
 		}
+		c.Unlock()
 		return n, errh
 	}
+	c.Unlock()
 	return n, err
 }
 
 func (c *Controller) ReadAt(b []byte, off int64) (int, error) {
 	c.Lock()
-	defer c.Unlock()
 	if off < 0 || off+int64(len(b)) > c.size {
 		err := fmt.Errorf("EOF: Read of %v bytes at offset %v is beyond volume size %v", len(b), off, c.size)
+		c.Unlock()
 		return 0, err
 	}
 	if len(c.replicas) == 0 {
+		c.Unlock()
 		return 0, fmt.Errorf("No backends available")
 	}
 	if len(c.replicas) == 1 {
 		r := c.replicas[0]
 		if r.Mode == "WO" {
+			c.Unlock()
 			return 0, fmt.Errorf("only WO replica available")
 		}
 	}
@@ -858,8 +865,10 @@ func (c *Controller) ReadAt(b []byte, off int64) (int, error) {
 				}
 			}
 		}
+		c.Unlock()
 		return n, errh
 	}
+	c.Unlock()
 	return n, err
 }
 
@@ -906,11 +915,12 @@ func (c *Controller) Close() error {
 func (c *Controller) shutdownFrontend() error {
 	// Make sure writing data won't be blocked
 	c.RLock()
-	defer c.RUnlock()
 
 	if c.frontend != nil {
+		c.RUnlock()
 		return c.frontend.Shutdown()
 	}
+	c.RUnlock()
 	return nil
 }
 
@@ -918,7 +928,6 @@ func (c *Controller) Stats() (types.Stats, error) {
 	var err error
 	// Make sure writing data won't be blocked
 	c.RLock()
-	defer c.RUnlock()
 
 	if c.frontend != nil {
 		stats := (types.Stats)(c.frontend.Stats())
@@ -926,18 +935,20 @@ func (c *Controller) Stats() (types.Stats, error) {
 		stats.UsedLogicalBlocks = volUsage.UsedLogicalBlocks
 		stats.UsedBlocks = volUsage.UsedBlocks
 		stats.SectorSize = volUsage.SectorSize
+		c.RUnlock()
 		return stats, err
 	}
+	c.RUnlock()
 	return types.Stats{}, err
 }
 
 func (c *Controller) shutdownBackend() error {
 	c.Lock()
-	defer c.Unlock()
 
 	err := c.backend.Close()
 	c.reset()
 
+	c.Unlock()
 	return err
 }
 

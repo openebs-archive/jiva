@@ -34,12 +34,6 @@ func (s *Server) Handle() error {
 		msg *Message
 		err error
 	)
-	defer func() {
-		select {
-		case s.monitorChan <- struct{}{}:
-		default:
-		}
-	}()
 	ret := make(chan error)
 	go s.readWrite(ret)
 
@@ -51,9 +45,21 @@ func (s *Server) Handle() error {
 			}
 			//Best effort to notify client to close connection
 			s.write(msg)
+			func() {
+				select {
+				case s.monitorChan <- struct{}{}:
+				default:
+				}
+			}()
 			return nil
 		case err = <-ret:
 			if err != nil {
+				func() {
+					select {
+					case s.monitorChan <- struct{}{}:
+					default:
+					}
+				}()
 				return err
 			}
 		}
