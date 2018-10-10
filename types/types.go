@@ -80,6 +80,7 @@ type Replica struct {
 
 type RegReplica struct {
 	Address  string
+	UUID     string
 	UpTime   time.Duration
 	RevCount int64
 	RepType  string

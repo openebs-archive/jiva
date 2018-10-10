@@ -191,9 +191,10 @@ func (c *ControllerClient) GetVolume() (*rest.Volume, error) {
 	return &volumes.Data[0], nil
 }
 
-func (c *ControllerClient) Register(address string, revisionCount int64, replicaType string, upTime time.Duration, state string) error {
+func (c *ControllerClient) Register(address string, uuid string, revisionCount int64, replicaType string, upTime time.Duration, state string) error {
 	err := c.post("/register", &rest.RegReplica{
 		Address:  address,
+		UUID:     uuid,
 		RevCount: strconv.FormatInt(revisionCount, 10),
 		RepType:  replicaType,
 		UpTime:   upTime,

@@ -59,6 +59,10 @@ type Replica struct {
 	peerCache types.PeerDetails
 	peerFile  *sparse.DirectFileIoProcessor
 
+	uuidLock sync.Mutex
+	UUID     string
+	uuidFile *sparse.DirectFileIoProcessor
+
 	cloneStatus   string
 	CloneSnapName string
 	Clone         bool
@@ -215,6 +219,7 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 
 	r.insertBackingFile()
 	r.ReplicaType = replicaType
+	r.GetUUID()
 
 	if err := PreloadLunMap(&r.volume); err != nil {
 		return r, fmt.Errorf("failed to load Lun map, error: %v", err)
@@ -241,6 +246,15 @@ func IsHeadDisk(diskName string) bool {
 		return true
 	}
 	return false
+}
+
+func (r *Replica) GetUUID() string {
+	if r.UUID == "" {
+		//TODO write uuid to disk
+		r.UUID = util.UUID()
+	}
+	fmt.Printf("Got uuid for replica : %s\n", r.UUID)
+	return r.UUID
 }
 
 func (r *Replica) diskPath(name string) string {

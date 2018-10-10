@@ -27,6 +27,7 @@ type Controller struct {
 	backend                  *replicator
 	frontend                 types.Frontend
 	RegisteredReplicas       map[string]types.RegReplica
+	ReplicaUUIDMap           map[string]string
 	RegisteredQuorumReplicas map[string]types.RegReplica
 	MaxRevReplica            string
 	StartTime                time.Time
@@ -60,6 +61,7 @@ func NewController(name string, frontendIP string, clusterIP string, factory typ
 		clusterIP:                clusterIP,
 		RegisteredReplicas:       map[string]types.RegReplica{},
 		RegisteredQuorumReplicas: map[string]types.RegReplica{},
+		ReplicaUUIDMap:           map[string]string{},
 		StartTime:                time.Now(),
 		ReadOnly:                 true,
 		replicaCount:             replicationFactor,
@@ -247,30 +249,31 @@ func (c *Controller) signalToAdd() {
 func (c *Controller) registerReplica(register types.RegReplica) error {
 	c.Lock()
 	defer c.Unlock()
-	logrus.Infof("Register Replica, Address: %v Uptime: %v State: %v Type: %v RevisionCount: %v",
-		register.Address, register.UpTime, register.RepState, register.RepType, register.RevCount)
+	logrus.Infof("Register Replica, Address: %v Uptime: %v State: %v Type: %v RevisionCount: %v uuid %v",
+		register.Address, register.UpTime, register.RepState, register.RepType, register.RevCount, register.UUID)
 
-	_, ok := c.RegisteredReplicas[register.Address]
+	_, ok := c.RegisteredReplicas[register.UUID]
 	if !ok {
-		_, ok = c.RegisteredQuorumReplicas[register.Address]
+		_, ok = c.RegisteredQuorumReplicas[register.UUID]
 		if ok {
-			logrus.Infof("Quorum replica Address %v already present in registered list", register.Address)
+			logrus.Infof("Quorum replica Address %v already present in registered list", register.UUID)
 			return nil
 		}
 	}
 
 	if register.RepType == "quorum" {
-		c.RegisteredQuorumReplicas[register.Address] = register
+		c.RegisteredQuorumReplicas[register.UUID] = register
 		return nil
 	}
-	c.RegisteredReplicas[register.Address] = register
+	c.RegisteredReplicas[register.UUID] = register
+	c.ReplicaUUIDMap[register.UUID] = register.Address
 
 	if len(c.replicas) > 0 {
 		logrus.Infof("There are already some replicas attached")
 		return nil
 	}
 	if c.StartSignalled == true {
-		if c.MaxRevReplica == register.Address {
+		if c.MaxRevReplica == register.UUID {
 			logrus.Infof("Replica %v signalled to start again %d:%d", c.MaxRevReplica,
 				len(c.RegisteredReplicas), c.replicaCount)
 			if err := c.signalReplica(); err != nil {
@@ -289,11 +292,11 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 	}
 
 	if c.MaxRevReplica == "" {
-		c.MaxRevReplica = register.Address
+		c.MaxRevReplica = register.UUID
 	}
 
 	if c.RegisteredReplicas[c.MaxRevReplica].RevCount < register.RevCount {
-		c.MaxRevReplica = register.Address
+		c.MaxRevReplica = register.UUID
 	}
 
 	if (len(c.RegisteredReplicas) >= ((c.replicaCount / 2) + 1)) &&
@@ -317,10 +320,13 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 // start and delete the replica from map in case of error.
 // No need to take lock as a lock has been already taken by the callee.
 func (c *Controller) signalReplica() error {
-	if err := c.factory.SignalToAdd(c.MaxRevReplica, "start"); err != nil {
+	address := c.ReplicaUUIDMap[c.MaxRevReplica]
+	logrus.Infof("Signaling replica for uuid %v and address %v ", c.MaxRevReplica, address)
+	if err := c.factory.SignalToAdd(address, "start"); err != nil {
 		logrus.Errorf("Replica %v is not able to send 'start' signal, found err: %s",
 			c.MaxRevReplica, err.Error())
 		delete(c.RegisteredReplicas, c.MaxRevReplica)
+		delete(c.ReplicaUUIDMap, c.MaxRevReplica)
 		c.MaxRevReplica = ""
 		return err
 	}

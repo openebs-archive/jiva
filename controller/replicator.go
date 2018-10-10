@@ -18,6 +18,7 @@ var (
 )
 
 type replicator struct {
+	sync.Mutex
 	backendsAvailable bool
 	backends          map[string]backendWrapper
 	quorumBackends    map[string]backendWrapper

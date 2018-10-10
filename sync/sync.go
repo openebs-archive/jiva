@@ -187,9 +187,10 @@ Register:
 	if volume.ReplicaCount == 0 {
 		revisionCount := Replica.GetRevisionCounter()
 		replicaType := "quorum"
+		uuid := Replica.GetUUID()
 		upTime := time.Since(Replica.ReplicaStartTime)
 		state, _ := server.PrevStatus()
-		_ = t.client.Register(parts[0], revisionCount, replicaType, upTime, string(state))
+		_ = t.client.Register(parts[0], uuid, revisionCount, replicaType, upTime, string(state))
 		select {
 		case <-ticker.C:
 			goto Register
@@ -308,8 +309,9 @@ Register:
 		replicaType := "Backend"
 		upTime := time.Since(Replica.ReplicaStartTime)
 		state, _ := server.PrevStatus()
+		uuid := Replica.GetUUID()
 		logrus.Infof("Register replica at controller")
-		err := t.client.Register(parts[0], revisionCount, replicaType, upTime, string(state))
+		err := t.client.Register(parts[0], uuid, revisionCount, replicaType, upTime, string(state))
 		if err != nil {
 			logrus.Errorf("Error in sending register command, error: %s", err)
 		}
@@ -320,9 +322,13 @@ Register:
 		case action = <-replica.ActionChannel:
 		}
 	}
+
+	logrus.Infof("ACTION RECEIVED: %v", action)
 	if action == "start" {
 		logrus.Infof("Received start from controller")
 		return t.client.Start(replicaAddress)
+	} else if action == "done" {
+		return nil
 	}
 	logrus.Infof("CheckAndResetFailedRebuild %v", replicaAddress)
 	if err := t.checkAndResetFailedRebuild(replicaAddress, s); err != nil {
