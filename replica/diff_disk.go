@@ -21,12 +21,16 @@ type diffDisk struct {
 	UsedBlocks        int64
 	// list of files in child, parent, grandparent, etc order.
 	// index 0 is nil and index 1 is the active write layer
-	files           []types.DiffDisk
+	files []types.DiffDisk
+	// list representing file index marked true/false for
+	// userCreated/Auto-Created accordingly
 	UserCreatedSnap []bool
-	ReadOnlyIndx    []bool
-	SnapIndx        int
-	Sync            bool
-	sectorSize      int64
+	// A snapshot file is marked ReadOnly when it is helping sync some other
+	// replica
+	ReadOnlyIndx []bool
+	// Index of latest user created snapshot
+	SnapIndx   int
+	sectorSize int64
 }
 
 func (d *diffDisk) RemoveIndex(index int) error {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/types"
+	"github.com/rancher/sparse-tools/sparse"
 	"github.com/yasker/backupstore"
 )
 
@@ -187,12 +188,15 @@ type Hole struct {
 
 var HoleCreatorChan = make(chan Hole, 1000000)
 
+//CreateHoles removes the offsets from corresponding sparse files
 func CreateHoles() error {
 	retryCount := 0
 	for {
 		hole := <-HoleCreatorChan
 	retry:
-		if err := syscall.Fallocate(int(hole.f.Fd()), 0x01|0x02, hole.offset*4096, hole.len*4096); err != nil {
+		if err := syscall.Fallocate(int(hole.f.Fd()),
+			sparse.FALLOC_FL_KEEP_SIZE|sparse.FALLOC_FL_PUNCH_HOLE,
+			hole.offset*defaultSectorSize, hole.len*4096); err != nil {
 			logrus.Errorf("ERROR in creating hole: %v, Retry_Count: %v", err, retryCount)
 			time.Sleep(1)
 			retryCount++
@@ -214,6 +218,9 @@ func sendToCreateHole(f types.DiffDisk, offset int64, len int64) {
 	HoleCreatorChan <- hole
 }
 
+//Preload creates a mapping of block number to fileIndx (d.location).
+//This is done with the help of extent list fetched from filesystem.
+//Extents list in each file is traversed and the location table is updated
 func preload(d *diffDisk) error {
 	var file types.DiffDisk
 	var length int64

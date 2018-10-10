@@ -274,6 +274,9 @@ func (r *Replica) SetRebuilding(rebuilding bool) error {
 	return nil
 }
 
+// UpdateDiskMode marks a snapshot disk as RO/RW
+// A disk is marked RO to avoid punching holes on that disk
+// while it is helping rebuild another replica
 func (r *Replica) UpdateDiskMode(diskName string, mode string) error {
 	r.Lock()
 	defer r.Unlock()
