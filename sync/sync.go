@@ -187,7 +187,7 @@ Register:
 	if volume.ReplicaCount == 0 {
 		revisionCount := Replica.GetRevisionCounter()
 		replicaType := "quorum"
-		uuid := Replica.GetUUID()
+		uuid := Replica.UUID
 		upTime := time.Since(Replica.ReplicaStartTime)
 		state, _ := server.PrevStatus()
 		_ = t.client.Register(parts[0], uuid, revisionCount, replicaType, upTime, string(state))
@@ -309,7 +309,7 @@ Register:
 		replicaType := "Backend"
 		upTime := time.Since(Replica.ReplicaStartTime)
 		state, _ := server.PrevStatus()
-		uuid := Replica.GetUUID()
+		uuid := Replica.UUID
 		logrus.Infof("Register replica at controller")
 		err := t.client.Register(parts[0], uuid, revisionCount, replicaType, upTime, string(state))
 		if err != nil {

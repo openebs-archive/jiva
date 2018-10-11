@@ -192,6 +192,7 @@ func (c *ControllerClient) GetVolume() (*rest.Volume, error) {
 }
 
 func (c *ControllerClient) Register(address string, uuid string, revisionCount int64, replicaType string, upTime time.Duration, state string) error {
+	fmt.Printf("Registering %v %v", address, uuid)
 	err := c.post("/register", &rest.RegReplica{
 		Address:  address,
 		UUID:     uuid,

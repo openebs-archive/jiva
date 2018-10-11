@@ -61,7 +61,6 @@ type Replica struct {
 
 	uuidLock sync.Mutex
 	UUID     string
-	uuidFile *sparse.DirectFileIoProcessor
 
 	cloneStatus   string
 	CloneSnapName string
@@ -126,6 +125,7 @@ func CreateTempReplica() (*Replica, error) {
 		dir:              Dir,
 		ReplicaStartTime: StartTime,
 	}
+	r.setUUID()
 	if err := r.initRevisionCounter(); err != nil {
 		logrus.Errorf("Error in initializing revision counter while creating temp replica")
 		return nil, err
@@ -219,7 +219,7 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 
 	r.insertBackingFile()
 	r.ReplicaType = replicaType
-	r.GetUUID()
+	r.setUUID()
 
 	if err := PreloadLunMap(&r.volume); err != nil {
 		return r, fmt.Errorf("failed to load Lun map, error: %v", err)
@@ -248,12 +248,29 @@ func IsHeadDisk(diskName string) bool {
 	return false
 }
 
-func (r *Replica) GetUUID() string {
+func (r *Replica) setUUID() string {
+	r.uuidLock.Lock()
+	defer r.uuidLock.Unlock()
 	if r.UUID == "" {
-		//TODO write uuid to disk
-		r.UUID = util.UUID()
+		const uuidFileName = "uuid"
+		buf := make([]byte, 36)
+		if _, err := os.Stat(r.diskPath(uuidFileName)); err != nil {
+			uuidFile, _ := os.Create(r.diskPath(uuidFileName))
+			r.UUID = util.UUID()
+			copy(buf[:], r.UUID)
+			_, err = uuidFile.Write(buf)
+			logrus.Infof("wrote new uuid in file with error", err)
+		} else {
+			uuidFile, _ := os.Open(r.diskPath(uuidFileName))
+			_, err := uuidFile.Read(buf)
+			if err != nil {
+				logrus.Infof("Unable to read uuid file : %v", err)
+			}
+			r.UUID = string(buf[:])
+			logrus.Infof("Got uuid from file : %v", r.UUID)
+		}
 	}
-	fmt.Printf("Got uuid for replica : %s\n", r.UUID)
+	logrus.Infof("Got uuid for replica : %s\n", r.UUID)
 	return r.UUID
 }
 
