@@ -1,6 +1,6 @@
 /.dapper
 /.trash-cache
-/.bin
+/bin
 *.pyc
 *.pyo
 *.swp
