@@ -535,10 +535,12 @@ func (c *Controller) RemoveReplicaNoLock(address string) error {
 				}
 			}
 			foundregrep = 0
-			for regrep := range c.RegisteredReplicas {
+			for regrepuuid := range c.RegisteredReplicas {
+				regrep := c.ReplicaUUIDMap[regrepuuid]
 				logrus.Infof("RemoveReplica ToRemove: %v Found: %v", address, regrep)
 				if address == "tcp://"+regrep+":9502" {
-					delete(c.RegisteredReplicas, regrep)
+					delete(c.RegisteredReplicas, regrepuuid)
+					delete(c.ReplicaUUIDMap, regrepuuid)
 					foundregrep = 1
 					break
 				}
@@ -560,10 +562,12 @@ func (c *Controller) RemoveReplicaNoLock(address string) error {
 	for i, r := range c.quorumReplicas {
 		foundregrep = 0
 		if r.Address == address {
-			for regrep := range c.RegisteredQuorumReplicas {
+			for regrepuuid := range c.RegisteredQuorumReplicas {
+				regrep := c.ReplicaUUIDMap[regrepuuid]
 				logrus.Infof("RemoveReplica quorum ToRemove: %v Found: %v", address, regrep)
 				if address == "tcp://"+regrep+":9502" {
-					delete(c.RegisteredQuorumReplicas, regrep)
+					delete(c.RegisteredQuorumReplicas, regrepuuid)
+					delete(c.ReplicaUUIDMap, regrepuuid)
 					foundregrep = 1
 					break
 				}
@@ -768,8 +772,9 @@ func (c *Controller) Start(addresses ...string) error {
 			c.setReplicaModeNoLock(address, types.ERR)
 		}
 	}
-	for regrep := range c.RegisteredReplicas {
+	for regrepuuid := range c.RegisteredReplicas {
 		sendSignal = 1
+		regrep := c.ReplicaUUIDMap[regrepuuid]
 		for _, tmprep := range c.replicas {
 			if tmprep.Address == "tcp://"+regrep+":9502" {
 				sendSignal = 0
@@ -781,8 +786,9 @@ func (c *Controller) Start(addresses ...string) error {
 			c.factory.SignalToAdd(regrep, "add")
 		}
 	}
-	for regrep := range c.RegisteredQuorumReplicas {
+	for regrepuuid := range c.RegisteredQuorumReplicas {
 		sendSignal = 1
+		regrep := c.ReplicaUUIDMap[regrepuuid]
 		for _, tmprep := range c.quorumReplicas {
 			if tmprep.Address == "tcp://"+regrep+":9502" {
 				sendSignal = 0
