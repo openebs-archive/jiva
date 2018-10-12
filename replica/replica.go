@@ -59,8 +59,7 @@ type Replica struct {
 	peerCache types.PeerDetails
 	peerFile  *sparse.DirectFileIoProcessor
 
-	uuidLock sync.Mutex
-	UUID     string
+	UUID string
 
 	cloneStatus   string
 	CloneSnapName string
@@ -249,8 +248,6 @@ func IsHeadDisk(diskName string) bool {
 }
 
 func (r *Replica) setUUID() string {
-	r.uuidLock.Lock()
-	defer r.uuidLock.Unlock()
 	if r.UUID == "" {
 		const uuidFileName = "uuid"
 		buf := make([]byte, 36)
