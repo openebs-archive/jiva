@@ -85,6 +85,7 @@ host#1$ sudo docker run -d --net host -P --expose 3260 --expose 9501 --name ctrl
 .
 ### Launch replica
 
+
 Create the replica on host#1, for demo-vol1 with data stored in /mnt/store1.
 
 ```
