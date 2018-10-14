@@ -104,7 +104,7 @@ func (s *Server) RegisterReplica(rw http.ResponseWriter, req *http.Request) erro
 		logrus.Errorf("read in RegReplica failed %v", err)
 		return err
 	}
-	logrus.Infof("Register Replica for address %v and uuid %v", regReplica.Address, regReplica.UUID)
+	logrus.Infof("Register Replica : %v (%v)", regReplica.Address, regReplica.UUID)
 
 	localRevCount, _ = strconv.ParseInt(regReplica.RevCount, 10, 64)
 	local := types.RegReplica{

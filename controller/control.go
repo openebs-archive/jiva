@@ -321,7 +321,7 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 // No need to take lock as a lock has been already taken by the callee.
 func (c *Controller) signalReplica() error {
 	address := c.ReplicaUUIDMap[c.MaxRevReplica]
-	logrus.Infof("Signaling replica for uuid %v and address %v ", c.MaxRevReplica, address)
+	logrus.Infof("Signaling replica : %v (%v) to start", address, c.MaxRevReplica)
 	if err := c.factory.SignalToAdd(address, "start"); err != nil {
 		logrus.Errorf("Replica %v is not able to send 'start' signal, found err: %s",
 			c.MaxRevReplica, err.Error())

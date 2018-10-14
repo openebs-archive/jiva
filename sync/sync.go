@@ -322,13 +322,9 @@ Register:
 		case action = <-replica.ActionChannel:
 		}
 	}
-
-	logrus.Infof("ACTION RECEIVED: %v", action)
 	if action == "start" {
 		logrus.Infof("Received start from controller")
 		return t.client.Start(replicaAddress)
-	} else if action == "done" {
-		return nil
 	}
 	logrus.Infof("CheckAndResetFailedRebuild %v", replicaAddress)
 	if err := t.checkAndResetFailedRebuild(replicaAddress, s); err != nil {
