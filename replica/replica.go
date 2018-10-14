@@ -142,30 +142,43 @@ func ReadInfo(dir string) (Info, error) {
 }
 
 func New(size, sectorSize int64, dir string, backingFile *BackingFile, replicaType string) (*Replica, error) {
-	return construct(false, size, sectorSize, dir, "", backingFile, replicaType)
+	if size%sectorSize != 0 {
+		return nil, fmt.Errorf("Size %d not a multiple of sector size %d", size, sectorSize)
+	}
+	r, err := construct(dir)
+	if err != nil {
+		return nil, err
+	}
+	r.readOnly = false
+	r.ReplicaType = replicaType
+	return r.Initialize(size, sectorSize, "", backingFile)
 }
 
 func NewReadOnly(dir, head string, backingFile *BackingFile) (*Replica, error) {
 	// size and sectorSize don't matter because they will be read from metadata
-	return construct(true, 0, 512, dir, head, backingFile, "")
+	r, err := construct(dir)
+	if err != nil {
+		return nil, err
+	}
+	r.readOnly = true
+	return r.Initialize(0, 512, head, backingFile)
 }
 
-func construct(readonly bool, size, sectorSize int64, dir, head string, backingFile *BackingFile, replicaType string) (*Replica, error) {
-	if size%sectorSize != 0 {
-		return nil, fmt.Errorf("Size %d not a multiple of sector size %d", size, sectorSize)
-	}
-
+func construct(dir string) (*Replica, error) {
 	if err := os.Mkdir(dir, 0700); err != nil && !os.IsExist(err) {
 		logrus.Errorf("failed to create directory: %s", dir)
 		return nil, err
 	}
-
 	r := &Replica{
 		dir:             dir,
 		activeDiskData:  make([]*disk, 1),
 		diskData:        make(map[string]*disk),
 		diskChildrenMap: map[string]map[string]bool{},
 	}
+	return r, nil
+}
+
+func (r *Replica) Initialize(size, sectorSize int64, head string, backingFile *BackingFile) (*Replica, error) {
 	r.info.Size = size
 	r.info.SectorSize = sectorSize
 	r.info.BackingFile = backingFile
@@ -214,7 +227,6 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 	r.info.Parent = r.diskData[r.info.Head].Parent
 
 	r.insertBackingFile()
-	r.ReplicaType = replicaType
 
 	if err := PreloadLunMap(&r.volume); err != nil {
 		return r, fmt.Errorf("failed to load Lun map, error: %v", err)
