@@ -16,7 +16,7 @@ import (
 	"github.com/openebs/jiva/sync/agent"
 )
 
-const initialSleepTime = 250 * time.Millisecond
+const defaultSleepTime = 250 * time.Millisecond
 const maxSleepTime = 1 * time.Second
 
 func RetrySleep(sleepTime *time.Duration) {
@@ -234,7 +234,7 @@ func (c *ReplicaClient) Coalesce(from, to string) error {
 		return err
 	}
 
-	start := initialSleepTime
+	start := defaultSleepTime
 	for {
 		err := c.get(running.Links["self"], &running)
 		if err != nil {
@@ -265,7 +265,7 @@ func (c *ReplicaClient) SendFile(from, host string, port int) error {
 	}
 
 	successCount := 0
-	start := initialSleepTime
+	start := defaultSleepTime
 	for {
 		err := c.get(running.Links["self"], &running)
 		if err != nil {
@@ -304,7 +304,7 @@ func (c *ReplicaClient) CreateBackup(snapshot, dest, volume string) (string, err
 		return "", err
 	}
 
-	start := initialSleepTime
+	start := defaultSleepTime
 	for {
 		err := c.get(running.Links["self"], &running)
 		if err != nil {
@@ -333,7 +333,7 @@ func (c *ReplicaClient) RmBackup(backup string) error {
 		return err
 	}
 
-	start := initialSleepTime
+	start := defaultSleepTime
 	for {
 		err := c.get(running.Links["self"], &running)
 		if err != nil {
@@ -363,7 +363,7 @@ func (c *ReplicaClient) RestoreBackup(backup, snapshotFile string) error {
 		return err
 	}
 
-	start := initialSleepTime
+	start := defaultSleepTime
 	for {
 		err := c.get(running.Links["self"], &running)
 		if err != nil {
@@ -392,7 +392,7 @@ func (c *ReplicaClient) InspectBackup(backup string) (string, error) {
 		return "", err
 	}
 
-	start := initialSleepTime
+	start := defaultSleepTime
 	for {
 		err := c.get(running.Links["self"], &running)
 		if err != nil {
@@ -422,7 +422,7 @@ func (c *ReplicaClient) ListBackup(destURL, volume string) (string, error) {
 		return "", err
 	}
 
-	start := initialSleepTime
+	start := defaultSleepTime
 	for {
 		err := c.get(running.Links["self"], &running)
 		if err != nil {
@@ -498,7 +498,7 @@ func (c *ReplicaClient) HardLink(from, to string) error {
 		return err
 	}
 
-	start := initialSleepTime
+	start := defaultSleepTime
 	for {
 		err := c.get(running.Links["self"], &running)
 		if err != nil {
