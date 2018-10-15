@@ -19,7 +19,7 @@ import (
 const initialSleepTime = 250 * time.Millisecond
 const maxSleepTime = 1 * time.Second
 
-func RetrySleep(sleepTime *int) {
+func RetrySleep(sleepTime *time.Duration) {
 	time.Sleep(*sleepTime)
 	*sleepTime = (*sleepTime) * 2
 	if *sleepTime > maxSleepTime {
