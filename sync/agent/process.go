@@ -332,83 +332,35 @@ func (s *Server) launchRmBackup(p *Process) error {
 }
 
 func (s *Server) launchRestore(p *Process) error {
-	buf := new(bytes.Buffer)
 
 	cmd := reexec.Command("sbackup", "restore", p.SrcFile, "--to", p.DestFile)
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Pdeathsig: syscall.SIGKILL,
-	}
-	cmd.Stdout = buf
-	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
-		return err
-	}
+	err := getCmdError(p, cmd)
 
-	logrus.Infof("Running %s %v", cmd.Path, cmd.Args)
-	err := cmd.Wait()
-
-	p.Output = buf.String()
-	fmt.Fprintf(os.Stdout, p.Output)
-	if err != nil {
-		logrus.Infof("Error running %s %v: %v", "sbackup", cmd.Args, err)
-		p.ExitCode = 1
-		if exitError, ok := err.(*exec.ExitError); ok {
-			if waitStatus, ok := exitError.Sys().(syscall.WaitStatus); ok {
-				logrus.Infof("Error running %s %v: %v", "sbackup", cmd.Args, waitStatus.ExitStatus())
-				p.ExitCode = waitStatus.ExitStatus()
-			}
-		}
-		return err
-	}
-
-	p.ExitCode = 0
-	logrus.Infof("Done running %s %v", "sbackup", cmd.Args)
-	return nil
+	return err
 }
 
 func (s *Server) launchInspectBackup(p *Process) error {
-	buf := new(bytes.Buffer)
 
 	cmd := reexec.Command("sbackup", "inspect", p.SrcFile)
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Pdeathsig: syscall.SIGKILL,
-	}
-	cmd.Stdout = buf
-	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
-		return err
-	}
+	err := getCmdError(p, cmd)
 
-	logrus.Infof("Running %s %v", cmd.Path, cmd.Args)
-	err := cmd.Wait()
-
-	p.Output = buf.String()
-	fmt.Fprintf(os.Stdout, p.Output)
-	if err != nil {
-		logrus.Infof("Error running %s %v: %v", "sbackup", cmd.Args, err)
-		p.ExitCode = 1
-		if exitError, ok := err.(*exec.ExitError); ok {
-			if waitStatus, ok := exitError.Sys().(syscall.WaitStatus); ok {
-				logrus.Infof("Error running %s %v: %v", "sbackup", cmd.Args, waitStatus.ExitStatus())
-				p.ExitCode = waitStatus.ExitStatus()
-			}
-		}
-		return err
-	}
-
-	p.ExitCode = 0
-	logrus.Infof("Done running %s %v", "sbackup", cmd.Args)
-	return nil
+	return err
 }
 
 func (s *Server) launchListBackup(p *Process) error {
-	buf := new(bytes.Buffer)
-
 	cmdline := []string{"sbackup", "list", p.SrcFile}
 	if p.DestFile != "" {
 		cmdline = append(cmdline, "--volume", p.DestFile)
 	}
 	cmd := reexec.Command(cmdline...)
+	err := getCmdError(p, cmd)
+
+	return err
+}
+
+func getCmdError(p *Process, cmd *exec.Cmd) error {
+	buf := new(bytes.Buffer)
+
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Pdeathsig: syscall.SIGKILL,
 	}
