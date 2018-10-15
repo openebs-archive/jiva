@@ -332,7 +332,6 @@ func (s *Server) launchRmBackup(p *Process) error {
 }
 
 func (s *Server) launchRestore(p *Process) error {
-
 	cmd := reexec.Command("sbackup", "restore", p.SrcFile, "--to", p.DestFile)
 	err := getCmdError(p, cmd)
 
@@ -340,7 +339,6 @@ func (s *Server) launchRestore(p *Process) error {
 }
 
 func (s *Server) launchInspectBackup(p *Process) error {
-
 	cmd := reexec.Command("sbackup", "inspect", p.SrcFile)
 	err := getCmdError(p, cmd)
 
