@@ -196,7 +196,7 @@ func CreateHoles() error {
 	retry:
 		if err := syscall.Fallocate(int(hole.f.Fd()),
 			sparse.FALLOC_FL_KEEP_SIZE|sparse.FALLOC_FL_PUNCH_HOLE,
-			hole.offset*defaultSectorSize, hole.len*4096); err != nil {
+			hole.offset, hole.len); err != nil {
 			logrus.Errorf("ERROR in creating hole: %v, Retry_Count: %v", err, retryCount)
 			time.Sleep(1)
 			retryCount++
@@ -232,7 +232,6 @@ func preload(d *diffDisk) error {
 			continue
 		}
 		if i == 1 {
-			//TODO Check if this zeroing is needed
 			// Reinitialize to zero so that we can detect holes in the base snapshot
 			for j := 0; j < len(d.location); j++ {
 				d.location[j] = 0
@@ -244,25 +243,34 @@ func preload(d *diffDisk) error {
 		generator := newGenerator(d, f)
 		for offset := range generator.Generate() {
 			if d.location[offset] != 0 {
+				//We are looking for continuous blocks over here.
+				//If the file of the next block is changed, we punch a hole
+				//for the previous unpunched blocks, and reset the file and
+				//fileIndx pointed to by this block
 				if d.files[d.location[offset]] != file {
 					if file != nil && fileIndx > userCreatedSnapIndx && !d.ReadOnlyIndx[fileIndx] {
-						sendToCreateHole(file, lOffset, length)
+						sendToCreateHole(file, lOffset*d.sectorSize, length*d.sectorSize)
 					}
 					file = d.files[d.location[offset]]
 					fileIndx = d.location[offset]
 					length = 1
 					lOffset = offset
 				} else {
+					//If this is the last block in the loop, hole for this
+					//block will be punched outside the loop
 					length++
 				}
 			}
 			d.location[offset] = byte(i)
 			d.UsedBlocks++
 		}
+		//This will take care of the case when the last call in the above loop
+		//enters else case
 		if file != nil && fileIndx > userCreatedSnapIndx && !d.ReadOnlyIndx[fileIndx] {
-			sendToCreateHole(file, lOffset, length)
-			file = nil
+			sendToCreateHole(file, lOffset*d.sectorSize, length*d.sectorSize)
 		}
+		file = nil
+		fileIndx = 0
 
 		if generator.Err() != nil {
 			fmt.Println("GENERATOR ERROR")

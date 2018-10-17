@@ -127,24 +127,33 @@ func (d *diffDisk) fullWriteAt(buf []byte, offset int64) (int, error) {
 			d.UsedLogicalBlocks++
 			d.UsedBlocks++
 		} else if val != target {
+			//We are looking for continuous blocks over here.
+			//If the file of the next block is changed, we punch a hole
+			//for the previous unpunched blocks, and reset the file and
+			//fileIndx pointed to by this block
 			if d.files[d.location[startSector+i]] != file {
 				if file != nil && int(fileIndx) > d.SnapIndx && !d.ReadOnlyIndx[fileIndx] {
-					sendToCreateHole(d.files[val], lOffset, length)
+					sendToCreateHole(d.files[val], lOffset*d.sectorSize, length*d.sectorSize)
 				}
 				file = d.files[d.location[startSector+i]]
 				fileIndx = d.location[offset]
 				length = 1
 				lOffset = startSector + i
 			} else {
+				//If this is the last block in the loop, hole for this
+				//block will be punched outside the loop
 				length++
 			}
 		}
 		d.location[startSector+i] = target
 	}
+	//This will take care of the case when the last call in the above loop
+	//enters else case
 	if (file != nil) && (int(fileIndx) > d.SnapIndx) && !d.ReadOnlyIndx[fileIndx] {
-		sendToCreateHole(file, lOffset, length)
-		file = nil
+		sendToCreateHole(file, lOffset*d.sectorSize, length*d.sectorSize)
 	}
+	file = nil
+	fileIndx = 0
 	return c, err
 }
 
