@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -ex
 
 if [ -z ${IMAGE_REPO} ];
 then
@@ -93,10 +93,10 @@ else
   echo "No docker credentials provided. Skip uploading ${IMAGE_REPO} to quay";
 fi;
 #Push image to run openebs-e2e based on git commit
-if [ ! -z "${COMMIT}" ];
+if [ ! -z "${COMMIT}" ] && [ ! -z "${DNAMEGL}" ] && [ ! -z "${DPASSGL}" ];
 then
   sudo docker login -u "${DNAMEGL}" -p "${DPASSGL}";
 
   # Push COMMIT tagged image - :COMMIT
-  TagAndPushImage "${DIMAGE}" "${COMMIT}"
+  TagAndPushImage "${IMAGE_REPO}" "${COMMIT}"
 fi;
