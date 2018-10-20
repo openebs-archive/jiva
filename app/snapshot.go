@@ -255,13 +255,11 @@ func infoSnapshot(c *cli.Context) error {
 			}
 			if _, exists := outputDisks[snapshot]; !exists {
 				outputDisks[snapshot] = info
-			} else {
+			} else if info.Removed && !outputDisks[snapshot].Removed {
 				// Consolidate the result of snapshot in removing process
-				if info.Removed && !outputDisks[snapshot].Removed {
-					t := outputDisks[snapshot]
-					t.Removed = true
-					outputDisks[snapshot] = t
-				}
+				t := outputDisks[snapshot]
+				t.Removed = true
+				outputDisks[snapshot] = t
 			}
 		}
 
