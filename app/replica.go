@@ -22,6 +22,8 @@ import (
 	"github.com/openebs/jiva/util"
 )
 
+//Why not have a incremental checkpoint and a sequence num, that can be looked up (binary search on the seq-no) to
+// find out which blocks should be added to the WO replica
 func ReplicaCmd() cli.Command {
 	return cli.Command{
 		Name:      "replica",

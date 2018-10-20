@@ -22,7 +22,6 @@ type Snapshot struct {
 }
 
 
-//Why not have a checksum can find out which snapshot should be added to replica to the WO nodes
 type Backup struct {
 	Name              string
 	Driver            string
