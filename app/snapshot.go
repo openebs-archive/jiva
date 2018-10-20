@@ -192,6 +192,7 @@ func lsSnapshot(c *cli.Context) error {
 	return nil
 }
 
+/*
 func infoSnapshot(c *cli.Context) error {
 	var output []byte
 
@@ -277,6 +278,135 @@ func infoSnapshot(c *cli.Context) error {
 	}
 	fmt.Println(string(output))
 	return nil
+}
+*/
+//Refactored infoSnapshot() Code:
+
+func infoSnapshot(c *cli.Context) error {
+	var output []byte
+
+	outputDisks := make(map[string]replica.DiskInfo)
+	cli := getCli(c)
+
+	replicas, err := cli.ListReplicas()
+	if err != nil {
+		return err
+	}
+
+	outputDisks := iterateReplicas(replicas, outputDisks)
+
+	output, err = json.MarshalIndent(outputDisks, "", "\t")
+	if err != nil {
+		return err
+	}
+
+	if output == nil {
+		return fmt.Errorf("Cannot find suitable replica for snapshot info")
+	}
+	fmt.Println(string(output))
+	return nil
+}
+
+func iterateReplicas(replicas []Replica, outputDisks map[string]replica.DiskInfo) map[string]replica.DiskInfo {
+	for _, r := range replicas {
+		if r.Mode != "RW" {
+			continue
+		}
+		disks, err := getDisks(r.Address)
+		if err != nil {
+			return err
+		}
+		outputDisks := fillDisk(outputDisks, disks)
+
+	}
+
+	return outputDisks
+
+}
+
+func fillDisk(outputDisks map[string]replica.DiskInfo, disks map[string]replica.DiskInfo) map[string]replica.DiskInfo {
+	for name, disk := range disks {
+		snapshot := ""
+
+		if !replica.IsHeadDisk(name) {
+			snapshot, err = replica.GetSnapshotNameFromDiskName(name)
+			if err != nil {
+				return err
+			}
+		} else {
+			snapshot = VolumeHeadName
+		}
+
+		children := []string{}
+
+		children := fillChildren(children)
+
+		parent := ""
+
+		parent := fillParent(parent, disk)
+
+		info := replica.DiskInfo{
+			Name:        snapshot,
+			Parent:      parent,
+			Removed:     disk.Removed,
+			UserCreated: disk.UserCreated,
+			Children:    children,
+			Created:     disk.Created,
+			Size:        disk.Size,
+		}
+
+		outputDisks := fillOutputDisk(info, snapshot, outputDisks)
+
+	}
+
+	return outputDisks
+
+}
+
+func fillChildren(children []string) []string {
+	for _, childDisk := range disk.Children {
+		child := ""
+		if !replica.IsHeadDisk(childDisk) {
+			child, err = replica.GetSnapshotNameFromDiskName(childDisk)
+			if err != nil {
+				return err
+			}
+		} else {
+			child = VolumeHeadName
+		}
+		children = append(children, child)
+	}
+
+	return children
+
+}
+
+func fillDiskInfo(info replica.DiskInfo, snapshot string, outputDisks map[string]replica.DiskInfo) map[string]replica.DiskInfo {
+	if _, exists := outputDisks[snapshot]; !exists {
+		outputDisks[snapshot] = info
+	} else {
+		// Consolidate the result of snapshot in removing process
+		if info.Removed && !outputDisks[snapshot].Removed {
+			t := outputDisks[snapshot]
+			t.Removed = true
+			outputDisks[snapshot] = t
+		}
+	}
+
+	return outputDisks
+
+}
+
+func fillParent(parent string, disk map[string]replica.DiskInfo) string {
+	if disk.Parent != "" {
+		parent, err = replica.GetSnapshotNameFromDiskName(disk.Parent)
+		if err != nil {
+			return err
+		}
+	}
+
+	return parent
+
 }
 
 func getDisks(address string) (map[string]replica.DiskInfo, error) {
