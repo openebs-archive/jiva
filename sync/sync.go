@@ -8,6 +8,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/controller/client"
 	"github.com/openebs/jiva/controller/rest"
+	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/replica"
 	replicaClient "github.com/openebs/jiva/replica/client"
 )
@@ -324,6 +325,7 @@ Register:
 	}
 	if action == "start" {
 		logrus.Infof("Received start from controller")
+		inject.AddTimeout()
 		return t.client.Start(replicaAddress)
 	}
 	logrus.Infof("CheckAndResetFailedRebuild %v", replicaAddress)

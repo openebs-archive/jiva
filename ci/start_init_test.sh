@@ -360,6 +360,13 @@ start_debug_controller() {
 	echo "$controller_id"
 }
 
+# start_debug_replica CONTROLLER_IP REPLICA_IP folder_name
+start_debug_replica() {
+	replica_id=$(docker run -d -it --net stg-net --ip "$2" -P --expose 9502-9504 -v /tmp/"$3":/"$3" $JI_DEBUG \
+		env DEBUG_TIMEOUT="5" launch replica --frontendIP "$1" --listen "$2":9502 --size 2g /"$3")
+	echo "$replica_id"
+}
+
 # start_cloned_replica CONTROLLER_IP  CLONED_CONTROLLER_IP CLONED_REPLICA_IP folder_name
 start_cloned_replica() {
 	cloned_replica_id=$(docker run -d -it --net stg-net --ip "$3" -P --expose 9502-9504 -v /tmp/"$4":/"$4" $JI \
@@ -503,6 +510,29 @@ test_replica_ip_change() {
 	# start the other replica and wait for any one of the two replicas to be
 	# registered and get 'start' signal.
 	start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3"
+	sleep 5
+
+	verify_replica_cnt "2" "Two replica count test1"
+	cleanup
+}
+
+test_replica_crash_on_start(){
+	echo "----------------Test_replica_crash_on_start---------------"
+	controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
+	debug_replica_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2"
+	sleep 3
+
+	echo "Forcefully crashing replica with IP: $REPLICA_IP1"
+	# Injected the delay in processing 'start' signal in the debug_replica
+	# and hence crash the replica before sending start back to controller
+	docker stop $debug_replica_id
+	sleep 3
+
+	echo "Starting another replica with different IP: $REPLICA_IP3"
+	# start the other replica and wait for any one of the two replicas to be
+	# registered and get 'start' signal.
+	start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol1"
 	sleep 5
 
 	verify_replica_cnt "2" "Two replica count test1"
@@ -1188,6 +1218,7 @@ test_single_replica_stop_start
 test_replication_factor
 test_two_replica_delete
 test_replica_ip_change
+test_replica_crash_on_start
 test_two_replica_stop_start
 test_three_replica_stop_start
 test_ctrl_stop_start
