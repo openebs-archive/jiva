@@ -5,7 +5,6 @@ stages:
 
 build-jiva:
    stage: build
-   #image: harshvkarn/dind:v6
    before_script:
      - export COMMIT=${CI_COMMIT_SHA:0:8}
      - sudo apt-get install -y
@@ -15,7 +14,6 @@ build-jiva:
      - mkdir -p $HOME/go/src/github.com/openebs/maya
      - rsync -az --delete ${CI_PROJECT_DIR}/ ${HOME}/go/src/github.com/openebs/jiva/ #CI_PROJECT_DIR is full path where project is cloned
      - cd ${HOME}/go/src/github.com/openebs/jiva
-     - find . -name 'push' -exec sed -i -e "s/ci/${COMMIT}/g" {} \;
    script: 
     - echo "Building-Jiva"
     - echo $COMMIT
