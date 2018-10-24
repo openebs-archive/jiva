@@ -586,6 +586,8 @@ func (r *Replica) DisplayChain() ([]string, error) {
 	return result, nil
 }
 
+//Chain returns the disk chain starting with Head(index=0),
+//till the base snapshot
 func (r *Replica) Chain() ([]string, error) {
 	r.RLock()
 	defer r.RUnlock()
@@ -943,7 +945,7 @@ func (r *Replica) openLiveChain() error {
 		if userCreated {
 			//This chain is the actual disk chain and does not contain the extra
 			//nil at index 0, which is present in r.volume.files
-			r.volume.SnapIndx = len(chain) - i - 1
+			r.volume.SnapIndx = len(chain) - i
 		}
 		r.activeDiskData = append(r.activeDiskData, r.diskData[parent])
 	}
