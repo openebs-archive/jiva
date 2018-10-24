@@ -247,7 +247,6 @@ func preload(d *diffDisk) error {
 	var length int64
 	var lOffset int64
 	var fileIndx byte
-	var userCreatedSnapIndx byte
 	for i, f := range d.files {
 		if i == 0 {
 			continue
@@ -258,9 +257,6 @@ func preload(d *diffDisk) error {
 				d.location[j] = 0
 			}
 		}
-		if d.UserCreatedSnap[i] {
-			userCreatedSnapIndx = byte(i)
-		}
 		generator := newGenerator(d, f)
 		for offset := range generator.Generate() {
 			if d.location[offset] != 0 {
@@ -270,7 +266,7 @@ func preload(d *diffDisk) error {
 				//fileIndx pointed to by this block
 				if d.files[d.location[offset]] != file ||
 					offset != lOffset+length {
-					if file != nil && fileIndx > userCreatedSnapIndx {
+					if file != nil && int(fileIndx) > d.SnapIndx {
 						sendToCreateHole(file, lOffset*d.sectorSize, length*d.sectorSize)
 					}
 					file = d.files[d.location[offset]]
@@ -288,7 +284,7 @@ func preload(d *diffDisk) error {
 		}
 		//This will take care of the case when the last call in the above loop
 		//enters else case
-		if file != nil && fileIndx > userCreatedSnapIndx {
+		if file != nil && int(fileIndx) > d.SnapIndx {
 			sendToCreateHole(file, lOffset*d.sectorSize, length*d.sectorSize)
 		}
 		file = nil
