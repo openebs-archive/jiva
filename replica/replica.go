@@ -862,6 +862,8 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 	r.volume.ReadOnlyIndx = append(r.volume.ReadOnlyIndx, false)
 	r.diskList = append(r.diskList, newHeadDisk.Name)
 	if userCreated {
+		//Indx 0 is nil, indx 1 is base snapshot,
+		//last indx (len(r.volume.files)) is active file
 		r.volume.SnapIndx = len(r.volume.files) - 2
 	}
 	r.volume.UserCreatedSnap = append(r.volume.UserCreatedSnap, userCreated)
@@ -939,6 +941,8 @@ func (r *Replica) openLiveChain() error {
 		userCreated := r.diskData[parent].UserCreated
 		r.volume.UserCreatedSnap = append(r.volume.UserCreatedSnap, userCreated)
 		if userCreated {
+			//This chain is the actual disk chain and does not contain the extra
+			//nil at index 0, which is present in r.volume.files
 			r.volume.SnapIndx = len(chain) - i - 1
 		}
 		r.activeDiskData = append(r.activeDiskData, r.diskData[parent])
