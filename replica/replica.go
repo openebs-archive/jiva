@@ -290,6 +290,13 @@ func (r *Replica) UpdateDiskMode(diskName string, mode string) error {
 			}
 		}
 	}
+	r.volume.ROIndexSet = false
+	for _, ROSet := range r.volume.ReadOnlyIndx {
+		if ROSet {
+			r.volume.ROIndexSet = true
+		}
+	}
+
 	return nil
 }
 

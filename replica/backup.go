@@ -189,14 +189,33 @@ type Hole struct {
 var HoleCreatorChan = make(chan Hole, 1000000)
 
 //CreateHoles removes the offsets from corresponding sparse files
-func CreateHoles() error {
+func CreateHoles(s *Server) error {
+	var (
+		fd uintptr
+		r  *Replica
+	)
 	retryCount := 0
 	for {
 		hole := <-HoleCreatorChan
+		fd = hole.f.Fd()
 	retry:
-		if err := syscall.Fallocate(int(hole.f.Fd()),
+		s.RLock()
+		r = s.r
+		r.RLock()
+		if r.volume.ROIndexSet {
+			for indx, ROSet := range r.volume.ReadOnlyIndx {
+				if ROSet && r.volume.files[indx].Fd() == fd {
+					r.RUnlock()
+					s.RUnlock()
+					continue
+				}
+			}
+		}
+		if err := syscall.Fallocate(int(fd),
 			sparse.FALLOC_FL_KEEP_SIZE|sparse.FALLOC_FL_PUNCH_HOLE,
 			hole.offset, hole.len); err != nil {
+			r.RUnlock()
+			s.RUnlock()
 			logrus.Errorf("ERROR in creating hole: %v, Retry_Count: %v", err, retryCount)
 			time.Sleep(1)
 			retryCount++
@@ -205,6 +224,8 @@ func CreateHoles() error {
 			}
 			goto retry
 		}
+		r.RUnlock()
+		s.RUnlock()
 		retryCount = 0
 	}
 }
@@ -249,7 +270,7 @@ func preload(d *diffDisk) error {
 				//fileIndx pointed to by this block
 				if d.files[d.location[offset]] != file ||
 					offset != lOffset+length {
-					if file != nil && fileIndx > userCreatedSnapIndx && !d.ReadOnlyIndx[fileIndx] {
+					if file != nil && fileIndx > userCreatedSnapIndx {
 						sendToCreateHole(file, lOffset*d.sectorSize, length*d.sectorSize)
 					}
 					file = d.files[d.location[offset]]
@@ -267,7 +288,7 @@ func preload(d *diffDisk) error {
 		}
 		//This will take care of the case when the last call in the above loop
 		//enters else case
-		if file != nil && fileIndx > userCreatedSnapIndx && !d.ReadOnlyIndx[fileIndx] {
+		if file != nil && fileIndx > userCreatedSnapIndx {
 			sendToCreateHole(file, lOffset*d.sectorSize, length*d.sectorSize)
 		}
 		file = nil

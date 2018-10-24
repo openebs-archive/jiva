@@ -222,7 +222,6 @@ func startReplica(c *cli.Context) error {
 			syncResp <- cmd.Run()
 		}()
 	}
-	go replica.CreateHoles()
 	if frontendIP != "" {
 		if address == ":9502" {
 			address = "localhost:9502"
@@ -233,6 +232,7 @@ func startReplica(c *cli.Context) error {
 		logrus.Infof("Waiting for s.Replica() to be non nil")
 		time.Sleep(2 * time.Second)
 	}
+	go replica.CreateHoles(s)
 	if replicaType == "clone" && snapName != "" {
 		logrus.Infof("Starting clone process\n")
 		status := s.Replica().GetCloneStatus()
