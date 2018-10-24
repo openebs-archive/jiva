@@ -247,7 +247,8 @@ func preload(d *diffDisk) error {
 				//If the file of the next block is changed, we punch a hole
 				//for the previous unpunched blocks, and reset the file and
 				//fileIndx pointed to by this block
-				if d.files[d.location[offset]] != file {
+				if d.files[d.location[offset]] != file ||
+					offset != lOffset+length {
 					if file != nil && fileIndx > userCreatedSnapIndx && !d.ReadOnlyIndx[fileIndx] {
 						sendToCreateHole(file, lOffset*d.sectorSize, length*d.sectorSize)
 					}

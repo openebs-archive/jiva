@@ -131,7 +131,8 @@ func (d *diffDisk) fullWriteAt(buf []byte, offset int64) (int, error) {
 			//If the file of the next block is changed, we punch a hole
 			//for the previous unpunched blocks, and reset the file and
 			//fileIndx pointed to by this block
-			if d.files[d.location[startSector+i]] != file {
+			if d.location[startSector+i] != fileIndx ||
+				startSector+i != lOffset+length {
 				if file != nil && int(fileIndx) > d.SnapIndx && !d.ReadOnlyIndx[fileIndx] {
 					sendToCreateHole(d.files[val], lOffset*d.sectorSize, length*d.sectorSize)
 				}

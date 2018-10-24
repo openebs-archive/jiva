@@ -1401,13 +1401,27 @@ test_duplicate_data_delete() {
 	# Size:  0M, Offsets Filled: [) in Snap2(Auto generated)
 	# Size:  0M, Offsets Filled: [) in Snap1(Auto generated)
 
+	# Test non-contiguous blocks deletion in the same file
+	run_ios 6k 3K
+	update_file_sizes 24 0 0 20 20 20 20 16
+	verify_physical_space_consumed
+	# Size: 24M, Offsets Filled: [3k,9K) in Active File
+	# Size: 16M, Offsets Filled: [0,3K)[9K, 10K) in Snap7(Auto Generated)
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap6(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap5(Auto Generated)
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap4(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap3(Auto Generated)
+	# Size:  0M, Offsets Filled: [) in Snap2(Auto generated)
+	# Size:  0M, Offsets Filled: [) in Snap1(Auto generated)
+
+
 	##Verify API to update disk mode
 	create_auto_generated_snapshot "snap8"
-	update_file_sizes 0 0 0 20 20 20 20 24 16
+	update_file_sizes 0 0 0 20 20 20 20 16 24
 	verify_physical_space_consumed
 	# Size:  0M, Offsets Filled: [) in Active File
-	# Size: 16M, Offsets Filled: [4k,8K) in Snap8(Auto Generated)
-	# Size: 24M, Offsets Filled: [0,4K)[8K, 10K) in Snap7(Auto Generated)
+	# Size: 24M, Offsets Filled: [3k,9K) in Snap8(Auto Generated)
+	# Size: 16M, Offsets Filled: [0,3k)[9K, 10K) in Snap7(Auto Generated)
 	# Size: 20M, Offsets Filled: [5K,10K) in Snap6(User Created)
 	# Size: 20M, Offsets Filled: [0,5K) in Snap5(Auto Generated)
 	# Size: 20M, Offsets Filled: [5K,10K) in Snap4(User Created)
@@ -1418,11 +1432,11 @@ test_duplicate_data_delete() {
 	update_disk_mode "${snaps[8]}" "RO"
 
 	run_ios 2K 5K
-	update_file_sizes 8 0 0 20 20 20 20 24 16
+	update_file_sizes 8 0 0 20 20 20 20 16 24
 	verify_physical_space_consumed
 	# Size:  8M, Offsets Filled: [5K,7K) in Active File
-	# Size: 16M, Offsets Filled: [4k,8K) in Snap8(Auto Generated)
-	# Size: 24M, Offsets Filled: [0,4K)[8K, 10K) in Snap7(Auto Generated)
+	# Size: 24M, Offsets Filled: [3k,9K) in Snap8(Auto Generated)
+	# Size: 16M, Offsets Filled: [0,3K)[9K, 10K) in Snap7(Auto Generated)
 	# Size: 20M, Offsets Filled: [5K,10K) in Snap6(User Created)
 	# Size: 20M, Offsets Filled: [0,5K) in Snap5(Auto Generated)
 	# Size: 20M, Offsets Filled: [5K,10K) in Snap4(User Created)
@@ -1432,12 +1446,12 @@ test_duplicate_data_delete() {
 
 	update_disk_mode "${snaps[8]}" "RW"
 
-	run_ios 1K 4K
-	update_file_sizes 12 0 0 20 20 20 20 24 12
+	run_ios 3K 4K
+	update_file_sizes 12 0 0 20 20 20 20 16 20
 	verify_physical_space_consumed
 	# Size: 12M, Offsets Filled: [4K,7K) in Active File
-	# Size: 12M, Offsets Filled: [5K,8K) in Snap8(Auto Generated)
-	# Size: 24M, Offsets Filled: [0,4K)[8K, 10K) in Snap7(Auto Generated)
+	# Size: 20M, Offsets Filled: [3K,4k)[5k,9K) in Snap8(Auto Generated)
+	# Size: 16M, Offsets Filled: [0,3K)[9K, 10K) in Snap7(Auto Generated)
 	# Size: 20M, Offsets Filled: [5K,10K) in Snap6(User Created)
 	# Size: 20M, Offsets Filled: [0,5K) in Snap5(Auto Generated)
 	# Size: 20M, Offsets Filled: [5K,10K) in Snap4(User Created)
