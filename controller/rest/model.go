@@ -22,6 +22,7 @@ type DeleteReplicaOutput struct {
 type Replica struct {
 	client.Resource
 	Address string `json:"address"`
+	UUID    string `json:"uuid"`
 	Mode    string `json:"mode"`
 }
 
@@ -49,7 +50,7 @@ type DiskCollection struct {
 
 type StartInput struct {
 	client.Resource
-	Replicas []string `json:"replicas"`
+	Replicas map[string]string `json:"replicas"`
 }
 
 type SnapshotOutput struct {
@@ -143,7 +144,7 @@ func NewVolume(context *api.ApiContext, name string, readOnly bool, replicas int
 	return v
 }
 
-func NewReplica(context *api.ApiContext, address string, mode types.Mode) *Replica {
+func NewReplica(context *api.ApiContext, address string, uuid string, mode types.Mode) *Replica {
 	r := &Replica{
 		Resource: client.Resource{
 			Id:      EncodeID(address),
@@ -151,6 +152,7 @@ func NewReplica(context *api.ApiContext, address string, mode types.Mode) *Repli
 			Actions: map[string]string{},
 		},
 		Address: address,
+		UUID:    uuid,
 		Mode:    string(mode),
 	}
 	r.Actions["preparerebuild"] = context.UrlBuilder.ActionLink(r.Resource, "preparerebuild")

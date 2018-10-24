@@ -169,7 +169,7 @@ func (s *Server) StartVolume(rw http.ResponseWriter, req *http.Request) error {
 		return err
 	}
 
-	if err := s.c.Start(input.Replicas...); err != nil {
+	if err := s.c.Start(input.Replicas); err != nil {
 		return err
 	}
 

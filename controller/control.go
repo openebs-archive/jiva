@@ -97,8 +97,8 @@ func (c *Controller) AddQuorumReplica(address string) error {
 	return c.addQuorumReplica(address, false)
 }
 
-func (c *Controller) AddReplica(address string) error {
-	return c.addReplica(address, true)
+func (c *Controller) AddReplica(address string, uuid string) error {
+	return c.addReplica(address, uuid, true)
 }
 
 func (c *Controller) RegisterReplica(register types.RegReplica) error {
@@ -115,10 +115,10 @@ func (c *Controller) hasWOReplica() (string, bool) {
 	return "", false
 }
 
-func (c *Controller) canAdd(address string) (bool, error) {
-	if c.hasReplica(address) {
-		logrus.Warning("replica %s is already added with this controller instance", address)
-		return false, fmt.Errorf("replica: %s is already added", address)
+func (c *Controller) canAdd(uuid string) (bool, error) {
+	if c.hasReplica(uuid) {
+		logrus.Warning("replica %s is already added with this controller instance", uuid)
+		return false, fmt.Errorf("replica: %s is already added", uuid)
 	}
 	if woReplica, ok := c.hasWOReplica(); ok {
 		logrus.Warning("can have only one WO replica at a time, found WO replica: %s", woReplica)
@@ -212,9 +212,9 @@ func (c *Controller) verifyReplicationFactor() error {
 	return nil
 }
 
-func (c *Controller) addReplica(address string, snapshot bool) error {
+func (c *Controller) addReplica(address string, uuid string, snapshot bool) error {
 	c.Lock()
-	if ok, err := c.canAdd(address); !ok {
+	if ok, err := c.canAdd(uuid); !ok {
 		c.Unlock()
 		return err
 	}
@@ -233,7 +233,7 @@ func (c *Controller) addReplica(address string, snapshot bool) error {
 	c.Lock()
 	defer c.Unlock()
 
-	err = c.addReplicaNoLock(newBackend, address, snapshot)
+	err = c.addReplicaNoLock(newBackend, address, uuid, snapshot)
 	if err != nil {
 		logrus.Infof("addReplicaNoLock %s from addReplica failed %v", address, err)
 	} else {
@@ -458,12 +458,12 @@ func (c *Controller) addQuorumReplicaNoLock(newBackend types.Backend, address st
 	return nil
 }
 
-func (c *Controller) addReplicaNoLock(newBackend types.Backend, address string, snapshot bool) error {
+func (c *Controller) addReplicaNoLock(newBackend types.Backend, address string, uuid string, snapshot bool) error {
 	/*
 	 * No need to add prints in this function.
 	 * Make sure caller of this takes care of printing error
 	 */
-	if ok, err := c.canAdd(address); !ok {
+	if ok, err := c.canAdd(uuid); !ok {
 		return err
 	}
 
@@ -492,6 +492,7 @@ func (c *Controller) addReplicaNoLock(newBackend types.Backend, address string, 
 
 	c.replicas = append(c.replicas, types.Replica{
 		Address: address,
+		UUID:    uuid,
 		Mode:    types.WO,
 	})
 
@@ -502,7 +503,22 @@ func (c *Controller) addReplicaNoLock(newBackend types.Backend, address string, 
 	return nil
 }
 
-func (c *Controller) hasReplica(address string) bool {
+func (c *Controller) hasReplica(uuid string) bool {
+	logrus.Infof("check if replica %s is already added", uuid)
+	for _, i := range c.replicas {
+		if i.UUID == uuid {
+			return true
+		}
+	}
+	for _, i := range c.quorumReplicas {
+		if i.UUID == uuid {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Controller) hasReplicaAddress(address string) bool {
 	logrus.Infof("check if replica %s is already added", address)
 	for _, i := range c.replicas {
 		if i.Address == address {
@@ -521,7 +537,7 @@ func (c *Controller) RemoveReplicaNoLock(address string) error {
 	var foundregrep int
 
 	logrus.Infof("RemoveReplica %v ReplicasAdded:%v FrontendState:%v", address, len(c.replicas), c.frontend.State())
-	if !c.hasReplica(address) {
+	if !c.hasReplicaAddress(address) {
 		logrus.Infof("RemoveReplica %v not found", address)
 		return nil
 	}
@@ -671,7 +687,7 @@ func (c *Controller) startFrontend() error {
 	return nil
 }
 
-func (c *Controller) addReplicaDuringStartNoLock(address string) error {
+func (c *Controller) addReplicaDuringStartNoLock(address string, uuid string) error {
 	var (
 		status string
 		err1   error
@@ -702,7 +718,7 @@ func (c *Controller) addReplicaDuringStartNoLock(address string) error {
 		return fmt.Errorf("Backend sizes do not match %d != %d", c.sectorSize, newSectorSize)
 	}
 
-	if err := c.addReplicaNoLock(newBackend, address, false); err != nil {
+	if err := c.addReplicaNoLock(newBackend, address, uuid, false); err != nil {
 		return err
 	}
 getCloneStatus:
@@ -720,7 +736,7 @@ getCloneStatus:
 	return nil
 }
 
-func (c *Controller) Start(addresses ...string) error {
+func (c *Controller) Start(replicas map[string]string) error {
 	var (
 		expectedRevision int64
 		sendSignal       int
@@ -729,7 +745,7 @@ func (c *Controller) Start(addresses ...string) error {
 	c.Lock()
 	defer c.Unlock()
 
-	if len(addresses) == 0 {
+	if len(replicas) == 0 {
 		logrus.Infof("addresses is null")
 		return nil
 	}
@@ -744,10 +760,10 @@ func (c *Controller) Start(addresses ...string) error {
 	defer c.startFrontend()
 
 	c.size = math.MaxInt64
-	for _, address := range addresses {
-		err := c.addReplicaDuringStartNoLock(address)
+	for uuid, address := range replicas {
+		err := c.addReplicaDuringStartNoLock(address, uuid)
 		if err != nil {
-			logrus.Errorf("err %v adding %s replica during start", err, address)
+			logrus.Errorf("err %v adding %s(%s) replica during start", err, address, uuid)
 			return err
 		}
 	}
@@ -776,7 +792,7 @@ func (c *Controller) Start(addresses ...string) error {
 		sendSignal = 1
 		regrep := c.ReplicaUUIDMap[regrepuuid]
 		for _, tmprep := range c.replicas {
-			if tmprep.Address == "tcp://"+regrep+":9502" {
+			if tmprep.UUID == regrepuuid {
 				sendSignal = 0
 				break
 			}

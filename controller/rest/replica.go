@@ -54,7 +54,7 @@ func (s *Server) ListReplicas(rw http.ResponseWriter, req *http.Request) error {
 	resp := client.GenericCollection{}
 	s.c.Lock()
 	for _, r := range s.c.ListReplicas() {
-		resp.Data = append(resp.Data, NewReplica(apiContext, r.Address, r.Mode))
+		resp.Data = append(resp.Data, NewReplica(apiContext, r.Address, r.UUID, r.Mode))
 	}
 	s.c.Unlock()
 
@@ -145,11 +145,11 @@ func (s *Server) CreateReplica(rw http.ResponseWriter, req *http.Request) error 
 	}
 	logrus.Infof("Create Replica for address %v", replica.Address)
 
-	if err := s.c.AddReplica(replica.Address); err != nil {
+	if err := s.c.AddReplica(replica.Address, replica.UUID); err != nil {
 		return err
 	}
 
-	r := s.getReplica(apiContext, replica.Address)
+	r := s.getReplica(apiContext, replica.UUID)
 	if r == nil {
 		logrus.Errorf("createReplica failed for id %v", replica.Address)
 		return fmt.Errorf("createReplica failed while getting it")
@@ -188,8 +188,8 @@ func (s *Server) getReplica(context *api.ApiContext, id string) *Replica {
 	s.c.Lock()
 	defer s.c.Unlock()
 	for _, r := range s.c.ListReplicas() {
-		if r.Address == id {
-			return NewReplica(context, r.Address, r.Mode)
+		if r.UUID == id {
+			return NewReplica(context, r.Address, r.UUID, r.Mode)
 		}
 	}
 	return nil
@@ -200,7 +200,7 @@ func (s *Server) getQuorumReplica(context *api.ApiContext, id string) *Replica {
 	defer s.c.Unlock()
 	for _, r := range s.c.ListQuorumReplicas() {
 		if r.Address == id {
-			return NewReplica(context, r.Address, r.Mode)
+			return NewReplica(context, r.Address, r.UUID, r.Mode)
 		}
 	}
 	return nil

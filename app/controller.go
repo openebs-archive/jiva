@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
@@ -120,7 +121,14 @@ func startController(c *cli.Context) error {
 
 	if len(replicas) > 0 {
 		logrus.Infof("Starting with replicas %q", replicas)
-		if err := control.Start(replicas...); err != nil {
+		replicaMap := map[string]string{}
+		for _, replica := range replicas {
+			replicaUUID := strings.Split(replica, ":")
+			if len(replicaUUID) == 2 {
+				replicaMap[replicaUUID[0]] = replicaUUID[1]
+			}
+		}
+		if err := control.Start(replicaMap); err != nil {
 			log.Fatal(err)
 		}
 	}

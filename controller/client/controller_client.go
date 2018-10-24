@@ -28,11 +28,14 @@ func NewControllerClient(controller string) *ControllerClient {
 	}
 }
 
-func (c *ControllerClient) Start(replicas ...string) error {
+func (c *ControllerClient) Start(replicaAddres string, uuid string) error {
 	volume, err := c.GetVolume()
 	if err != nil {
 		return err
 	}
+
+	replicas := map[string]string{}
+	replicas[uuid] = replicaAddres
 
 	return c.post(volume.Actions["start"], rest.StartInput{
 		Replicas: replicas,
@@ -99,10 +102,11 @@ func (c *ControllerClient) ListReplicas() ([]rest.Replica, error) {
 	return resp.Data, err
 }
 
-func (c *ControllerClient) CreateReplica(address string) (*rest.Replica, error) {
+func (c *ControllerClient) CreateReplica(address string, uuid string) (*rest.Replica, error) {
 	var resp rest.Replica
 	err := c.post("/replicas", &rest.Replica{
 		Address: address,
+		UUID:    uuid,
 	}, &resp)
 	return &resp, err
 }

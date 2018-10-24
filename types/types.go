@@ -75,6 +75,7 @@ type State string
 
 type Replica struct {
 	Address string
+	UUID    string
 	Mode    Mode
 }
 

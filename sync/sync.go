@@ -326,7 +326,7 @@ Register:
 	if action == "start" {
 		logrus.Infof("Received start from controller")
 		inject.AddTimeout()
-		return t.client.Start(replicaAddress)
+		return t.client.Start(replicaAddress, Replica.UUID)
 	}
 	logrus.Infof("CheckAndResetFailedRebuild %v", replicaAddress)
 	if err := t.checkAndResetFailedRebuild(replicaAddress, s); err != nil {
@@ -334,7 +334,7 @@ Register:
 	}
 
 	logrus.Infof("Adding replica %s in WO mode", replicaAddress)
-	_, err = t.client.CreateReplica(replicaAddress)
+	_, err = t.client.CreateReplica(replicaAddress, Replica.UUID)
 	if err != nil {
 		return err
 	}
