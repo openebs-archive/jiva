@@ -47,6 +47,7 @@ func (d *diffDisk) RemoveIndex(index int) error {
 	}
 
 	d.files = append(d.files[:index], d.files[index+1:]...)
+	d.UserCreatedSnap = append(d.UserCreatedSnap[:index], d.UserCreatedSnap[index+1:]...)
 
 	return nil
 }

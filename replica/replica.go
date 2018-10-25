@@ -280,7 +280,6 @@ func (r *Replica) SetRebuilding(rebuilding bool) error {
 func (r *Replica) UpdateDiskMode(diskName string, mode string) error {
 	r.Lock()
 	defer r.Unlock()
-	fmt.Println(r.diskList)
 	for indx, diskData := range r.diskList {
 		if diskData == diskName {
 			if mode == "RO" {
