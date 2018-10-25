@@ -23,7 +23,8 @@ type diffDisk struct {
 	// index 0 is nil and index 1 is the active write layer
 	files []types.DiffDisk
 	// list representing file index marked true/false for
-	// userCreated/Auto-Created accordingly
+	// userCreated/Auto-Created accordingly. It should always be updated
+	// whenever modifying above "files" variable
 	UserCreatedSnap []bool
 	// A snapshot file is marked ReadOnly when it is helping sync some other
 	// replica
@@ -39,6 +40,7 @@ func (d *diffDisk) RemoveIndex(index int) error {
 		return err
 	}
 
+	//TODO Decide if d.location should be preloaded again over here
 	for i := 0; i < len(d.location); i++ {
 		if d.location[i] >= byte(index) {
 			// set back to unknown
