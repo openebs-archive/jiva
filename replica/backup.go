@@ -196,6 +196,7 @@ func CreateHoles(s *Server) error {
 	)
 	retryCount := 0
 	for {
+	getHole:
 		hole := <-HoleCreatorChan
 		fd = hole.f.Fd()
 	retry:
@@ -207,7 +208,7 @@ func CreateHoles(s *Server) error {
 				if ROSet && r.volume.files[indx].Fd() == fd {
 					r.RUnlock()
 					s.RUnlock()
-					continue
+					goto getHole
 				}
 			}
 		}

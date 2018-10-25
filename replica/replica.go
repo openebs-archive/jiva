@@ -872,7 +872,7 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 	r.diskList = append(r.diskList, newHeadDisk.Name)
 	if userCreated {
 		//Indx 0 is nil, indx 1 is base snapshot,
-		//last indx (len(r.volume.files)) is active file
+		//last indx (len(r.volume.files)-1) is active file
 		r.volume.SnapIndx = len(r.volume.files) - 2
 	}
 	r.volume.UserCreatedSnap = append(r.volume.UserCreatedSnap, userCreated)
