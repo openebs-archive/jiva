@@ -69,7 +69,6 @@ func NewRouter(s *Server) *mux.Router {
 		"removedisk":         s.RemoveDisk,
 		"replacedisk":        s.ReplaceDisk,
 		"setrebuilding":      s.SetRebuilding,
-		"updatediskmode":     s.UpdateDiskMode,
 		"create":             s.Create,
 		"revert":             s.RevertReplica,
 		"prepareremovedisk":  s.PrepareRemoveDisk,

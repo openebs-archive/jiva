@@ -232,7 +232,7 @@ func startReplica(c *cli.Context) error {
 		logrus.Infof("Waiting for s.Replica() to be non nil")
 		time.Sleep(2 * time.Second)
 	}
-	go replica.CreateHoles(s)
+	go replica.CreateHoles()
 	if replicaType == "clone" && snapName != "" {
 		logrus.Infof("Starting clone process\n")
 		status := s.Replica().GetCloneStatus()

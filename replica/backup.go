@@ -189,34 +189,18 @@ type Hole struct {
 var HoleCreatorChan = make(chan Hole, 1000000)
 
 //CreateHoles removes the offsets from corresponding sparse files
-func CreateHoles(s *Server) error {
+func CreateHoles() error {
 	var (
 		fd uintptr
-		r  *Replica
 	)
 	retryCount := 0
 	for {
-	getHole:
 		hole := <-HoleCreatorChan
 		fd = hole.f.Fd()
 	retry:
-		s.RLock()
-		r = s.r
-		r.RLock()
-		if r.volume.ROIndexSet {
-			for indx, ROSet := range r.volume.ReadOnlyIndx {
-				if ROSet && r.volume.files[indx].Fd() == fd {
-					r.RUnlock()
-					s.RUnlock()
-					goto getHole
-				}
-			}
-		}
 		if err := syscall.Fallocate(int(fd),
 			sparse.FALLOC_FL_KEEP_SIZE|sparse.FALLOC_FL_PUNCH_HOLE,
 			hole.offset, hole.len); err != nil {
-			r.RUnlock()
-			s.RUnlock()
 			logrus.Errorf("ERROR in creating hole: %v, Retry_Count: %v", err, retryCount)
 			time.Sleep(1)
 			retryCount++
@@ -225,8 +209,6 @@ func CreateHoles(s *Server) error {
 			}
 			goto retry
 		}
-		r.RUnlock()
-		s.RUnlock()
 		retryCount = 0
 	}
 }

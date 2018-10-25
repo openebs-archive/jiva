@@ -1259,11 +1259,6 @@ update_file_sizes() {
 	done
 }
 
-update_disk_mode() {
-	curl -H "Content-Type: application/json" -X POST -d "{\"disk\":\"${1}\", \"mode\":\"${2}\"}" http://$REPLICA_IP1:9502/v1/replicas/1?action=updatediskmode
-	curl -H "Content-Type: application/json" -X POST -d "{\"disk\":\"${1}\", \"mode\":\"${2}\"}" http://$REPLICA_IP2:9502/v1/replicas/1?action=updatediskmode
-}
-
 test_duplicate_data_delete() {
 	echo "----------------Test_two_replica_stop_start---------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")

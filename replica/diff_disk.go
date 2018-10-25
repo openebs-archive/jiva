@@ -26,10 +26,6 @@ type diffDisk struct {
 	// userCreated/Auto-Created accordingly. It should always be updated
 	// whenever modifying above "files" variable
 	UserCreatedSnap []bool
-	// A snapshot file is marked ReadOnly when it is helping sync some other
-	// replica
-	ReadOnlyIndx []bool
-	ROIndexSet   bool
 	// Index of latest user created snapshot
 	SnapIndx   int
 	sectorSize int64
