@@ -53,12 +53,6 @@ type RebuildingInput struct {
 	Rebuilding bool `json:"rebuilding"`
 }
 
-type UpdateDiskModeInput struct {
-	client.Resource
-	Disk string `json:"disk"`
-	Mode string `json:"mode"`
-}
-
 type SnapshotInput struct {
 	client.Resource
 	Name        string `json:"name"`
