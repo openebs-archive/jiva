@@ -93,8 +93,8 @@ func (c *Controller) UpdateVolStatus() {
 	logrus.Infof("backends len: %d", len(c.backend.backends))
 }
 
-func (c *Controller) AddQuorumReplica(address string) error {
-	return c.addQuorumReplica(address, false)
+func (c *Controller) AddQuorumReplica(address string, uuid string) error {
+	return c.addQuorumReplica(address, uuid, false)
 }
 
 func (c *Controller) AddReplica(address string, uuid string) error {
@@ -109,7 +109,7 @@ func (c *Controller) hasWOReplica() (string, bool) {
 	logrus.Info("check if any WO replica available")
 	for _, i := range c.replicas {
 		if i.Mode == types.WO {
-			return i.Address, true
+			return i.UUID, true
 		}
 	}
 	return "", false
@@ -117,7 +117,7 @@ func (c *Controller) hasWOReplica() (string, bool) {
 
 func (c *Controller) canAdd(uuid string) (bool, error) {
 	if c.hasReplica(uuid) {
-		logrus.Warning("replica %s is already added with this controller instance", uuid)
+		logrus.Warningf("replica %s is already added with this controller instance", uuid)
 		return false, fmt.Errorf("replica: %s is already added", uuid)
 	}
 	if woReplica, ok := c.hasWOReplica(); ok {
@@ -145,9 +145,9 @@ func (c *Controller) getRWReplica() (*types.Replica, error) {
 	return rwReplica, nil
 }
 
-func (c *Controller) addQuorumReplica(address string, snapshot bool) error {
+func (c *Controller) addQuorumReplica(address string, uuid string, snapshot bool) error {
 	c.Lock()
-	if ok, err := c.canAdd(address); !ok {
+	if ok, err := c.canAdd(uuid); !ok {
 		c.Unlock()
 		return err
 	}
@@ -162,7 +162,7 @@ func (c *Controller) addQuorumReplica(address string, snapshot bool) error {
 	c.Lock()
 	defer c.Unlock()
 
-	err = c.addQuorumReplicaNoLock(newBackend, address, snapshot)
+	err = c.addQuorumReplicaNoLock(newBackend, address, uuid, snapshot)
 	if err != nil {
 		return err
 	}
@@ -420,8 +420,8 @@ func (c *Controller) Resize(name string, size string) error {
 	return nil
 }
 
-func (c *Controller) addQuorumReplicaNoLock(newBackend types.Backend, address string, snapshot bool) error {
-	if ok, err := c.canAdd(address); !ok {
+func (c *Controller) addQuorumReplicaNoLock(newBackend types.Backend, address string, replicaUUID string, snapshot bool) error {
+	if ok, err := c.canAdd(replicaUUID); !ok {
 		return err
 	}
 
@@ -448,6 +448,7 @@ func (c *Controller) addQuorumReplicaNoLock(newBackend types.Backend, address st
 	c.quorumReplicas = append(c.quorumReplicas, types.Replica{
 		Address: address,
 		Mode:    types.WO,
+		UUID:    replicaUUID,
 	})
 	c.quorumReplicaCount++
 
@@ -458,12 +459,12 @@ func (c *Controller) addQuorumReplicaNoLock(newBackend types.Backend, address st
 	return nil
 }
 
-func (c *Controller) addReplicaNoLock(newBackend types.Backend, address string, uuid string, snapshot bool) error {
+func (c *Controller) addReplicaNoLock(newBackend types.Backend, address string, replicaUUID string, snapshot bool) error {
 	/*
 	 * No need to add prints in this function.
 	 * Make sure caller of this takes care of printing error
 	 */
-	if ok, err := c.canAdd(uuid); !ok {
+	if ok, err := c.canAdd(replicaUUID); !ok {
 		return err
 	}
 
@@ -492,7 +493,7 @@ func (c *Controller) addReplicaNoLock(newBackend types.Backend, address string, 
 
 	c.replicas = append(c.replicas, types.Replica{
 		Address: address,
-		UUID:    uuid,
+		UUID:    replicaUUID,
 		Mode:    types.WO,
 	})
 
@@ -806,7 +807,7 @@ func (c *Controller) Start(replicas map[string]string) error {
 		sendSignal = 1
 		regrep := c.ReplicaUUIDMap[regrepuuid]
 		for _, tmprep := range c.quorumReplicas {
-			if tmprep.Address == "tcp://"+regrep+":9502" {
+			if tmprep.UUID == regrepuuid {
 				sendSignal = 0
 				break
 			}

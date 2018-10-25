@@ -78,7 +78,7 @@ func (s *Server) GetReplica(rw http.ResponseWriter, req *http.Request) error {
 	}
 	logrus.Infof("Get Replica for id %v", id)
 
-	r := s.getReplica(apiContext, id)
+	r := s.getReplicaByAddress(apiContext, id)
 	if r == nil {
 		logrus.Errorf("Get Replica failed for id %v", id)
 		rw.WriteHeader(http.StatusNotFound)
@@ -143,7 +143,7 @@ func (s *Server) CreateReplica(rw http.ResponseWriter, req *http.Request) error 
 		logrus.Errorf("read in createReplica failed %v", err)
 		return err
 	}
-	logrus.Infof("Create Replica for address %v", replica.Address)
+	logrus.Infof("Create Replica for address %v and uuid %v", replica.Address, replica.UUID)
 
 	if err := s.c.AddReplica(replica.Address, replica.UUID); err != nil {
 		return err
@@ -151,7 +151,7 @@ func (s *Server) CreateReplica(rw http.ResponseWriter, req *http.Request) error 
 
 	r := s.getReplica(apiContext, replica.UUID)
 	if r == nil {
-		logrus.Errorf("createReplica failed for id %v", replica.Address)
+		logrus.Errorf("createReplica failed for id %v", replica.UUID)
 		return fmt.Errorf("createReplica failed while getting it")
 	}
 
@@ -169,11 +169,11 @@ func (s *Server) CreateQuorumReplica(rw http.ResponseWriter, req *http.Request) 
 	}
 	logrus.Infof("Create QuorumReplica for address %v", replica.Address)
 
-	if err := s.c.AddQuorumReplica(replica.Address); err != nil {
+	if err := s.c.AddQuorumReplica(replica.Address, replica.UUID); err != nil {
 		return err
 	}
 
-	r := s.getQuorumReplica(apiContext, replica.Address)
+	r := s.getQuorumReplica(apiContext, replica.UUID)
 	if r == nil {
 		logrus.Errorf("createQuorumReplica failed for id %v", replica.Address)
 		return fmt.Errorf("createQuorumReplica failed while getting it")
@@ -184,18 +184,40 @@ func (s *Server) CreateQuorumReplica(rw http.ResponseWriter, req *http.Request) 
 	return nil
 }
 
-func (s *Server) getReplica(context *api.ApiContext, id string) *Replica {
+func (s *Server) getReplica(context *api.ApiContext, uuid string) *Replica {
 	s.c.Lock()
 	defer s.c.Unlock()
 	for _, r := range s.c.ListReplicas() {
-		if r.UUID == id {
+		if r.UUID == uuid {
 			return NewReplica(context, r.Address, r.UUID, r.Mode)
 		}
 	}
 	return nil
 }
 
-func (s *Server) getQuorumReplica(context *api.ApiContext, id string) *Replica {
+func (s *Server) getReplicaByAddress(context *api.ApiContext, id string) *Replica {
+	s.c.Lock()
+	defer s.c.Unlock()
+	for _, r := range s.c.ListReplicas() {
+		if r.Address == id {
+			return NewReplica(context, r.Address, r.UUID, r.Mode)
+		}
+	}
+	return nil
+}
+
+func (s *Server) getQuorumReplica(context *api.ApiContext, uuid string) *Replica {
+	s.c.Lock()
+	defer s.c.Unlock()
+	for _, r := range s.c.ListQuorumReplicas() {
+		if r.UUID == uuid {
+			return NewReplica(context, r.Address, r.UUID, r.Mode)
+		}
+	}
+	return nil
+}
+
+func (s *Server) getQuorumReplicaByAddress(context *api.ApiContext, id string) *Replica {
 	s.c.Lock()
 	defer s.c.Unlock()
 	for _, r := range s.c.ListQuorumReplicas() {
