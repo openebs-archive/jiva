@@ -1,11 +1,14 @@
 #!/bin/bash
 set -x
+PS4='${LINENO}: '
 CONTROLLER_IP="172.18.0.2"
 REPLICA_IP1="172.18.0.3"
 REPLICA_IP2="172.18.0.4"
 REPLICA_IP3="172.18.0.5"
 CLONED_CONTROLLER_IP="172.18.0.6"
 CLONED_REPLICA_IP="172.18.0.7"
+
+snapIndx=1
 
 collect_logs_and_exit() {
 	echo "--------------------------docker ps -a-------------------------------------"
@@ -114,8 +117,8 @@ verify_rw_status() {
 		fi
 		i=`expr $i + 1`
 		if [ "$i" == 50 ]; then
-			echo "1"
-			return
+			echo "verify_rw_status -- failed"
+			collect_logs_and_exit
 		fi
 		sleep 2
 	done
@@ -129,8 +132,8 @@ verify_rw_rep_count() {
                count=`get_rw_rep_count`
                i=`expr $i + 1`
                if [ "$i" == 50 ]; then
-                       echo "1"
-                       return
+		       echo "verify_rw_rep_count -- failed"
+		       collect_logs_and_exit
                fi
                sleep 2
        done
@@ -409,7 +412,7 @@ test_two_replica_delete() {
 	sleep 5
 	verify_replica_cnt "2" "Two replica count test1"
 	# This will delay sync between replicas
-	run_ios_to_test_stop_start
+	run_ios 50K 0
 	verify_delete_replica "Delete replicas test2"
 
 	docker stop $replica1_id
@@ -518,7 +521,7 @@ test_two_replica_stop_start() {
 
 	verify_replica_cnt "2" "Two replica count test1"
 	# This will delay sync between replicas
-	run_ios_to_test_stop_start
+	run_ios 50K 0
 
 	docker stop $replica1_id
 	verify_replica_cnt "1" "Two replica count test when one is stopped"
@@ -580,7 +583,7 @@ test_two_replica_stop_start() {
 	cleanup
 }
 
-run_ios_to_test_stop_start() {
+run_ios() {
 	login_to_volume "$CONTROLLER_IP:3260"
 	sleep 2
 	get_scsi_disk
@@ -589,7 +592,7 @@ run_ios_to_test_stop_start() {
 		# This will trigger the quorum condition which checks if the IOs are
 		# written to more than 50% of the replicas
 
-		dd if=/dev/urandom of=/dev/$device_name bs=4k count=50000
+		dd if=/dev/urandom of=/dev/$device_name bs=4K count=$1 seek=$2
 		if [ $? -eq 0 ]; then echo "IOs were written successfully while running 3 replicas stop/start test"
 		else
 			echo "IOs errored out while running 3 replicas stop/start test"; collect_logs_and_exit
@@ -623,7 +626,7 @@ test_three_replica_stop_start() {
 		count=`expr $count + 1`
 	done
 
-	run_ios_to_test_stop_start &
+	run_ios 50K 0 &
 	sleep 8
 
 	docker stop $replica1_id
@@ -877,7 +880,7 @@ run_data_integrity_test_with_fs_creation() {
 	test_data_integrity
 	#Cleanup is not being performed here because this data will be used
 	#to test snapshot feature in the next test.
-    # value of hash1 will be used for clone.
+	# value of hash1 will be used for clone.
 }
 
 # create_and_verify_snapshot creates a snapshot and verifies if it
@@ -897,22 +900,23 @@ create_snapshot() {
 
 test_duplicate_snapshot_failure() {
 	echo "--------------create_and_verify_snapshot-------------"
-	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	verify_rw_rep_count "2"
 	id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
 	create_snapshot $id "snap1" "Snapshot: snap1 created successfully"
 	create_snapshot $id "snap1" "Snapshot: snap1 already exists"
 	create_snapshot $id "snap2" "Snapshot: snap2 created successfully"
 	sleep 5
 	test_data_integrity
-    cleanup
+	cleanup
 }
 
 test_clone_feature() {
 	echo "-----------------------Test_clone_feature-------------------------"
-    id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
-    create_snapshot $id "snap3" "Snapshot: snap3 created successfully"
+	id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
+	create_snapshot $id "snap3" "Snapshot: snap3 created successfully"
 	cloned_controller_id=$(start_controller "$CLONED_CONTROLLER_IP" "store2" "1")
 	start_cloned_replica "$CONTROLLER_IP"  "$CLONED_CONTROLLER_IP" "$CLONED_REPLICA_IP" "vol4"
 
@@ -1059,7 +1063,7 @@ test_upgrade() {
 	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
 
 	verify_replica_cnt "3" "Three replica count test in controller upgrade"
-	run_ios_to_test_stop_start &
+	run_ios 50K 0 &
 	sleep 8
 
 	JI=$UPGRADED_JI
@@ -1141,12 +1145,13 @@ test_replica_controller_continuous_stop_start() {
 	docker start $orig_controller_id
 	verify_rw_rep_count "1"
 	di_test_on_raw_disk "1K"
+	cleanup
 	echo "Test_replica_controller_continuous_stop_start passed"
 }
 
 test_volume_resize() {
 	echo "----------------Test_volume_resize---------------"
-	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
 	verify_rw_rep_count "2"
@@ -1183,6 +1188,285 @@ test_volume_resize() {
 	echo "Resize test passed"
 }
 
+create_auto_generated_snapshot() {
+
+	snaplist_initial=`ls /tmp/vol1 | grep .img | grep -v meta | grep  -v head`
+
+	# This will create an auto generated snapshot(Snap1) with the above data
+	docker stop $replica1_id
+	verify_rw_rep_count "1"
+	docker start $replica1_id
+	verify_rw_rep_count "2"
+	snaplist_final=`ls /tmp/vol1 | grep .img | grep -v meta | grep  -v head`
+
+	snaps[$snapIndx]=`echo ${snaplist_initial[@]} ${snaplist_final[@]} | tr ' ' '\n' | sort | uniq -u`
+	let snapIndx=snapIndx+1
+	active_file1=`ls /tmp/vol1 | grep .img | grep -v meta | grep head`
+	active_file2=`ls /tmp/vol2 | grep .img | grep -v meta | grep head`
+	active_file_size=0
+}
+
+create_manual_snapshot() {
+	snaplist_initial=`ls /tmp/vol1 | grep .img | grep -v meta | grep  -v head`
+	docker exec -it $orig_controller_id longhorn snapshot create $1
+	snaplist_final=`ls /tmp/vol1 | grep .img | grep -v meta | grep  -v head`
+	snaps[$snapIndx]=`echo ${snaplist_initial[@]} ${snaplist_final[@]} | tr ' ' '\n' | sort | uniq -u`
+	let snapIndx=snapIndx+1
+	active_file1=`ls /tmp/vol1 | grep .img | grep -v meta | grep head`
+	active_file2=`ls /tmp/vol2 | grep .img | grep -v meta | grep head`
+	active_file_size=0
+}
+
+verify_physical_space_consumed() {
+	size=`du -sh --block-size=1048576 /tmp/vol1/$active_file1 | awk '{print $1}'`
+	if [ $size != $active_file_size ] && [ $size != `expr $active_file_size + 1` ] ; then
+		echo "Active file size check failed for replica1"; exit
+	fi
+	size=`du -sh --block-size=1048576 /tmp/vol2/$active_file2 | awk '{print $1}'`
+	if [ $size != $active_file_size ] && [ $size != `expr $active_file_size + 1` ] ; then
+		echo "Active file size check failed for replica2"; exit
+	fi
+	physical_size=0
+	#for snap in ${snaps[@]}
+	for (( i = 1 ; i <= "${#snaps[@]}" ; i++ ))
+	do
+		size=`du -sh --block-size=1048576 /tmp/vol1/${snaps[$i]} | awk '{print $1}'`
+		if [ $size != ${snapsize[$i]} ] && [ $size != `expr ${snapsize[$i]} + 1` ]; then
+			echo "Test Failed";
+			echo "Snap: $i Name: ${snaps[$i]} Actual: $size Expected: ${snapsize[$i]}"
+			exit
+		fi
+		size=`du -sh --block-size=1048576 /tmp/vol2/${snaps[$i]} | awk '{print $1}'`
+		if [ $size != ${snapsize[$i]} ] && [ $size != `expr ${snapsize[$i]} + 1` ]; then
+			echo "Test Failed";
+			echo "Snap: $i Name: ${snaps[$i]} Actual: $size Expected: ${snapsize[$i]}"
+			exit
+		fi
+	done
+}
+
+update_file_sizes() {
+	active_file_size=$1
+	i=0
+	for x in "$@"
+	do
+		if [[ $i == 0 ]]; then
+			let i=i+1
+			continue
+		fi
+		snapsize[$i]=$x
+		let i=i+1
+	done
+}
+
+update_disk_mode() {
+	curl -H "Content-Type: application/json" -X POST -d "{\"disk\":\"${1}\", \"mode\":\"${2}\"}" http://$REPLICA_IP1:9502/v1/replicas/1?action=updatediskmode
+	curl -H "Content-Type: application/json" -X POST -d "{\"disk\":\"${1}\", \"mode\":\"${2}\"}" http://$REPLICA_IP2:9502/v1/replicas/1?action=updatediskmode
+}
+
+test_duplicate_data_delete() {
+	echo "----------------Test_two_replica_stop_start---------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	verify_replica_cnt "2" "Duplicate data delete test"
+	snaps[$snapIndx]=`ls /tmp/vol1 | grep .img | grep -v meta | grep  -v head`
+	let snapIndx=snapIndx+1
+	active_file1=`ls /tmp/vol1 | grep .img | grep -v meta | grep head`
+	active_file2=`ls /tmp/vol2 | grep .img | grep -v meta | grep head`
+	active_file_size=0
+	update_file_sizes 0 0
+	verify_physical_space_consumed
+	# Size: 0M, Offsets Filled: [) in Active file
+	# Size: 0M, Offsets Filled: [) in Snap1(Auto generated)
+
+	run_ios 5K 0
+	update_file_sizes 20 0
+	verify_physical_space_consumed
+	# Size: 20M, Offsets Filled: [0,5K) in Active file
+	# Size: 0M, Offsets Filled: [) in Snap1(Auto generated)
+
+	create_auto_generated_snapshot "snap2"
+	update_file_sizes 0 0 20
+	verify_physical_space_consumed
+	# Size: 0M, Offsets Filled: [) in Active file
+	# Size: 20M, Offsets Filled: [0,5K) in Snap2(Auto generated)
+	# Size: 0M, Offsets Filled: [) in Snap1(Auto generated)
+
+	run_ios 5K 0
+	update_file_sizes 20 0 0
+	verify_physical_space_consumed
+	# Size: 20M, Offsets Filled: [0,5K) in Active File
+	# Size: 0M, Offsets Filled: [) in Snap2(Auto generated)
+	# Size: 0M, Offsets Filled: [) in Snap1(Auto generated)
+
+	create_auto_generated_snapshot "snap3"
+	update_file_sizes 0 0 0 20
+	verify_physical_space_consumed
+	# Size: 0M, Offsets Filled: [) in Active file
+	# Size: 20M, Offsets Filled: [0,5K) in Snap3(Auto Generated)
+	# Size: 0M, Offsets Filled: [) in Snap2(Auto generated)
+	# Size: 0M, Offsets Filled: [) in Snap1(Auto generated)
+
+	run_ios 5K 5K
+	update_file_sizes 20 0 0 20
+	verify_physical_space_consumed
+	# Size: 20M, Offsets Filled: [5K,10K) in Active file
+	# Size: 20M, Offsets Filled: [0,5K) in Snap3(Auto Generated)
+	# Size: 0M, Offsets Filled: [) in Snap2(Auto generated)
+	# Size: 0M, Offsets Filled: [) in Snap1(Auto generated)
+
+	create_manual_snapshot "snap4"
+	update_file_sizes 0 0 0 20 20
+	verify_physical_space_consumed
+	base_size=`du -sh --block-size=1048576 /tmp/vol1/| awk '{print $1}'`
+	# Size: 0M, Offsets Filled: [) in Active file
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap4(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap3(Auto Generated)
+	# Size: 0M, Offsets Filled: [) in Snap2(Auto generated)
+	# Size: 0M, Offsets Filled: [) in Snap1(Auto generated)
+
+	run_ios 10K 0
+	update_file_sizes 40 0 0 20 20
+	verify_physical_space_consumed
+	# Size: 40M, Offsets Filled: [0,10K) in Active file
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap4(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap3(Auto Generated)
+	# Size: 0M, Offsets Filled: [) in Snap2(Auto generated)
+	# Size: 0M, Offsets Filled: [) in Snap1(Auto generated)
+
+	create_auto_generated_snapshot "snap5"
+	update_file_sizes 0 0 0 20 20 40
+	verify_physical_space_consumed
+	# Size: 0M, Offsets Filled: [) in Active file
+	# Size: 40M, Offsets Filled: [0,10K) in Snap5(Auto Generated)
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap4(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap3(Auto Generated)
+	# Size: 0M, Offsets Filled: [) in Snap2(Auto generated)
+	# Size: 0M, Offsets Filled: [) in Snap1(Auto generated)
+
+	run_ios 5K 5K
+	update_file_sizes 20 0 0 20 20 20
+	verify_physical_space_consumed
+	# Size: 20M, Offsets Filled: [5K,10K) in Active file
+	# Size: 20M, Offsets Filled: [0,5K) in Snap5(Auto Generated)
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap4(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap3(Auto Generated)
+	# Size: 0M, Offsets Filled: [) in Snap2(Auto generated)
+	# Size: 0M, Offsets Filled: [) in Snap1(Auto generated)
+
+	create_manual_snapshot "snap6"
+	update_file_sizes 0 0 0 20 20 20 20
+	verify_physical_space_consumed
+	# Size: 0M, Offsets Filled: [) in Active File
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap6(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap5(Auto Generated)
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap4(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap3(Auto Generated)
+	# Size: 0M, Offsets Filled: [) in Snap2(Auto generated)
+	# Size: 0M, Offsets Filled: [) in Snap1(Auto generated)
+
+	run_ios 10K 0
+	update_file_sizes 40 0 0 20 20 20 20
+	verify_physical_space_consumed
+	# Size: 40M, Offsets Filled: [0,10K) in Active File
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap6(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap5(Auto Generated)
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap4(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap3(Auto Generated)
+	# Size: 0M, Offsets Filled: [) in Snap2(Auto generated)
+	# Size: 0M, Offsets Filled: [) in Snap1(Auto generated)
+
+	create_auto_generated_snapshot "snap7"
+	update_file_sizes 0 0 0 20 20 20 20 40
+	verify_physical_space_consumed
+	# Size:  0M, Offsets Filled: [) in Active File
+	# Size: 40M, Offsets Filled: [0, 10K) in Snap7(Auto Generated)
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap6(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap5(Auto Generated)
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap4(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap3(Auto Generated)
+	# Size:  0M, Offsets Filled: [) in Snap2(Auto generated)
+	# Size:  0M, Offsets Filled: [) in Snap1(Auto generated)
+
+	run_ios 4K 4K
+	update_file_sizes 16 0 0 20 20 20 20 24
+	verify_physical_space_consumed
+	# Size: 16M, Offsets Filled: [4k,8K) in Active File
+	# Size:  24M, Offsets Filled: [0,4K)[8K, 10K) in Snap7(Auto Generated)
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap6(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap5(Auto Generated)
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap4(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap3(Auto Generated)
+	# Size:  0M, Offsets Filled: [) in Snap2(Auto generated)
+	# Size:  0M, Offsets Filled: [) in Snap1(Auto generated)
+
+	# Test non-contiguous blocks deletion in the same file
+	run_ios 6k 3K
+	update_file_sizes 24 0 0 20 20 20 20 16
+	verify_physical_space_consumed
+	# Size: 24M, Offsets Filled: [3k,9K) in Active File
+	# Size: 16M, Offsets Filled: [0,3K)[9K, 10K) in Snap7(Auto Generated)
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap6(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap5(Auto Generated)
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap4(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap3(Auto Generated)
+	# Size:  0M, Offsets Filled: [) in Snap2(Auto generated)
+	# Size:  0M, Offsets Filled: [) in Snap1(Auto generated)
+
+
+	##Verify API to update disk mode
+	create_auto_generated_snapshot "snap8"
+	update_file_sizes 0 0 0 20 20 20 20 16 24
+	verify_physical_space_consumed
+	# Size:  0M, Offsets Filled: [) in Active File
+	# Size: 24M, Offsets Filled: [3k,9K) in Snap8(Auto Generated)
+	# Size: 16M, Offsets Filled: [0,3k)[9K, 10K) in Snap7(Auto Generated)
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap6(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap5(Auto Generated)
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap4(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap3(Auto Generated)
+	# Size:  0M, Offsets Filled: [) in Snap2(Auto generated)
+	# Size:  0M, Offsets Filled: [) in Snap1(Auto generated)
+
+	update_disk_mode "${snaps[8]}" "RO"
+
+	run_ios 2K 5K
+	update_file_sizes 8 0 0 20 20 20 20 16 24
+	verify_physical_space_consumed
+	# Size:  8M, Offsets Filled: [5K,7K) in Active File
+	# Size: 24M, Offsets Filled: [3k,9K) in Snap8(Auto Generated)
+	# Size: 16M, Offsets Filled: [0,3K)[9K, 10K) in Snap7(Auto Generated)
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap6(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap5(Auto Generated)
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap4(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap3(Auto Generated)
+	# Size:  0M, Offsets Filled: [) in Snap2(Auto generated)
+	# Size:  0M, Offsets Filled: [) in Snap1(Auto generated)
+
+	update_disk_mode "${snaps[8]}" "RW"
+
+	run_ios 3K 4K
+	update_file_sizes 12 0 0 20 20 20 20 16 20
+	verify_physical_space_consumed
+	# Size: 12M, Offsets Filled: [4K,7K) in Active File
+	# Size: 20M, Offsets Filled: [3K,4k)[5k,9K) in Snap8(Auto Generated)
+	# Size: 16M, Offsets Filled: [0,3K)[9K, 10K) in Snap7(Auto Generated)
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap6(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap5(Auto Generated)
+	# Size: 20M, Offsets Filled: [5K,10K) in Snap4(User Created)
+	# Size: 20M, Offsets Filled: [0,5K) in Snap3(Auto Generated)
+	# Size:  0M, Offsets Filled: [) in Snap2(Auto generated)
+	# Size:  0M, Offsets Filled: [) in Snap1(Auto generated)
+
+	echo "Test duplicate data delete passed"
+	docker stop $replica1_id
+	docker stop $replica2_id
+	docker stop $orig_controller_id
+	cleanup
+}
+
+
 prepare_test_env
 test_single_replica_stop_start
 test_replication_factor
@@ -1199,5 +1483,6 @@ test_clone_feature
 test_duplicate_snapshot_failure
 test_extent_support_file_system
 test_upgrades
+test_duplicate_data_delete
 run_vdbench_test_on_volume
 run_libiscsi_test_suite

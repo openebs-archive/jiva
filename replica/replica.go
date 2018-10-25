@@ -47,6 +47,7 @@ type Replica struct {
 	ReplicaType      string
 	info             Info
 	diskData         map[string]*disk
+	diskList         []string
 	diskChildrenMap  map[string]map[string]bool
 	activeDiskData   []*disk
 	readOnly         bool
@@ -191,6 +192,9 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 	}
 	r.volume.location = make([]byte, locationSize)
 	r.volume.files = []types.DiffDisk{nil}
+	r.volume.UserCreatedSnap = []bool{false}
+	r.diskList = []string{""}
+	r.volume.ReadOnlyIndx = []bool{false}
 
 	if r.readOnly && !exists {
 		return nil, os.ErrNotExist
@@ -255,6 +259,9 @@ func (r *Replica) insertBackingFile() {
 	d := disk{Name: r.info.BackingFile.Name}
 	r.activeDiskData = append([]*disk{{}, &d}, r.activeDiskData[1:]...)
 	r.volume.files = append([]types.DiffDisk{nil, r.info.BackingFile.Disk}, r.volume.files[1:]...)
+	r.volume.ReadOnlyIndx = append(r.volume.ReadOnlyIndx, false)
+	r.diskList = append(r.diskList, r.info.BackingFile.Name)
+	r.volume.UserCreatedSnap = append([]bool{false, false}, r.volume.UserCreatedSnap[1:]...)
 	r.diskData[d.Name] = &d
 }
 
@@ -264,6 +271,31 @@ func (r *Replica) SetRebuilding(rebuilding bool) error {
 		return err
 	}
 	r.info.Rebuilding = rebuilding
+	return nil
+}
+
+// UpdateDiskMode marks a snapshot disk as RO/RW
+// A disk is marked RO to avoid punching holes on that disk
+// while it is helping rebuild another replica
+func (r *Replica) UpdateDiskMode(diskName string, mode string) error {
+	r.Lock()
+	defer r.Unlock()
+	for indx, diskData := range r.diskList {
+		if diskData == diskName {
+			if mode == "RO" {
+				r.volume.ReadOnlyIndx[indx] = true
+			} else {
+				r.volume.ReadOnlyIndx[indx] = false
+			}
+		}
+	}
+	r.volume.ROIndexSet = false
+	for _, ROSet := range r.volume.ReadOnlyIndx {
+		if ROSet {
+			r.volume.ROIndexSet = true
+		}
+	}
+
 	return nil
 }
 
@@ -560,6 +592,8 @@ func (r *Replica) DisplayChain() ([]string, error) {
 	return result, nil
 }
 
+//Chain returns the disk chain starting with Head(index=0),
+//till the base snapshot
 func (r *Replica) Chain() ([]string, error) {
 	r.RLock()
 	defer r.RUnlock()
@@ -825,11 +859,22 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 
 		r.updateChildDisk(oldHead, newSnapName)
 		r.activeDiskData[len(r.activeDiskData)-1].Name = newSnapName
+		r.diskList = r.diskList[:len(r.diskList)-1]
+		r.diskList = append(r.diskList, newSnapName)
 	}
 	delete(r.diskData, oldHead)
+	//delete(r.diskList, oldHead)
 
 	r.info = info
 	r.volume.files = append(r.volume.files, f)
+	r.volume.ReadOnlyIndx = append(r.volume.ReadOnlyIndx, false)
+	r.diskList = append(r.diskList, newHeadDisk.Name)
+	if userCreated {
+		//Indx 0 is nil, indx 1 is base snapshot,
+		//last indx (len(r.volume.files)-1) is active file
+		r.volume.SnapIndx = len(r.volume.files) - 2
+	}
+	r.volume.UserCreatedSnap = append(r.volume.UserCreatedSnap, userCreated)
 	r.activeDiskData = append(r.activeDiskData, &newHeadDisk)
 
 	return nil
@@ -899,6 +944,15 @@ func (r *Replica) openLiveChain() error {
 		}
 
 		r.volume.files = append(r.volume.files, f)
+		r.volume.ReadOnlyIndx = append(r.volume.ReadOnlyIndx, false)
+		r.diskList = append(r.diskList, parent)
+		userCreated := r.diskData[parent].UserCreated
+		r.volume.UserCreatedSnap = append(r.volume.UserCreatedSnap, userCreated)
+		if userCreated {
+			//This chain is the actual disk chain and does not contain the extra
+			//nil at index 0, which is present in r.volume.files
+			r.volume.SnapIndx = len(chain) - i
+		}
 		r.activeDiskData = append(r.activeDiskData, r.diskData[parent])
 	}
 	return nil

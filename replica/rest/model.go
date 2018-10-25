@@ -53,6 +53,12 @@ type RebuildingInput struct {
 	Rebuilding bool `json:"rebuilding"`
 }
 
+type UpdateDiskModeInput struct {
+	client.Resource
+	Disk string `json:"disk"`
+	Mode string `json:"mode"`
+}
+
 type SnapshotInput struct {
 	client.Resource
 	Name        string `json:"name"`
@@ -137,6 +143,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["start"] = true
 		actions["resize"] = true
 		actions["close"] = true
+		actions["updatediskmode"] = true
 		actions["resize"] = true
 		actions["setrebuilding"] = true
 		actions["snapshot"] = true
@@ -167,6 +174,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["reload"] = true
 		actions["removedisk"] = true
 		actions["replacedisk"] = true
+		actions["updatediskmode"] = true
 		actions["revert"] = true
 		actions["prepareremovedisk"] = true
 		actions["setreplicacounter"] = true

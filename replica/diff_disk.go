@@ -4,9 +4,13 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/frostschutz/go-fibmap"
+	fibmap "github.com/frostschutz/go-fibmap"
 	"github.com/openebs/jiva/types"
 )
+
+type fileType struct {
+	fileName string
+}
 
 type diffDisk struct {
 	rmLock sync.Mutex
@@ -17,7 +21,17 @@ type diffDisk struct {
 	UsedBlocks        int64
 	// list of files in child, parent, grandparent, etc order.
 	// index 0 is nil and index 1 is the active write layer
-	files      []types.DiffDisk
+	files []types.DiffDisk
+	// list representing file index marked true/false for
+	// userCreated/Auto-Created accordingly. It should always be updated
+	// whenever modifying above "files" variable
+	UserCreatedSnap []bool
+	// A snapshot file is marked ReadOnly when it is helping sync some other
+	// replica
+	ReadOnlyIndx []bool
+	ROIndexSet   bool
+	// Index of latest user created snapshot
+	SnapIndx   int
 	sectorSize int64
 }
 
@@ -26,6 +40,7 @@ func (d *diffDisk) RemoveIndex(index int) error {
 		return err
 	}
 
+	//TODO Decide if d.location should be preloaded again over here
 	for i := 0; i < len(d.location); i++ {
 		if d.location[i] >= byte(index) {
 			// set back to unknown
@@ -34,6 +49,12 @@ func (d *diffDisk) RemoveIndex(index int) error {
 	}
 
 	d.files = append(d.files[:index], d.files[index+1:]...)
+	d.UserCreatedSnap = append(d.UserCreatedSnap[:index], d.UserCreatedSnap[index+1:]...)
+	for i, userCreated := range d.UserCreatedSnap {
+		if userCreated {
+			d.SnapIndx = i
+		}
+	}
 
 	return nil
 }
@@ -92,6 +113,12 @@ func (d *diffDisk) readModifyWrite(buf []byte, offset int64) (int, error) {
 }
 
 func (d *diffDisk) fullWriteAt(buf []byte, offset int64) (int, error) {
+	var (
+		length   int64
+		lOffset  int64
+		file     types.DiffDisk
+		fileIndx byte
+	)
 	if int64(len(buf))%d.sectorSize != 0 || offset%d.sectorSize != 0 {
 		return 0, fmt.Errorf("Write len(%d), offset %d not a multiple of %d", len(buf), offset, d.sectorSize)
 	}
@@ -104,15 +131,39 @@ func (d *diffDisk) fullWriteAt(buf []byte, offset int64) (int, error) {
 
 	// Regardless of err mark bytes as written
 	for i := int64(0); i < sectors; i++ {
+		offset = startSector + i
 		if val := d.location[startSector+i]; val == 0 {
 			d.UsedLogicalBlocks++
 			d.UsedBlocks++
 		} else if val != target {
-			d.UsedBlocks++
+			//We are looking for continuous blocks over here.
+			//If the file of the next block is changed, we punch a hole
+			//for the previous unpunched blocks, and reset the file and
+			//fileIndx pointed to by this block
+			if d.location[startSector+i] != fileIndx ||
+				startSector+i != lOffset+length {
+				if file != nil && int(fileIndx) > d.SnapIndx {
+					sendToCreateHole(d.files[val], lOffset*d.sectorSize, length*d.sectorSize)
+				}
+				file = d.files[d.location[startSector+i]]
+				fileIndx = d.location[offset]
+				length = 1
+				lOffset = startSector + i
+			} else {
+				//If this is the last block in the loop, hole for this
+				//block will be punched outside the loop
+				length++
+			}
 		}
 		d.location[startSector+i] = target
 	}
-
+	//This will take care of the case when the last call in the above loop
+	//enters else case
+	if (file != nil) && (int(fileIndx) > d.SnapIndx) {
+		sendToCreateHole(file, lOffset*d.sectorSize, length*d.sectorSize)
+	}
+	file = nil
+	fileIndx = 0
 	return c, err
 }
 
@@ -148,7 +199,6 @@ func (d *diffDisk) ReadAt(buf []byte, offset int64) (int, error) {
 		if _, err := d.fullReadAt(readBuf, offset+int64(len(buf))-endOffset); err != nil {
 			return 0, err
 		}
-
 		copy(buf[int64(len(buf))-endOffset:], readBuf[:endOffset])
 	}
 
@@ -156,6 +206,11 @@ func (d *diffDisk) ReadAt(buf []byte, offset int64) (int, error) {
 }
 
 func (d *diffDisk) fullReadAt(buf []byte, offset int64) (int, error) {
+	var (
+		err error
+		c   int
+	)
+
 	if int64(len(buf))%d.sectorSize != 0 || offset%d.sectorSize != 0 {
 		return 0, fmt.Errorf("Read not a multiple of %d", d.sectorSize)
 	}
@@ -182,8 +237,12 @@ func (d *diffDisk) fullReadAt(buf []byte, offset int64) (int, error) {
 		if newTarget == target {
 			readSectors++
 		} else {
-			c, err := d.read(target, buf, offset, i-readSectors, readSectors)
-			count += c
+			if target == 0 {
+				count += int(readSectors * d.sectorSize)
+			} else {
+				c, err = d.read(target, buf, offset, i-readSectors, readSectors)
+				count += c
+			}
 			if err != nil {
 				return count, err
 			}
@@ -193,8 +252,12 @@ func (d *diffDisk) fullReadAt(buf []byte, offset int64) (int, error) {
 	}
 
 	if readSectors > 0 {
-		c, err := d.read(target, buf, offset, sectors-readSectors, readSectors)
-		count += c
+		if target == 0 {
+			count += int(readSectors * d.sectorSize)
+		} else {
+			c, err = d.read(target, buf, offset, sectors-readSectors, readSectors)
+			count += c
+		}
 		if err != nil {
 			return count, err
 		}
@@ -222,7 +285,6 @@ func (d *diffDisk) lookup(sector int64) (byte, error) {
 	}
 
 	target := d.location[sector]
-
 	if target == 0 {
 		for i := len(d.files) - 1; i > 0; i-- {
 			if i == 1 {

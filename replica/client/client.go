@@ -128,6 +128,18 @@ func (c *ReplicaClient) SetRebuilding(rebuilding bool) error {
 	}, nil)
 }
 
+func (c *ReplicaClient) UpdateDiskMode(disk string, mode string) error {
+	r, err := c.GetReplica()
+	if err != nil {
+		logrus.Errorf("Updatediskmode for disk: %v failed %v", disk, mode)
+		return err
+	}
+	return c.post(r.Actions["updatediskmode"], &rest.UpdateDiskModeInput{
+		Disk: disk,
+		Mode: mode,
+	}, nil)
+}
+
 func (c *ReplicaClient) RemoveDisk(disk string) error {
 	r, err := c.GetReplica()
 	if err != nil {
