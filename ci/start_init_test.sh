@@ -956,6 +956,29 @@ test_duplicate_snapshot_failure() {
 	create_snapshot $id "snap2" "Snapshot: snap2 created successfully"
 	sleep 5
 	test_data_integrity
+
+        # not required, we will use the same to test delete snapshot
+        # and perform the cleanup there only.
+	# cleanup
+}
+
+verify_delete_snapshot() {
+	output_type=$(curl -H "Content-Type: application/json" -X DELETE -d '{"name":"'$2'"}' http://$CONTROLLER_IP:9501/v1/volumes/$1?action=deletesnapshot | jq '.type' | tr -d '"')
+	if [ "$output_type" == "$3" ] ;
+	then
+		echo "delete snapshot test passed"
+	else
+		echo "delete snapshot test failed"
+		collect_logs_and_exit
+	fi;
+}
+
+test_delete_snapshot() {
+	echo "-------------Test_delete_snapshot---------"
+	id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
+	verify_delete_snapshot $id "snap1" "snapshotOutput"
+	verify_delete_snapshot $id "snap2" "error"
+	verify_delete_snapshot $id "snap3" "error"
 	cleanup
 }
 
@@ -1494,6 +1517,7 @@ test_volume_resize
 run_data_integrity_test_with_fs_creation
 test_clone_feature
 test_duplicate_snapshot_failure
+test_delete_snapshot
 test_extent_support_file_system
 test_upgrades
 test_duplicate_data_delete

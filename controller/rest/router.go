@@ -28,6 +28,7 @@ func NewRouter(s *Server) *mux.Router {
 	router.Methods("POST").Path("/v1/volumes/{id}").Queries("action", "start").Handler(f(schemas, s.StartVolume))
 	router.Methods("POST").Path("/v1/volumes/{id}").Queries("action", "shutdown").Handler(f(schemas, s.ShutdownVolume))
 	router.Methods("POST").Path("/v1/volumes/{id}").Queries("action", "snapshot").Handler(f(schemas, s.SnapshotVolume))
+	router.Methods("DELETE").Path("/v1/volumes/{id}").Queries("action", "deletesnapshot").Handler(f(schemas, s.DeleteSnapshot))
 	router.Methods("POST").Path("/v1/volumes/{id}").Queries("action", "revert").Handler(f(schemas, s.RevertVolume))
 	router.Methods("POST").Path("/v1/volumes/{id}").Queries("action", "resize").Handler(f(schemas, s.ResizeVolume))
 
