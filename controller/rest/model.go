@@ -71,12 +71,12 @@ type VolumeStats struct {
 	TotalWriteTime       string `json:"TotalWriteTime"`
 	TotalWriteBlockCount string `json:"TotalWriteBlockCount"`
 
-	UsedLogicalBlocks string  `json:"UsedLogicalBlocks"`
-	UsedBlocks        string  `json:"UsedBlocks"`
-	SectorSize        string  `json:"SectorSize"`
-	Size              string  `json:"Size"`
-	UpTime            float64 `json:"UpTime"`
-	Name              string  `json:"Name"`
+	UsedLogicalBlocks string `json:"UsedLogicalBlocks"`
+	UsedBlocks        string `json:"UsedBlocks"`
+	SectorSize        string `json:"SectorSize"`
+	Size              string `json:"Size"`
+	UpTime            string `json:"UpTime"`
+	Name              string `json:"Name"`
 }
 
 type SnapshotInput struct {
