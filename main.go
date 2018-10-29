@@ -13,8 +13,15 @@ import (
 	"github.com/docker/docker/pkg/reexec"
 	"github.com/openebs/jiva/app"
 	"github.com/openebs/jiva/backup"
+	"github.com/openebs/jiva/util"
 	"github.com/rancher/sparse-tools/cli/sfold"
 	"github.com/rancher/sparse-tools/cli/ssync"
+)
+
+var (
+	Version     string
+	GitCommitID string
+	BuildDate   string
 )
 
 func main() {
@@ -72,7 +79,7 @@ func longhornCli() {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
-
+	util.SetVersionDetails(Version, BuildDate, GitCommitID)
 	a := cli.NewApp()
 	a.Before = func(c *cli.Context) error {
 		if c.GlobalBool("debug") {

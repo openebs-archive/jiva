@@ -79,6 +79,8 @@ func NewRouter(s *Server) *mux.Router {
 		router.Methods("POST").Path("/v1/replicas/{id}").Queries("action", name).Handler(f(schemas, checkAction(s, action)))
 	}
 	router.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
+	// Version
+	router.Methods("GET").Path("/v1/version/details").Handler(f(schemas, s.GetVersion))
 
 	return router
 }

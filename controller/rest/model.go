@@ -114,6 +114,13 @@ type RegReplica struct {
 	UpTime   time.Duration `json:"UpTime"`
 }
 
+type Version struct {
+	client.Resource
+	Version     string `json:"version"`
+	GitCommitID string `json:"commitid"`
+	BuildDate   string `json:"builddate"`
+}
+
 func NewVolume(context *api.ApiContext, name string, readOnly bool, replicas int) *Volume {
 	var ReadOnly string
 	if readOnly {
@@ -181,6 +188,7 @@ func NewSchema() *client.Schemas {
 	schemas.AddType("revertInput", RevertInput{})
 	schemas.AddType("journalInput", JournalInput{})
 	schemas.AddType("prepareRebuildOutput", PrepareRebuildOutput{})
+	schemas.AddType("version", Version{})
 
 	replica := schemas.AddType("replica", Replica{})
 	replica.CollectionMethods = []string{"GET", "POST"}

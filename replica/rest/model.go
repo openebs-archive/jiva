@@ -114,6 +114,13 @@ type Action struct {
 	Value string `json:"Action"`
 }
 
+type Version struct {
+	client.Resource
+	Version     string `json:"version"`
+	GitCommitID string `json:"commitid"`
+	BuildDate   string `json:"builddate"`
+}
+
 func NewReplica(context *api.ApiContext, state replica.State, info replica.Info, rep *replica.Replica) *Replica {
 	r := &Replica{
 		Resource: client.Resource{
@@ -271,6 +278,7 @@ func NewSchema() *client.Schemas {
 	schemas.AddType("revisionCounter", RevisionCounter{})
 	schemas.AddType("replicaCounter", ReplicaCounter{})
 	schemas.AddType("replacediskInput", ReplaceDiskInput{})
+	schemas.AddType("version", Version{})
 
 	delete := schemas.AddType("delete", DeleteReplicaOutput{})
 	delete.ResourceMethods = []string{"DELETE"}

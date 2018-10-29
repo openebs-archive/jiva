@@ -26,6 +26,18 @@ const (
 	BlockSizeLinux = 512
 )
 
+var (
+	Version     string
+	BuildDate   string
+	GitCommitID string
+)
+
+type VersionDetails struct {
+	Version     string
+	BuildDate   string
+	GitCommitID string
+}
+
 func ParseAddresses(name string) (string, string, string, error) {
 	matches := parsePattern.FindStringSubmatch(name)
 	if matches == nil {
@@ -172,4 +184,18 @@ func CheckReplicationFactor() int {
 		return int(replicationFactor)
 	}
 	return int(replicationFactor)
+}
+
+func SetVersionDetails(ver, date, commit string) {
+	Version = ver
+	BuildDate = date
+	GitCommitID = commit
+}
+
+func GetVersionDetails() VersionDetails {
+	return VersionDetails{
+		Version:     Version,
+		BuildDate:   BuildDate,
+		GitCommitID: GitCommitID,
+	}
 }
