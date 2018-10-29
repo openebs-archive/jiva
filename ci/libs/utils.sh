@@ -5,25 +5,35 @@
 cleanup(){
 	rm -rf $TMP_DIR/vol*
 	rm -rf $MNT_DIR/logs
-    docker stop $(docker ps -aq)
-    docker rm $(docker ps -aq) 
+	docker stop $(docker ps -aq)
+	docker rm $(docker ps -aq) 
 }
 
 # start_controller CONTROLLER_IP
 start_controller() {
-	controller_id=$(docker run -d --net stg-net --ip $1\
-        -P --expose 3260 --expose 9501 --expose 9502-9504 $JI \
-        env REPLICATION_FACTOR="$3" launch controller --frontend gotgt\
-        --frontendIP "$1" "$2")
+	controller_id=$(docker run -d \
+	    --net stg-net \
+	    --ip $1\
+	    -P --expose 3260 --expose 9501 --expose 9502-9504 \
+	    $JI \
+	    env REPLICATION_FACTOR="$3" \
+	    launch controller \
+	    --frontend gotgt\
+	    --frontendIP "$1" "$2")
 	echo "$controller_id"
 }
 
 # start_replica CONTROLLER_IP REPLICA_IP folder_name
 start_replica() {
-	replica_id=$(docker run -d -it --net stg-net --ip "$2"\
-        -P --expose 9502-9504 -v $TMP_DIR/"$3":/"$3" $JI \
-        launch replica --frontendIP "$1" --listen "$2":9502\
-        --size 2g /"$3")
+	replica_id=$(docker run -d -it \
+	    --net stg-net --ip "$2"\
+	    -P --expose 9502-9504 \
+	    -v $TMP_DIR/"$3":/"$3" \
+	    $JI \
+	    launch replica \
+	    --frontendIP "$1" \
+	    --listen "$2":9502\
+	    --size 2g /"$3")
 	echo "$replica_id"
 }
 
