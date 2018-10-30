@@ -47,7 +47,7 @@ func (c *Controller) getCurrentAndRWReplica(address string) (*types.Replica, *ty
 }
 
 func (c *Controller) VerifyRebuildReplica(address string) error {
-	// Prevent snapshot happenes at the same time, as well as prevent
+	// Prevent snapshot happens at the same time, as well as prevent
 	// writing from happening since we're updating revision counter
 	c.Lock()
 	defer c.Unlock()
