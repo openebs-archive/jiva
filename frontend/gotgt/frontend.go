@@ -59,22 +59,22 @@ func (t *goTgt) Startup(name string, frontendIP string, clusterIP string, size, 
 	t.lhbsName = "RemBs:" + name
 	t.cfg = &config.Config{
 		Storages: []config.BackendStorage{
-			config.BackendStorage{
+			{
 				DeviceID: 1000,
 				Path:     t.lhbsName,
 				Online:   true,
 			},
 		},
 		ISCSIPortals: []config.ISCSIPortalInfo{
-			config.ISCSIPortalInfo{
+			{
 				ID:     0,
 				Portal: frontendIP + ":3260",
 			},
 		},
 		ISCSITargets: map[string]config.ISCSITarget{
-			t.tgtName: config.ISCSITarget{
+			t.tgtName: {
 				TPGTs: map[string][]uint64{
-					"1": []uint64{0},
+					"1": {0},
 				},
 				LUNs: map[string]uint64{
 					"1": uint64(1000),
