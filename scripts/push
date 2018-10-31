@@ -1,5 +1,5 @@
 #!/bin/bash
-set -ex
+set -e
 
 if [ -z ${IMAGE_REPO} ];
 then
@@ -7,10 +7,9 @@ then
   exit 1
 fi
 
-export IMAGEID
 source "$(dirname $0)/version"
-IMAGEID=$(docker images -q openebs/jiva:${VERSION})
-echo $IMAGEID
+TAG=${TAG:-${VERSION}}
+IMAGE_ID=$(docker images -q ${IMAGE_REPO}:${TAG})
 if [ -z ${IMAGEID} ];
 then
   echo "Error: unable to get IMAGEID for ${IMAGE_REPO}:${VERSION}";

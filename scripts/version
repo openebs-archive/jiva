@@ -27,14 +27,13 @@ echo "Set the build/unique image tag as: ${BUILD_TAG}"
 COMMIT=$(git rev-parse --short HEAD)
 BUILDDATE=$(date --rfc-3339=seconds)
 BUILDDATE=${BUILDDATE// /,} # skip spaces from above and add comma
+GITCOMMIT=${COMMIT}
 
 if [ ! -z "${TRAVIS_TAG}" ] ;
   then
-    GITCOMMIT=${COMMIT}
     VERSION=${TRAVIS_TAG}
 else
   RELEASE_TAG=${CI_TAG}
-  GITCOMMIT=${COMMIT}
   VERSION=${RELEASE_TAG}-${COMMIT}
 fi;
 

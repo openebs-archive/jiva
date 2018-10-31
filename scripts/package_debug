@@ -16,4 +16,7 @@ cp ../bin/debug/longhorn* .
 cp /usr/src/tgt/pkg/tgt_*.deb .
 docker build -t ${REPO}/jiva:${TAG} .
 
+IMAGE_ID=$(docker images -q ${REPO}/jiva:${TAG})
+
 echo Built ${REPO}/jiva:${TAG}
+echo IMAGE_ID: $IMAGE_ID
