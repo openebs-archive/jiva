@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -ex
 
 if [ -z ${IMAGE_REPO} ];
 then
@@ -7,9 +7,11 @@ then
   exit 1
 fi
 
+IMAGEID=""
+VERSION=""
 source "$(dirname $0)/version"
-IMAGEID=$( docker images -q openebs/jiva:${VERSION} )
-echo $IMAGEID 
+IMAGEID=$(docker images -q openebs/jiva:${VERSION})
+echo $IMAGEID
 if [ -z ${IMAGEID} ];
 then
   echo "Error: unable to get IMAGEID for ${IMAGE_REPO}:${VERSION}";
@@ -19,7 +21,7 @@ fi
 function TagAndPushImage() {
   REPO="$1"
   TAG="$2"
-  
+
   IMAGE_URI="${REPO}:${TAG}";
   sudo docker tag ${IMAGEID} ${IMAGE_URI};
   echo " push ${IMAGE_URI}";

@@ -8,7 +8,7 @@ BUILD_ID=$(git describe --tags --always)
 CURRENT_BRANCH=""
 if [ -z ${TRAVIS_BRANCH} ];
 then
-  CURRENT_BRANCH=$(git branch | grep \* | cut -d ' ' -f2)
+  CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 else
   CURRENT_BRANCH=${TRAVIS_BRANCH}
 fi
