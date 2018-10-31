@@ -12,7 +12,7 @@ An OpenEBS Volume is comprised of:
 
 Both controller and replica can be launched using this same image, *openebs/jiva*, by passing different launch arguments. The controller expects volume details like name and size. The replica will require the controller to which it is attached and the mount path where it stores the data.
 
-The scheduling of the controller and replica containers of an OpenEBS Volume is managed by *maya* that integrates itself into Container Orchestrators like Kubernetes, Docker Swarm, Mesos or Nomad. 
+The scheduling of the controller and replica containers of an OpenEBS Volume is managed by *maya* that integrates itself into Container Orchestrators like Kubernetes, Docker Swarm, Mesos or Nomad.
 
 OpenEBS v0.4.0, provides integration into Kubernetes Clusters. Please follow [OpenEBS documentation](https://docs.openebs.io/), if you are using Kubernetes.
 
