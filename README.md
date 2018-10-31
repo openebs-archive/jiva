@@ -4,7 +4,6 @@
 
 Jiva is a Docker image for creating OpenEBS Volumes. OpenEBS Volumes provide block storage to your application containers. An OpenEBS Volume - is itself launched as a container, making OpenEBS a true Container Native Storage for Containers.
 
-
 An OpenEBS Volume is comprised of:
 - One *controller* (or Frontend-Container) that exposes storage via iSCSI, TCMU etc., and can be launched alongside your application container.
 - One or more *replicas* (or Backend-Containers) that will persist the data, providing redundancy and high-availability. The replica container will save the data onto the storage (disks) attached to your docker hosts.
@@ -13,7 +12,7 @@ An OpenEBS Volume is comprised of:
 
 Both controller and replica can be launched using this same image, *openebs/jiva*, by passing different launch arguments. The controller expects volume details like name and size. The replica will require the controller to which it is attached and the mount path where it stores the data.
 
-The scheduling of the controller and replica containers of an OpenEBS Volume is managed by *maya* that integrates itself into Container Orchestrators like Kubernetes, Docker Swarm, Mesos or Nomad. 
+The scheduling of the controller and replica containers of an OpenEBS Volume is managed by *maya* that integrates itself into Container Orchestrators like Kubernetes, Docker Swarm, Mesos or Nomad.
 
 OpenEBS v0.4.0, provides integration into Kubernetes Clusters. Please follow [OpenEBS documentation](https://docs.openebs.io/), if you are using Kubernetes.
 
@@ -29,8 +28,8 @@ Requires *curl* and *docker* to be installed on your build machine.
 
 `make build`
 
-- Downloads *dapper* using curl
-- Downloads *trash* using go get for dependency management
+- Downloads *dapper* using curl.
+- Downloads *trash* using go get for dependency management.
 - Triggers a build using *dapper* - wrapper around docker.
 
 
@@ -52,7 +51,6 @@ Create the static IPs on host#1, where you can create the controller and replica
 host#1$ sudo ip addr add 172.18.200.101/24 dev eth0
 host#1$ sudo ip addr add 172.18.200.102/24 dev eth0
 ```
-.
 
 Create the static IP on host#2, where you can create replica-2.
 
@@ -60,7 +58,6 @@ Create the static IP on host#2, where you can create replica-2.
 host#2$ sudo ip addr add 172.18.200.103/24 dev eth0
 ```
 
-.
 #### Setup the storage disks
 
 The backend containers will need to be provided with the storage (directory) where the data will be persisted. The directory should be accessible via the containers. One host1 and host2 setup creates a directory on the disk that has sufficient space for holding the volume. (Again, these operations are taken care by the Storage Orchestrator - Maya, if you are using Kubernetes).
@@ -68,12 +65,10 @@ The backend containers will need to be provided with the storage (directory) whe
 ```
 host#1$ mkdir /mnt/store1
 ```
-.
 ```
 host#2$ mkdir /mnt/store2
 ```
 
-.
 ### Launch controller
 
 Create a controller on host#1, that will create *demo-vol1* with capacity of 10G.
@@ -82,7 +77,6 @@ Create a controller on host#1, that will create *demo-vol1* with capacity of 10G
 host#1$ sudo docker run -d --net host -P --expose 3260 --expose 9501 --name ctrl openebs/jiva launch controller --frontend gotgt --frontendIP 172.18.200.101 demo-vol1 10G
 ```
 
-.
 ### Launch replica
 
 Create the replica on host#1, for demo-vol1 with data stored in /mnt/store1.
@@ -90,13 +84,13 @@ Create the replica on host#1, for demo-vol1 with data stored in /mnt/store1.
 ```
 docker run -d --network="host" -P --expose 9502-9504 --expose 9700-9800 -v /mnt/stor1:/stor1 --name replica-1 <openebs/jiva> launch replica --frontendIP 172.18.200.101 --listen 172.18.200.102:9502 --size 10G /stor1
 ```
-.
+
 Create the backend container on host#2, for demo-vol1 with data stored in /mnt/store1.
 
 ```
 docker run -d --network="host" -P --expose 9502-9504 --expose 9700-9800 -v /mnt/stor2:/stor2 --name replica-2 <openebs/jiva> launch replica --frontendIP 172.18.200.101 --listen 172.18.200.103:9502 --size 10G /stor2
 ```
-.
+
 ### Using the iSCSI volume
 
 The volume created from the above containers can be used via the iSCSI plugin or iscsiadm by using the following details:
