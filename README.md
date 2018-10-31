@@ -4,7 +4,6 @@
 
 Jiva is a Docker image for creating OpenEBS Volumes. OpenEBS Volumes provide block storage to your application containers. An OpenEBS Volume - is itself launched as a container, making OpenEBS a true Container Native Storage for Containers.
 
-
 An OpenEBS Volume is comprised of:
 - One *controller* (or Frontend-Container) that exposes storage via iSCSI, TCMU etc., and can be launched alongside your application container.
 - One or more *replicas* (or Backend-Containers) that will persist the data, providing redundancy and high-availability. The replica container will save the data onto the storage (disks) attached to your docker hosts.
