@@ -103,7 +103,7 @@ verify_rw_status() {
 	i=0
 	rw_status=""
 	while [ "$rw_status" != "$1" ]; do
-		ro_status=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
+		ro_status=`curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
 		if [ "$ro_status" == "true" ]; then
 			rw_status="RO"
 		elif [ "$ro_status" == "false" ]; then
@@ -124,7 +124,7 @@ verify_controller_rep_state() {
 	rep_state=""
 	while [ "$i" != 50 ]; do
 		date
-		rep_cnt=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
+		rep_cnt=`curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
 		replica_cnt=`expr $rep_cnt`
 		rep_index=0
 		while [ $rep_index -lt $replica_cnt ]; do
@@ -152,7 +152,7 @@ verify_vol_status() {
 	rw_status=""
 	while [ "$rw_status" != "$1" ]; do
 		date
-		ro_status=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
+		ro_status=`curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
 		if [ "$ro_status" == "true" ]; then
 			rw_status="RO"
 		elif [ "$ro_status" == "false" ]; then
