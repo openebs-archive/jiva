@@ -681,7 +681,7 @@ test_three_replica_stop_start() {
 		i=`expr $i + 1`
 		if [ $i -eq 50 ]; then
 			echo "Closed replica failed to attach back to controller"
-			exit;
+			collect_logs_and_exit
 		fi
 		echo "Wait for the closed replica to connect back to controller, replicaCount: "$replica_count
 		sleep 5;
@@ -728,7 +728,7 @@ test_replica_reregistration() {
 		i=`expr $i + 1`
 		if [ $i -eq 50 ]; then
 			echo "Replicas failed to attach to controller"
-			exit;
+			collect_logs_and_exit
 		fi
 		echo "Wait for the closed replica to connect back to controller, replicaCount: "$replica_count
 		sleep 5;
@@ -743,7 +743,7 @@ test_replica_reregistration() {
 		i=`expr $i + 1`
 		if [ $i -eq 50 ]; then
 			echo "Closed replica failed to attach back to controller"
-			exit;
+			collect_logs_and_exit
 		fi
 		echo "Wait for the closed replica to connect back to controller, replicaCount: "$replica_count
 		sleep 5;
@@ -823,7 +823,7 @@ get_scsi_disk() {
 		i=`expr $i + 1`
 		if [ $i -eq 10 ]; then
 			echo "scsi disk not found";
-			exit;
+			collect_logs_and_exit
 		else
 			continue;
 		fi
@@ -1116,7 +1116,7 @@ di_test_on_raw_disk() {
 			else
 				fdisk -l
 				logout_of_volume
-				echo "DI Test: FAILED"; exit; collect_logs_and_exit
+				echo "DI Test: FAILED"; collect_logs_and_exit
 			fi
 			logout_of_volume
 		fi
@@ -1220,11 +1220,11 @@ create_manual_snapshot() {
 verify_physical_space_consumed() {
 	size=`du -sh --block-size=1048576 /tmp/vol1/$active_file1 | awk '{print $1}'`
 	if [ $size != $active_file_size ] && [ $size != `expr $active_file_size + 1` ] ; then
-		echo "Active file size check failed for replica1"; exit
+		echo "Active file size check failed for replica1"; collect_logs_and_exit
 	fi
 	size=`du -sh --block-size=1048576 /tmp/vol2/$active_file2 | awk '{print $1}'`
 	if [ $size != $active_file_size ] && [ $size != `expr $active_file_size + 1` ] ; then
-		echo "Active file size check failed for replica2"; exit
+		echo "Active file size check failed for replica2"; collect_logs_and_exit
 	fi
 	physical_size=0
 	#for snap in ${snaps[@]}
@@ -1234,13 +1234,13 @@ verify_physical_space_consumed() {
 		if [ $size != ${snapsize[$i]} ] && [ $size != `expr ${snapsize[$i]} + 1` ]; then
 			echo "Test Failed";
 			echo "Snap: $i Name: ${snaps[$i]} Actual: $size Expected: ${snapsize[$i]}"
-			exit
+			collect_logs_and_exit
 		fi
 		size=`du -sh --block-size=1048576 /tmp/vol2/${snaps[$i]} | awk '{print $1}'`
 		if [ $size != ${snapsize[$i]} ] && [ $size != `expr ${snapsize[$i]} + 1` ]; then
 			echo "Test Failed";
 			echo "Snap: $i Name: ${snaps[$i]} Actual: $size Expected: ${snapsize[$i]}"
-			exit
+			collect_logs_and_exit
 		fi
 	done
 }
