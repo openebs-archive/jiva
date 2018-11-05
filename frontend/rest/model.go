@@ -85,11 +85,11 @@ func NewSchema() *client.Schemas {
 
 	volumes := schemas.AddType("volume", Volume{})
 	volumes.ResourceActions = map[string]client.Action{
-		"readat": client.Action{
+		"readat": {
 			Input:  "readInput",
 			Output: "readOutput",
 		},
-		"writeat": client.Action{
+		"writeat": {
 			Input:  "writeInput",
 			Output: "writeOutput",
 		},
