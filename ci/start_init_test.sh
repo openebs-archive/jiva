@@ -681,7 +681,7 @@ test_three_replica_stop_start() {
 		i=`expr $i + 1`
 		if [ $i -eq 50 ]; then
 			echo "Closed replica failed to attach back to controller"
-			exit;
+			collect_logs_and_exit
 		fi
 		echo "Wait for the closed replica to connect back to controller, replicaCount: "$replica_count
 		sleep 5;
@@ -728,7 +728,7 @@ test_replica_reregistration() {
 		i=`expr $i + 1`
 		if [ $i -eq 50 ]; then
 			echo "Replicas failed to attach to controller"
-			exit;
+			collect_logs_and_exit
 		fi
 		echo "Wait for the closed replica to connect back to controller, replicaCount: "$replica_count
 		sleep 5;
@@ -743,7 +743,7 @@ test_replica_reregistration() {
 		i=`expr $i + 1`
 		if [ $i -eq 50 ]; then
 			echo "Closed replica failed to attach back to controller"
-			exit;
+			collect_logs_and_exit
 		fi
 		echo "Wait for the closed replica to connect back to controller, replicaCount: "$replica_count
 		sleep 5;
@@ -823,7 +823,7 @@ get_scsi_disk() {
 		i=`expr $i + 1`
 		if [ $i -eq 10 ]; then
 			echo "scsi disk not found";
-			exit;
+			collect_logs_and_exit
 		else
 			continue;
 		fi
@@ -1116,7 +1116,7 @@ di_test_on_raw_disk() {
 			else
 				fdisk -l
 				logout_of_volume
-				echo "DI Test: FAILED"; exit; collect_logs_and_exit
+				echo "DI Test: FAILED"; collect_logs_and_exit
 			fi
 			logout_of_volume
 		fi
@@ -1220,11 +1220,11 @@ create_manual_snapshot() {
 verify_physical_space_consumed() {
 	size=`du -sh --block-size=1048576 /tmp/vol1/$active_file1 | awk '{print $1}'`
 	if [ $size != $active_file_size ] && [ $size != `expr $active_file_size + 1` ] ; then
-		echo "Active file size check failed for replica1"; exit
+		echo "Active file size check failed for replica1"; collect_logs_and_exit
 	fi
 	size=`du -sh --block-size=1048576 /tmp/vol2/$active_file2 | awk '{print $1}'`
 	if [ $size != $active_file_size ] && [ $size != `expr $active_file_size + 1` ] ; then
-		echo "Active file size check failed for replica2"; exit
+		echo "Active file size check failed for replica2"; collect_logs_and_exit
 	fi
 	physical_size=0
 	#for snap in ${snaps[@]}
@@ -1234,13 +1234,13 @@ verify_physical_space_consumed() {
 		if [ $size != ${snapsize[$i]} ] && [ $size != `expr ${snapsize[$i]} + 1` ]; then
 			echo "Test Failed";
 			echo "Snap: $i Name: ${snaps[$i]} Actual: $size Expected: ${snapsize[$i]}"
-			exit
+			collect_logs_and_exit
 		fi
 		size=`du -sh --block-size=1048576 /tmp/vol2/${snaps[$i]} | awk '{print $1}'`
 		if [ $size != ${snapsize[$i]} ] && [ $size != `expr ${snapsize[$i]} + 1` ]; then
 			echo "Test Failed";
 			echo "Snap: $i Name: ${snaps[$i]} Actual: $size Expected: ${snapsize[$i]}"
-			exit
+			collect_logs_and_exit
 		fi
 	done
 }
@@ -1417,36 +1417,6 @@ test_duplicate_data_delete() {
 	# Size:  0M, Offsets Filled: [) in Active File
 	# Size: 24M, Offsets Filled: [3k,9K) in Snap8(Auto Generated)
 	# Size: 16M, Offsets Filled: [0,3k)[9K, 10K) in Snap7(Auto Generated)
-	# Size: 20M, Offsets Filled: [5K,10K) in Snap6(User Created)
-	# Size: 20M, Offsets Filled: [0,5K) in Snap5(Auto Generated)
-	# Size: 20M, Offsets Filled: [5K,10K) in Snap4(User Created)
-	# Size: 20M, Offsets Filled: [0,5K) in Snap3(Auto Generated)
-	# Size:  0M, Offsets Filled: [) in Snap2(Auto generated)
-	# Size:  0M, Offsets Filled: [) in Snap1(Auto generated)
-
-	update_disk_mode "${snaps[8]}" "RO"
-
-	run_ios 2K 5K
-	update_file_sizes 8 0 0 20 20 20 20 16 24
-	verify_physical_space_consumed
-	# Size:  8M, Offsets Filled: [5K,7K) in Active File
-	# Size: 24M, Offsets Filled: [3k,9K) in Snap8(Auto Generated)
-	# Size: 16M, Offsets Filled: [0,3K)[9K, 10K) in Snap7(Auto Generated)
-	# Size: 20M, Offsets Filled: [5K,10K) in Snap6(User Created)
-	# Size: 20M, Offsets Filled: [0,5K) in Snap5(Auto Generated)
-	# Size: 20M, Offsets Filled: [5K,10K) in Snap4(User Created)
-	# Size: 20M, Offsets Filled: [0,5K) in Snap3(Auto Generated)
-	# Size:  0M, Offsets Filled: [) in Snap2(Auto generated)
-	# Size:  0M, Offsets Filled: [) in Snap1(Auto generated)
-
-	update_disk_mode "${snaps[8]}" "RW"
-
-	run_ios 3K 4K
-	update_file_sizes 12 0 0 20 20 20 20 16 20
-	verify_physical_space_consumed
-	# Size: 12M, Offsets Filled: [4K,7K) in Active File
-	# Size: 20M, Offsets Filled: [3K,4k)[5k,9K) in Snap8(Auto Generated)
-	# Size: 16M, Offsets Filled: [0,3K)[9K, 10K) in Snap7(Auto Generated)
 	# Size: 20M, Offsets Filled: [5K,10K) in Snap6(User Created)
 	# Size: 20M, Offsets Filled: [0,5K) in Snap5(Auto Generated)
 	# Size: 20M, Offsets Filled: [5K,10K) in Snap4(User Created)
