@@ -72,6 +72,7 @@ type RemoveDiskInput struct {
 
 type VolUsage struct {
 	client.Resource
+	RevisionCounter   string `json:"revisioncounter"`
 	UsedLogicalBlocks string `json:"usedlogicalblocks"`
 	UsedBlocks        string `json:"usedblocks"`
 	SectorSize        string `json:"sectorSize"`

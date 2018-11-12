@@ -91,6 +91,7 @@ func (s *Server) GetVolUsage(rw http.ResponseWriter, req *http.Request) error {
 			Actions: map[string]string{},
 			Links:   map[string]string{},
 		},
+		RevisionCounter:   strconv.FormatInt(usage.RevisionCounter, 10),
 		UsedLogicalBlocks: strconv.FormatInt(usage.UsedLogicalBlocks, 10),
 		UsedBlocks:        strconv.FormatInt(usage.UsedBlocks, 10),
 		SectorSize:        strconv.FormatInt(usage.SectorSize, 10),

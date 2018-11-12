@@ -50,6 +50,7 @@ type BackendFactory interface {
 }
 
 type VolUsage struct {
+	RevisionCounter   int64
 	UsedLogicalBlocks int64
 	UsedBlocks        int64
 	SectorSize        int64
@@ -74,8 +75,8 @@ type Mode string
 type State string
 
 type Replica struct {
-	Address string
-	Mode    Mode
+	Address string `json:"Address"`
+	Mode    Mode   `json:"Mode"`
 }
 
 type RegReplica struct {

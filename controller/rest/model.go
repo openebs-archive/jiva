@@ -60,7 +60,7 @@ type SnapshotOutput struct {
 type VolumeStats struct {
 	client.Resource
 	RevisionCounter int64         `json:"RevisionCounter"`
-	ReplicaCounter  int64         `json:"ReplicaCounter"`
+	ReplicaCounter  int           `json:"ReplicaCounter"`
 	SCSIIOCount     map[int]int64 `json:"SCSIIOCount"`
 
 	ReadIOPS            string `json:"ReadIOPS"`
@@ -71,12 +71,14 @@ type VolumeStats struct {
 	TotalWriteTime       string `json:"TotalWriteTime"`
 	TotalWriteBlockCount string `json:"TotalWriteBlockCount"`
 
-	UsedLogicalBlocks string `json:"UsedLogicalBlocks"`
-	UsedBlocks        string `json:"UsedBlocks"`
-	SectorSize        string `json:"SectorSize"`
-	Size              string `json:"Size"`
-	UpTime            string `json:"UpTime"`
-	Name              string `json:"Name"`
+	UsedLogicalBlocks string          `json:"UsedLogicalBlocks"`
+	UsedBlocks        string          `json:"UsedBlocks"`
+	SectorSize        string          `json:"SectorSize"`
+	Size              string          `json:"Size"`
+	UpTime            string          `json:"UpTime"`
+	Name              string          `json:"Name"`
+	Replica           []types.Replica `json:"Replicas"`
+	ControllerStatus  string          `json:"Status"`
 }
 
 type SnapshotInput struct {

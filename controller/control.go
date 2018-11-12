@@ -923,6 +923,7 @@ func (c *Controller) Stats() (types.Stats, error) {
 	if c.frontend != nil {
 		stats := (types.Stats)(c.frontend.Stats())
 		volUsage, err := c.backend.GetVolUsage()
+		stats.RevisionCounter = volUsage.RevisionCounter
 		stats.UsedLogicalBlocks = volUsage.UsedLogicalBlocks
 		stats.UsedBlocks = volUsage.UsedBlocks
 		stats.SectorSize = volUsage.SectorSize
