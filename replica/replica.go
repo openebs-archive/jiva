@@ -271,6 +271,7 @@ func (r *Replica) SetRebuilding(rebuilding bool) error {
 
 func (r *Replica) GetUsage() (*types.VolUsage, error) {
 	return &types.VolUsage{
+		RevisionCounter:   r.revisionCache,
 		UsedLogicalBlocks: r.volume.UsedLogicalBlocks,
 		UsedBlocks:        r.volume.UsedBlocks,
 		SectorSize:        r.volume.sectorSize,

@@ -176,6 +176,7 @@ func (r *Remote) GetVolUsage() (types.VolUsage, error) {
 	}
 
 	err = json.NewDecoder(resp.Body).Decode(&Details)
+	volUsage.RevisionCounter, _ = strconv.ParseInt(Details.RevisionCounter, 10, 64)
 	volUsage.UsedLogicalBlocks, _ = strconv.ParseInt(Details.UsedLogicalBlocks, 10, 64)
 	volUsage.UsedBlocks, _ = strconv.ParseInt(Details.UsedBlocks, 10, 64)
 	volUsage.SectorSize, _ = strconv.ParseInt(Details.SectorSize, 10, 64)

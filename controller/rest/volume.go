@@ -36,12 +36,21 @@ func (s *Server) GetVolume(rw http.ResponseWriter, req *http.Request) error {
 }
 
 func (s *Server) GetVolumeStats(rw http.ResponseWriter, req *http.Request) error {
+	var status string
 	apiContext := api.GetApiContext(req)
 	stats, _ := s.c.Stats()
+	replicas := s.c.ListReplicas()
+
+	if s.c.ReadOnly == true {
+		status = "RO"
+	} else {
+		status = "RW"
+	}
+
 	volumeStats := &VolumeStats{
 		Resource:        client.Resource{Type: "stats"},
 		RevisionCounter: stats.RevisionCounter,
-		ReplicaCounter:  stats.ReplicaCounter,
+		ReplicaCounter:  len(replicas),
 		SCSIIOCount:     stats.SCSIIOCount,
 
 		ReadIOPS:            strconv.FormatInt(stats.ReadIOPS, 10),
@@ -58,6 +67,8 @@ func (s *Server) GetVolumeStats(rw http.ResponseWriter, req *http.Request) error
 		Size:              strconv.FormatInt(s.c.GetSize(), 10),
 		UpTime:            fmt.Sprintf("%f", time.Since(s.c.StartTime).Seconds()),
 		Name:              s.c.Name,
+		Replica:           replicas,
+		ControllerStatus:  status,
 	}
 	apiContext.Write(volumeStats)
 	return nil
