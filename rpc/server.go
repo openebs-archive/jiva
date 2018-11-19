@@ -79,6 +79,10 @@ func (s *Server) readWrite(ret chan<- error) {
 			s.handleWrite(msg)
 		case TypePing:
 			s.handlePing(msg)
+		case TypeSync:
+			s.handleSync(msg)
+		case TypeUnmap:
+			s.handleUnmap(msg)
 			/*
 				case TypeUpdate:
 					go s.handleUpdate(msg)
@@ -108,6 +112,15 @@ func (s *Server) handleWrite(msg *Message) {
 
 func (s *Server) handlePing(msg *Message) {
 	err := s.data.PingResponse()
+	s.createResponse(0, msg, err)
+}
+
+func (s *Server) handleSync(msg *Message) {
+	err := s.data.Sync()
+	s.createResponse(0, msg, err)
+}
+func (s *Server) handleUnmap(msg *Message) {
+	err := s.data.Unmap(msg.Offset, msg.Size)
 	s.createResponse(0, msg, err)
 }
 

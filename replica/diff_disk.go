@@ -3,9 +3,11 @@ package replica
 import (
 	"fmt"
 	"sync"
+	"syscall"
 
 	fibmap "github.com/frostschutz/go-fibmap"
 	"github.com/openebs/jiva/types"
+	"github.com/rancher/sparse-tools/sparse"
 )
 
 type fileType struct {
@@ -106,6 +108,22 @@ func (d *diffDisk) readModifyWrite(buf []byte, offset int64) (int, error) {
 	copy(readBuf[offset%d.sectorSize:], buf)
 
 	return d.fullWriteAt(readBuf, readOffset)
+}
+
+func (d *diffDisk) Sync() (err error) {
+	target := byte(len(d.files) - 1)
+	fd := d.files[target].Fd()
+	err = syscall.Fsync(int(fd))
+	return
+}
+
+func (d *diffDisk) Unmap(offset int64, length uint32) error {
+	target := byte(len(d.files) - 1)
+	fd := d.files[target].Fd()
+	return syscall.Fallocate(int(fd),
+		sparse.FALLOC_FL_KEEP_SIZE|sparse.FALLOC_FL_PUNCH_HOLE,
+		offset, int64(length))
+
 }
 
 func (d *diffDisk) fullWriteAt(buf []byte, offset int64) (int, error) {

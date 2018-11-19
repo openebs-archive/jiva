@@ -26,7 +26,7 @@ type goTgt struct {
 	SectorSize int
 
 	isUp bool
-	rw   types.ReaderWriterAt
+	rw   types.IOs
 
 	tgtName      string
 	lhbsName     string
@@ -36,7 +36,7 @@ type goTgt struct {
 	stats        scsi.Stats
 }
 
-func (t *goTgt) Startup(name string, frontendIP string, clusterIP string, size, sectorSize int64, rw types.ReaderWriterAt) error {
+func (t *goTgt) Startup(name string, frontendIP string, clusterIP string, size, sectorSize int64, rw types.IOs) error {
 	/*if err := t.Shutdown(); err != nil {
 		return err
 	}*/

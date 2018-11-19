@@ -7,13 +7,13 @@ import (
 )
 
 type MultiWriterAt struct {
-	writers  []io.WriterAt
-	updaters []io.WriterAt
+	writers  []Writer
+	updaters []Writer
 }
 
 type MultiWriterError struct {
-	Writers       []io.WriterAt
-	Updaters      []io.WriterAt
+	Writers       []Writer
+	Updaters      []Writer
 	ReplicaErrors []error
 	QuorumErrors  []error
 }
@@ -68,7 +68,7 @@ func (m *MultiWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
 	}
 	for i, w := range m.updaters {
 		wg.Add(1)
-		go func(index int, w io.WriterAt) {
+		go func(index int, w Writer) {
 			_, err := w.WriteAt(nil, 0)
 			if err != nil {
 				multiWriterMtx.Lock()
@@ -109,4 +109,92 @@ func (m *MultiWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
 		return 0, &errors
 	}
 	return len(p), nil
+}
+
+func (m *MultiWriterAt) Sync() (err error) {
+	replicaErrs := make([]error, len(m.writers))
+	replicaErrCount := 0
+	replicaErrored := false
+	wg := sync.WaitGroup{}
+	var errors MultiWriterError
+	var multiWriterMtx sync.Mutex
+
+	for i, w := range m.writers {
+		wg.Add(1)
+		go func(index int, w Writer) {
+			err := w.Sync()
+			if err != nil {
+				multiWriterMtx.Lock()
+				replicaErrored = true
+				replicaErrs[index] = err
+				multiWriterMtx.Unlock()
+			}
+			wg.Done()
+		}(i, w)
+	}
+	wg.Wait()
+	if replicaErrored {
+		errors.Writers = m.writers
+		errors.ReplicaErrors = replicaErrs
+	}
+	//Below code is introduced to make sure that the IO has been written to more
+	//than 50% of the replica.
+	//If any replica has errored, return with the length of data written and the
+	//erroed replica details so that it can be closed.
+	if replicaErrored {
+		for _, err1 := range replicaErrs {
+			if err1 != nil {
+				replicaErrCount++
+			}
+		}
+		if len(m.writers)-replicaErrCount > len(m.writers)/2 {
+			return &errors
+		}
+		return &errors
+	}
+	return nil
+}
+
+func (m *MultiWriterAt) Unmap(offset int64, length int) (err error) {
+	replicaErrs := make([]error, len(m.writers))
+	replicaErrCount := 0
+	replicaErrored := false
+	wg := sync.WaitGroup{}
+	var errors MultiWriterError
+	var multiWriterMtx sync.Mutex
+
+	for i, w := range m.writers {
+		wg.Add(1)
+		go func(index int, w Writer) {
+			err := w.Unmap(offset, length)
+			if err != nil {
+				multiWriterMtx.Lock()
+				replicaErrored = true
+				replicaErrs[index] = err
+				multiWriterMtx.Unlock()
+			}
+			wg.Done()
+		}(i, w)
+	}
+	wg.Wait()
+	if replicaErrored {
+		errors.Writers = m.writers
+		errors.ReplicaErrors = replicaErrs
+	}
+	//Below code is introduced to make sure that the IO has been written to more
+	//than 50% of the replica.
+	//If any replica has errored, return with the length of data written and the
+	//erroed replica details so that it can be closed.
+	if replicaErrored {
+		for _, err1 := range replicaErrs {
+			if err1 != nil {
+				replicaErrCount++
+			}
+		}
+		if len(m.writers)-replicaErrCount > len(m.writers)/2 {
+			return &errors
+		}
+		return &errors
+	}
+	return nil
 }

@@ -92,3 +92,11 @@ func (f *Wrapper) PingResponse() error {
 
 func (f *Wrapper) StopMonitoring() {
 }
+
+func (f *Wrapper) Sync() error {
+	return nil
+}
+
+func (f *Wrapper) Unmap(offset int64, length int) error {
+	return nil
+}
