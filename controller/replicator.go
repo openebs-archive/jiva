@@ -32,7 +32,7 @@ type replicator struct {
 type Writer interface {
 	io.WriterAt
 	Sync() error
-	Unmap(int64, int) error
+	Unmap(int64, int64) error
 }
 
 type BackendError struct {
@@ -189,7 +189,7 @@ func (r *replicator) Sync() error {
 	return err
 }
 
-func (r *replicator) Unmap(offset int64, length int) error {
+func (r *replicator) Unmap(offset int64, length int64) error {
 	if !r.backendsAvailable {
 		return ErrNoBackend
 	}

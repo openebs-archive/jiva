@@ -117,12 +117,12 @@ func (d *diffDisk) Sync() (err error) {
 	return
 }
 
-func (d *diffDisk) Unmap(offset int64, length uint32) error {
+func (d *diffDisk) Unmap(offset int64, length int64) error {
 	target := byte(len(d.files) - 1)
 	fd := d.files[target].Fd()
 	return syscall.Fallocate(int(fd),
 		sparse.FALLOC_FL_KEEP_SIZE|sparse.FALLOC_FL_PUNCH_HOLE,
-		offset, int64(length))
+		offset, length)
 
 }
 

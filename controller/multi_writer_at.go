@@ -155,7 +155,7 @@ func (m *MultiWriterAt) Sync() (err error) {
 	return nil
 }
 
-func (m *MultiWriterAt) Unmap(offset int64, length int) (err error) {
+func (m *MultiWriterAt) Unmap(offset int64, length int64) (err error) {
 	replicaErrs := make([]error, len(m.writers))
 	replicaErrCount := 0
 	replicaErrored := false

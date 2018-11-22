@@ -97,6 +97,6 @@ func (f *Wrapper) Sync() error {
 	return nil
 }
 
-func (f *Wrapper) Unmap(offset int64, length int) error {
+func (f *Wrapper) Unmap(offset int64, length int64) error {
 	return nil
 }

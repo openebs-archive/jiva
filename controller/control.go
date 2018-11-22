@@ -855,7 +855,7 @@ func (c *Controller) Sync() (err error) {
 	return err
 }
 
-func (c *Controller) Unmap(offset int64, length int) (err error) {
+func (c *Controller) Unmap(offset int64, length int64) (err error) {
 	c.Lock()
 	if c.ReadOnly == true {
 		err := fmt.Errorf("Mode: ReadOnly")

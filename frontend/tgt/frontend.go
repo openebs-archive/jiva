@@ -168,7 +168,7 @@ func (d DataProcessorWrapper) Sync() error {
 	return nil
 }
 
-func (d DataProcessorWrapper) Unmap(offset int64, length uint32) error {
+func (d DataProcessorWrapper) Unmap(offset int64, length int64) error {
 	return nil
 }
 

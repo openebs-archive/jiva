@@ -83,7 +83,7 @@ func (c *Client) TargetID() string {
 
 //WriteAt replica client
 func (c *Client) WriteAt(buf []byte, offset int64) (int, error) {
-	return c.operation(TypeWrite, buf, offset, len(buf))
+	return c.operation(TypeWrite, buf, offset, int64(len(buf)))
 }
 
 /*
@@ -102,7 +102,7 @@ func (c *Client) SetError(err error) {
 
 //ReadAt replica client
 func (c *Client) ReadAt(buf []byte, offset int64) (int, error) {
-	return c.operation(TypeRead, buf, offset, len(buf))
+	return c.operation(TypeRead, buf, offset, int64(len(buf)))
 }
 
 //Sync replica client
@@ -111,7 +111,7 @@ func (c *Client) Sync() (err error) {
 	return
 }
 
-func (c *Client) Unmap(offset int64, length int) (err error) {
+func (c *Client) Unmap(offset int64, length int64) (err error) {
 	_, err = c.operation(TypeUnmap, nil, offset, length)
 	return
 }
@@ -122,14 +122,14 @@ func (c *Client) Ping() error {
 	return err
 }
 
-func (c *Client) operation(op uint32, buf []byte, offset int64, length int) (int, error) {
+func (c *Client) operation(op uint32, buf []byte, offset int64, length int64) (int, error) {
 	retry := 0
 	for {
 		msg := Message{
 			Complete: make(chan struct{}, 1),
 			Type:     op,
 			Offset:   offset,
-			Size:     uint32(length),
+			Size:     int64(length),
 			Data:     nil,
 		}
 		if op == TypeWrite {

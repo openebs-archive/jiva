@@ -133,7 +133,7 @@ func (s *Server) handleUpdate(msg *Message) {
 
 func (s *Server) createResponse(count int, msg *Message, err error) {
 	msg.MagicVersion = MagicVersion
-	msg.Size = uint32(len(msg.Data))
+	msg.Size = int64(len(msg.Data))
 	if msg.Type == TypeWrite {
 		msg.Data = nil
 	}
@@ -143,11 +143,11 @@ func (s *Server) createResponse(count int, msg *Message, err error) {
 		if msg.Data != nil {
 			msg.Data = msg.Data[:count]
 		}
-		msg.Size = uint32(len(msg.Data))
+		msg.Size = int64(len(msg.Data))
 	} else if err != nil {
 		msg.Type = TypeError
 		msg.Data = []byte(err.Error())
-		msg.Size = uint32(len(msg.Data))
+		msg.Size = int64(len(msg.Data))
 	}
 }
 

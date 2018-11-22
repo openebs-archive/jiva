@@ -1067,7 +1067,7 @@ func (r *Replica) Sync() error {
 	}
 	return nil
 }
-func (r *Replica) Unmap(offset int64, length uint32) error {
+func (r *Replica) Unmap(offset int64, length int64) error {
 	var (
 		err error
 	)

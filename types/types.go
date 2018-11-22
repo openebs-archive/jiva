@@ -22,7 +22,7 @@ type ReaderWriterAt interface {
 type IOs interface {
 	ReaderWriterAt
 	Sync() error
-	Unmap(int64, int) error
+	Unmap(int64, int64) error
 }
 
 type DiffDisk interface {
@@ -134,9 +134,7 @@ type Frontend interface {
 }
 
 type DataProcessor interface {
-	ReaderWriterAt
+	IOs
 	PingResponse() error
-	Sync() error
-	Unmap(int64, uint32) error
 	//Update() error
 }

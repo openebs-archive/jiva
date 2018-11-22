@@ -401,7 +401,7 @@ func (s *Server) Sync() (err error) {
 	err = s.r.Sync()
 	return
 }
-func (s *Server) Unmap(offset int64, length uint32) (err error) {
+func (s *Server) Unmap(offset int64, length int64) (err error) {
 	s.RLock()
 	defer s.RUnlock()
 
