@@ -1048,43 +1048,37 @@ func (r *Replica) Revert(name, created string) (*Replica, error) {
 	return r.revertDisk(name, created)
 }
 
-func (r *Replica) Sync() error {
-	var (
-		err error
-	)
+func (r *Replica) Sync() (int, error) {
 	if r.readOnly {
-		return fmt.Errorf("Can not sync on read-only replica")
+		return -1, fmt.Errorf("Can not sync on read-only replica")
 	}
 
 	if r.ReplicaType != "quorum" {
 		r.RLock()
 		r.info.Dirty = true
-		err = r.volume.Sync()
+		n, err := r.volume.Sync()
 		r.RUnlock()
 		if err != nil {
-			return err
+			return n, err
 		}
 	}
-	return nil
+	return 0, nil
 }
-func (r *Replica) Unmap(offset int64, length int64) error {
-	var (
-		err error
-	)
+func (r *Replica) Unmap(offset int64, length int64) (int, error) {
 	if r.readOnly {
-		return fmt.Errorf("Can not sync on read-only replica")
+		return -1, fmt.Errorf("Can not sync on read-only replica")
 	}
 
 	if r.ReplicaType != "quorum" {
 		r.RLock()
 		r.info.Dirty = true
-		err = r.volume.Unmap(offset, length)
+		n, err := r.volume.Unmap(offset, length)
 		r.RUnlock()
 		if err != nil {
-			return err
+			return n, err
 		}
 	}
-	return nil
+	return 0, nil
 }
 
 func (r *Replica) WriteAt(buf []byte, offset int64) (int, error) {

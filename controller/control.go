@@ -831,16 +831,16 @@ func (c *Controller) WriteAt(b []byte, off int64) (int, error) {
 	return n, err
 }
 
-func (c *Controller) Sync() (err error) {
+func (c *Controller) Sync() (int, error) {
 	c.Lock()
 	if c.ReadOnly == true {
 		err := fmt.Errorf("Mode: ReadOnly")
 		c.Unlock()
 		time.Sleep(1 * time.Second)
-		return err
+		return -1, err
 	}
 	defer c.Unlock()
-	err = c.backend.Sync()
+	n, err := c.backend.Sync()
 	if err != nil {
 		errh := c.handleErrorNoLock(err)
 		if bErr, ok := err.(*BackendError); ok {
@@ -850,21 +850,24 @@ func (c *Controller) Sync() (err error) {
 				}
 			}
 		}
-		return errh
+		if n == -1 {
+			return -1, fmt.Errorf("Sync Failed")
+		}
+		return 0, errh
 	}
-	return err
+	return 0, err
 }
 
-func (c *Controller) Unmap(offset int64, length int64) (err error) {
+func (c *Controller) Unmap(offset int64, length int64) (int, error) {
 	c.Lock()
 	if c.ReadOnly == true {
 		err := fmt.Errorf("Mode: ReadOnly")
 		c.Unlock()
 		time.Sleep(1 * time.Second)
-		return err
+		return -1, err
 	}
 	defer c.Unlock()
-	err = c.backend.Unmap(offset, length)
+	n, err := c.backend.Unmap(offset, length)
 	if err != nil {
 		errh := c.handleErrorNoLock(err)
 		if bErr, ok := err.(*BackendError); ok {
@@ -874,9 +877,12 @@ func (c *Controller) Unmap(offset int64, length int64) (err error) {
 				}
 			}
 		}
-		return errh
+		if n == -1 {
+			return -1, fmt.Errorf("Unmap Failed")
+		}
+		return 0, errh
 	}
-	return err
+	return 0, err
 }
 
 func (c *Controller) ReadAt(b []byte, off int64) (int, error) {

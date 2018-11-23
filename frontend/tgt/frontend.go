@@ -164,12 +164,12 @@ func (d DataProcessorWrapper) WriteAt(p []byte, off int64) (n int, err error) {
 	return d.rw.WriteAt(p, off)
 }
 
-func (d DataProcessorWrapper) Sync() error {
-	return nil
+func (d DataProcessorWrapper) Sync() (int, error) {
+	return 0, nil
 }
 
-func (d DataProcessorWrapper) Unmap(offset int64, length int64) error {
-	return nil
+func (d DataProcessorWrapper) Unmap(offset int64, length int64) (int, error) {
+	return 0, nil
 }
 
 func (d DataProcessorWrapper) PingResponse() error {

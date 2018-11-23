@@ -31,8 +31,8 @@ type replicator struct {
 
 type Writer interface {
 	io.WriterAt
-	Sync() error
-	Unmap(int64, int64) error
+	Sync() (int, error)
+	Unmap(int64, int64) (int, error)
 }
 
 type BackendError struct {
@@ -169,12 +169,12 @@ func (r *replicator) WriteAt(p []byte, off int64) (int, error) {
 	return n, err
 }
 
-func (r *replicator) Sync() error {
+func (r *replicator) Sync() (int, error) {
 	if !r.backendsAvailable {
-		return ErrNoBackend
+		return -1, ErrNoBackend
 	}
 
-	err := r.writer.Sync()
+	n, err := r.writer.Sync()
 	if err != nil {
 		errors := map[string]error{}
 		if mErr, ok := err.(*MultiWriterError); ok {
@@ -184,17 +184,17 @@ func (r *replicator) Sync() error {
 				}
 			}
 		}
-		return &BackendError{Errors: errors}
+		return n, &BackendError{Errors: errors}
 	}
-	return err
+	return n, err
 }
 
-func (r *replicator) Unmap(offset int64, length int64) error {
+func (r *replicator) Unmap(offset int64, length int64) (int, error) {
 	if !r.backendsAvailable {
-		return ErrNoBackend
+		return -1, ErrNoBackend
 	}
 
-	err := r.writer.Unmap(offset, length)
+	n, err := r.writer.Unmap(offset, length)
 	if err != nil {
 		errors := map[string]error{}
 		if mErr, ok := err.(*MultiWriterError); ok {
@@ -204,9 +204,9 @@ func (r *replicator) Unmap(offset int64, length int64) error {
 				}
 			}
 		}
-		return &BackendError{Errors: errors}
+		return n, &BackendError{Errors: errors}
 	}
-	return err
+	return n, err
 }
 
 func (r *replicator) buildReadWriters() {

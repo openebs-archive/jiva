@@ -110,19 +110,31 @@ func (d *diffDisk) readModifyWrite(buf []byte, offset int64) (int, error) {
 	return d.fullWriteAt(readBuf, readOffset)
 }
 
-func (d *diffDisk) Sync() (err error) {
+func (d *diffDisk) Sync() (int, error) {
 	target := byte(len(d.files) - 1)
 	fd := d.files[target].Fd()
-	err = syscall.Fsync(int(fd))
-	return
+	err := syscall.Fsync(int(fd))
+	if err != nil {
+		return -1, err
+	}
+	return 0, err
 }
 
-func (d *diffDisk) Unmap(offset int64, length int64) error {
-	target := byte(len(d.files) - 1)
-	fd := d.files[target].Fd()
-	return syscall.Fallocate(int(fd),
-		sparse.FALLOC_FL_KEEP_SIZE|sparse.FALLOC_FL_PUNCH_HOLE,
-		offset, length)
+func (d *diffDisk) Unmap(offset int64, length int64) (int, error) {
+	var err error
+	for indx, file := range d.files {
+		if indx <= d.SnapIndx || file == nil {
+			continue
+		}
+		fd := file.Fd()
+		err = syscall.Fallocate(int(fd),
+			sparse.FALLOC_FL_KEEP_SIZE|sparse.FALLOC_FL_PUNCH_HOLE,
+			offset, length)
+		if err != nil {
+			return -1, err
+		}
+	}
+	return 0, err
 
 }
 

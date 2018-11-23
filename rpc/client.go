@@ -106,14 +106,20 @@ func (c *Client) ReadAt(buf []byte, offset int64) (int, error) {
 }
 
 //Sync replica client
-func (c *Client) Sync() (err error) {
-	_, err = c.operation(TypeSync, nil, 0, 0)
-	return
+func (c *Client) Sync() (int, error) {
+	_, err := c.operation(TypeSync, nil, 0, 0)
+	if err != nil {
+		return -1, err
+	}
+	return 0, err
 }
 
-func (c *Client) Unmap(offset int64, length int64) (err error) {
-	_, err = c.operation(TypeUnmap, nil, offset, length)
-	return
+func (c *Client) Unmap(offset int64, length int64) (int, error) {
+	_, err := c.operation(TypeUnmap, nil, offset, length)
+	if err != nil {
+		return -1, err
+	}
+	return 0, err
 }
 
 //Ping replica client

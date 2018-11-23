@@ -21,8 +21,8 @@ type ReaderWriterAt interface {
 
 type IOs interface {
 	ReaderWriterAt
-	Sync() error
-	Unmap(int64, int64) error
+	Sync() (int, error)
+	Unmap(int64, int64) (int, error)
 }
 
 type DiffDisk interface {

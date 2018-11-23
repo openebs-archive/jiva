@@ -116,11 +116,11 @@ func (s *Server) handlePing(msg *Message) {
 }
 
 func (s *Server) handleSync(msg *Message) {
-	err := s.data.Sync()
+	_, err := s.data.Sync()
 	s.createResponse(0, msg, err)
 }
 func (s *Server) handleUnmap(msg *Message) {
-	err := s.data.Unmap(msg.Offset, msg.Size)
+	_, err := s.data.Unmap(msg.Offset, msg.Size)
 	s.createResponse(0, msg, err)
 }
 

@@ -93,10 +93,10 @@ func (f *Wrapper) PingResponse() error {
 func (f *Wrapper) StopMonitoring() {
 }
 
-func (f *Wrapper) Sync() error {
-	return nil
+func (f *Wrapper) Sync() (int, error) {
+	return 0, nil
 }
 
-func (f *Wrapper) Unmap(offset int64, length int64) error {
-	return nil
+func (f *Wrapper) Unmap(offset int64, length int64) (int, error) {
+	return 0, nil
 }

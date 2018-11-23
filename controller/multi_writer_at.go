@@ -111,7 +111,7 @@ func (m *MultiWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
 	return len(p), nil
 }
 
-func (m *MultiWriterAt) Sync() (err error) {
+func (m *MultiWriterAt) Sync() (int, error) {
 	replicaErrs := make([]error, len(m.writers))
 	replicaErrCount := 0
 	replicaErrored := false
@@ -122,7 +122,7 @@ func (m *MultiWriterAt) Sync() (err error) {
 	for i, w := range m.writers {
 		wg.Add(1)
 		go func(index int, w Writer) {
-			err := w.Sync()
+			_, err := w.Sync()
 			if err != nil {
 				multiWriterMtx.Lock()
 				replicaErrored = true
@@ -148,14 +148,14 @@ func (m *MultiWriterAt) Sync() (err error) {
 			}
 		}
 		if len(m.writers)-replicaErrCount > len(m.writers)/2 {
-			return &errors
+			return 0, &errors
 		}
-		return &errors
+		return -1, &errors
 	}
-	return nil
+	return 0, nil
 }
 
-func (m *MultiWriterAt) Unmap(offset int64, length int64) (err error) {
+func (m *MultiWriterAt) Unmap(offset int64, length int64) (int, error) {
 	replicaErrs := make([]error, len(m.writers))
 	replicaErrCount := 0
 	replicaErrored := false
@@ -166,7 +166,7 @@ func (m *MultiWriterAt) Unmap(offset int64, length int64) (err error) {
 	for i, w := range m.writers {
 		wg.Add(1)
 		go func(index int, w Writer) {
-			err := w.Unmap(offset, length)
+			_, err := w.Unmap(offset, length)
 			if err != nil {
 				multiWriterMtx.Lock()
 				replicaErrored = true
@@ -192,9 +192,9 @@ func (m *MultiWriterAt) Unmap(offset int64, length int64) (err error) {
 			}
 		}
 		if len(m.writers)-replicaErrCount > len(m.writers)/2 {
-			return &errors
+			return 0, &errors
 		}
-		return &errors
+		return -1, &errors
 	}
-	return nil
+	return 0, nil
 }
