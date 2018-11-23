@@ -351,7 +351,7 @@ start_controller() {
 
 # start_replica CONTROLLER_IP REPLICA_IP folder_name
 start_replica() {
-	replica_id=$(docker run -d -it --net stg-net --ip "$2" -P --expose 9502-9504 -v /tmp/"$3":/"$3" $JI \
+	replica_id=$(docker run -d --net stg-net --ip "$2" -P --expose 9502-9504 -v /tmp/"$3":/"$3" $JI \
 		launch replica --frontendIP "$1" --listen "$2":9502 --size 2g /"$3")
 	echo "$replica_id"
 }
@@ -365,7 +365,7 @@ start_debug_controller() {
 
 # start_cloned_replica CONTROLLER_IP  CLONED_CONTROLLER_IP CLONED_REPLICA_IP folder_name
 start_cloned_replica() {
-	cloned_replica_id=$(docker run -d -it --net stg-net --ip "$3" -P --expose 9502-9504 -v /tmp/"$4":/"$4" $JI \
+	cloned_replica_id=$(docker run -d --net stg-net --ip "$3" -P --expose 9502-9504 -v /tmp/"$4":/"$4" $JI \
 		launch replica --type clone --snapName snap3 --cloneIP "$1" --frontendIP "$2" --listen "$3":9502 --size 2g /"$4")
 	echo "$cloned_replica_id"
 }
@@ -1208,7 +1208,7 @@ create_auto_generated_snapshot() {
 
 create_manual_snapshot() {
 	snaplist_initial=`ls /tmp/vol1 | grep .img | grep -v meta | grep  -v head`
-	docker exec -it $orig_controller_id longhorn snapshot create $1
+	docker exec $orig_controller_id longhorn snapshot create $1
 	snaplist_final=`ls /tmp/vol1 | grep .img | grep -v meta | grep  -v head`
 	snaps[$snapIndx]=`echo ${snaplist_initial[@]} ${snaplist_final[@]} | tr ' ' '\n' | sort | uniq -u`
 	let snapIndx=snapIndx+1
