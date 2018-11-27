@@ -19,6 +19,12 @@ type ReaderWriterAt interface {
 	io.WriterAt
 }
 
+type IOs interface {
+	ReaderWriterAt
+	Sync() (int, error)
+	Unmap(int64, int64) (int, error)
+}
+
 type DiffDisk interface {
 	ReaderWriterAt
 	io.Closer
@@ -28,7 +34,7 @@ type DiffDisk interface {
 type MonitorChannel chan error
 
 type Backend interface {
-	ReaderWriterAt
+	IOs
 	io.Closer
 	Snapshot(name string, userCreated bool, created string) error
 	Resize(name string, size string) error
@@ -120,7 +126,7 @@ type PeerDetails struct {
 }
 
 type Frontend interface {
-	Startup(name string, frontendIP string, clusterIP string, size, sectorSize int64, rw ReaderWriterAt) error
+	Startup(name string, frontendIP string, clusterIP string, size, sectorSize int64, rw IOs) error
 	Shutdown() error
 	State() State
 	Stats() Stats
@@ -128,7 +134,7 @@ type Frontend interface {
 }
 
 type DataProcessor interface {
-	ReaderWriterAt
+	IOs
 	PingResponse() error
 	//Update() error
 }

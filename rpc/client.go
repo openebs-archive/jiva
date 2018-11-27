@@ -18,6 +18,8 @@ var (
 	opRetries       = 0
 	opReadTimeout   = 15 * time.Second // client read
 	opWriteTimeout  = 15 * time.Second // client write
+	opSyncTimeout   = 30 * time.Second // client sync
+	opUnmapTimeout  = 30 * time.Second // client unmap
 	opPingTimeout   = 20 * time.Second
 	opUpdateTimeout = 15 * time.Second // client update
 )
@@ -36,6 +38,10 @@ const (
 	OpPing
 	// OpUpdate update replica
 	OpUpdate
+	//OpSync sync replica
+	OpSync
+	//OpUnmap unmap replica
+	OpUnmap
 )
 
 //Client replica client
@@ -77,7 +83,7 @@ func (c *Client) TargetID() string {
 
 //WriteAt replica client
 func (c *Client) WriteAt(buf []byte, offset int64) (int, error) {
-	return c.operation(TypeWrite, buf, offset)
+	return c.operation(TypeWrite, buf, offset, int64(len(buf)))
 }
 
 /*
@@ -96,23 +102,40 @@ func (c *Client) SetError(err error) {
 
 //ReadAt replica client
 func (c *Client) ReadAt(buf []byte, offset int64) (int, error) {
-	return c.operation(TypeRead, buf, offset)
+	return c.operation(TypeRead, buf, offset, int64(len(buf)))
+}
+
+//Sync replica client
+func (c *Client) Sync() (int, error) {
+	_, err := c.operation(TypeSync, nil, 0, 0)
+	if err != nil {
+		return -1, err
+	}
+	return 0, err
+}
+
+func (c *Client) Unmap(offset int64, length int64) (int, error) {
+	_, err := c.operation(TypeUnmap, nil, offset, length)
+	if err != nil {
+		return -1, err
+	}
+	return 0, err
 }
 
 //Ping replica client
 func (c *Client) Ping() error {
-	_, err := c.operation(TypePing, nil, 0)
+	_, err := c.operation(TypePing, nil, 0, 0)
 	return err
 }
 
-func (c *Client) operation(op uint32, buf []byte, offset int64) (int, error) {
+func (c *Client) operation(op uint32, buf []byte, offset int64, length int64) (int, error) {
 	retry := 0
 	for {
 		msg := Message{
 			Complete: make(chan struct{}, 1),
 			Type:     op,
 			Offset:   offset,
-			Size:     uint32(len(buf)),
+			Size:     int64(length),
 			Data:     nil,
 		}
 		if op == TypeWrite {
@@ -125,6 +148,10 @@ func (c *Client) operation(op uint32, buf []byte, offset int64) (int, error) {
 				return time.After(opReadTimeout)
 			case TypeWrite:
 				return time.After(opWriteTimeout)
+			case TypeSync:
+				return time.After(opSyncTimeout)
+			case TypeUnmap:
+				return time.After(opUnmapTimeout)
 				/*
 					case TypeUpdate:
 						return time.After(opUpdateTimeout)
@@ -165,6 +192,10 @@ func (c *Client) operation(op uint32, buf []byte, offset int64) (int, error) {
 				logrus.Errorln("Write timeout on replica", c.TargetID(), c.peerAddr, "seq=", msg.Seq)
 			case TypePing:
 				logrus.Errorln("Ping timeout on replica", c.TargetID(), c.peerAddr, "seq=", msg.Seq)
+			case TypeSync:
+				logrus.Errorln("Sync timeout on replica", c.TargetID(), c.peerAddr, "seq=", msg.Seq)
+			case TypeUnmap:
+				logrus.Errorln("Unmap timeout on replica", c.TargetID(), c.peerAddr, "seq=", msg.Seq)
 			}
 			if retry < opRetries {
 				retry++
@@ -228,6 +259,10 @@ func (c *Client) handleRequest(req *Message) {
 		req.ID = journal.InsertPendingOp(time.Now(), c.TargetID(), journal.SampleOp(OpRead), int(req.Size))
 	case TypeWrite:
 		req.ID = journal.InsertPendingOp(time.Now(), c.TargetID(), journal.SampleOp(OpWrite), int(req.Size))
+	case TypeSync:
+		req.ID = journal.InsertPendingOp(time.Now(), c.TargetID(), journal.SampleOp(OpSync), int(req.Size))
+	case TypeUnmap:
+		req.ID = journal.InsertPendingOp(time.Now(), c.TargetID(), journal.SampleOp(OpUnmap), int(req.Size))
 	case TypePing:
 		req.ID = journal.InsertPendingOp(time.Now(), c.TargetID(), journal.SampleOp(OpPing), 0)
 	case TypeUpdate:

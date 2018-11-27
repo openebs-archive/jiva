@@ -26,7 +26,7 @@ func New() types.Frontend {
 	return &Device{}
 }
 
-func (d *Device) Startup(name string, frontendIP string, clusterIP string, size, sectorSize int64, rw types.ReaderWriterAt) error {
+func (d *Device) Startup(name string, frontendIP string, clusterIP string, size, sectorSize int64, rw types.IOs) error {
 	d.Name = name
 	d.backend = rw
 	d.Size = size

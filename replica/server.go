@@ -391,6 +391,27 @@ func (s *Server) Close(signalMonitor bool) error {
 	return nil
 }
 
+func (s *Server) Sync() (int, error) {
+	s.RLock()
+	defer s.RUnlock()
+
+	if s.r == nil {
+		return -1, fmt.Errorf("Volume no longer exist")
+	}
+	n, err := s.r.Sync()
+	return n, err
+}
+func (s *Server) Unmap(offset int64, length int64) (int, error) {
+	s.RLock()
+	defer s.RUnlock()
+
+	if s.r == nil {
+		return -1, fmt.Errorf("Volume no longer exist")
+	}
+	n, err := s.r.Unmap(offset, length)
+	return n, err
+}
+
 func (s *Server) WriteAt(buf []byte, offset int64) (int, error) {
 	s.RLock()
 	defer s.RUnlock()

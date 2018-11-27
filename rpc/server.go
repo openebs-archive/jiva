@@ -79,6 +79,10 @@ func (s *Server) readWrite(ret chan<- error) {
 			s.handleWrite(msg)
 		case TypePing:
 			s.handlePing(msg)
+		case TypeSync:
+			s.handleSync(msg)
+		case TypeUnmap:
+			s.handleUnmap(msg)
 			/*
 				case TypeUpdate:
 					go s.handleUpdate(msg)
@@ -111,6 +115,15 @@ func (s *Server) handlePing(msg *Message) {
 	s.createResponse(0, msg, err)
 }
 
+func (s *Server) handleSync(msg *Message) {
+	_, err := s.data.Sync()
+	s.createResponse(0, msg, err)
+}
+func (s *Server) handleUnmap(msg *Message) {
+	_, err := s.data.Unmap(msg.Offset, msg.Size)
+	s.createResponse(0, msg, err)
+}
+
 /*
 func (s *Server) handleUpdate(msg *Message) {
 	err := s.data.Update()
@@ -120,7 +133,7 @@ func (s *Server) handleUpdate(msg *Message) {
 
 func (s *Server) createResponse(count int, msg *Message, err error) {
 	msg.MagicVersion = MagicVersion
-	msg.Size = uint32(len(msg.Data))
+	msg.Size = int64(len(msg.Data))
 	if msg.Type == TypeWrite {
 		msg.Data = nil
 	}
@@ -130,11 +143,11 @@ func (s *Server) createResponse(count int, msg *Message, err error) {
 		if msg.Data != nil {
 			msg.Data = msg.Data[:count]
 		}
-		msg.Size = uint32(len(msg.Data))
+		msg.Size = int64(len(msg.Data))
 	} else if err != nil {
 		msg.Type = TypeError
 		msg.Data = []byte(err.Error())
-		msg.Size = uint32(len(msg.Data))
+		msg.Size = int64(len(msg.Data))
 	}
 }
 

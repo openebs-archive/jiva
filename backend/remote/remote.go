@@ -32,7 +32,7 @@ type Factory struct {
 }
 
 type Remote struct {
-	types.ReaderWriterAt
+	types.IOs
 	Name        string
 	pingURL     string
 	replicaURL  string
@@ -250,7 +250,7 @@ func (rf *Factory) Create(address string) (types.Backend, error) {
 	}
 
 	rpc := rpc.NewClient(conn, r.closeChan)
-	r.ReaderWriterAt = rpc
+	r.IOs = rpc
 
 	if err := r.open(); err != nil {
 		return nil, err

@@ -36,7 +36,7 @@ type Tcmu struct {
 	stats  map[int]int64
 }
 
-func (t *Tcmu) Startup(name string, frontendIP string, clusterIP string, size, sectorSize int64, rw types.ReaderWriterAt) error {
+func (t *Tcmu) Startup(name string, frontendIP string, clusterIP string, size, sectorSize int64, rw types.IOs) error {
 	t.volume = name
 
 	t.Shutdown()

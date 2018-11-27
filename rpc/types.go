@@ -11,6 +11,8 @@ const (
 	TypeClose
 	TypePing
 	TypeUpdate
+	TypeSync
+	TypeUnmap
 
 	messageSize     = (32 + 32 + 32 + 64) / 8 //TODO: unused?
 	readBufferSize  = 8096
@@ -18,7 +20,7 @@ const (
 )
 
 const (
-	MagicVersion = uint16(0x1b02) // Jiva02
+	MagicVersion = uint16(0x1b03) // Jiva03
 )
 
 type Message struct {
@@ -29,7 +31,7 @@ type Message struct {
 	Type         uint32
 	Offset       int64
 	Data         []byte
-	Size         uint32
+	Size         int64
 	transportErr error
 
 	ID journal.OpID //Seq and ID can apparently be collapsed into one (ID)

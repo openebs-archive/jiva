@@ -25,8 +25,14 @@ type replicator struct {
 	updaterIndex      map[int]string
 	readerIndex       map[int]string
 	readers           []io.ReaderAt
-	writer            io.WriterAt
+	writer            Writer
 	next              int
+}
+
+type Writer interface {
+	io.WriterAt
+	Sync() (int, error)
+	Unmap(int64, int64) (int, error)
 }
 
 type BackendError struct {
@@ -163,12 +169,52 @@ func (r *replicator) WriteAt(p []byte, off int64) (int, error) {
 	return n, err
 }
 
+func (r *replicator) Sync() (int, error) {
+	if !r.backendsAvailable {
+		return -1, ErrNoBackend
+	}
+
+	n, err := r.writer.Sync()
+	if err != nil {
+		errors := map[string]error{}
+		if mErr, ok := err.(*MultiWriterError); ok {
+			for index, err := range mErr.ReplicaErrors {
+				if err != nil {
+					errors[r.writerIndex[index]] = err
+				}
+			}
+		}
+		return n, &BackendError{Errors: errors}
+	}
+	return n, err
+}
+
+func (r *replicator) Unmap(offset int64, length int64) (int, error) {
+	if !r.backendsAvailable {
+		return -1, ErrNoBackend
+	}
+
+	n, err := r.writer.Unmap(offset, length)
+	if err != nil {
+		errors := map[string]error{}
+		if mErr, ok := err.(*MultiWriterError); ok {
+			for index, err := range mErr.ReplicaErrors {
+				if err != nil {
+					errors[r.writerIndex[index]] = err
+				}
+			}
+		}
+		return n, &BackendError{Errors: errors}
+	}
+	return n, err
+}
+
 func (r *replicator) buildReadWriters() {
 	r.reset(false)
 
 	readers := []io.ReaderAt{}
-	writers := []io.WriterAt{}
-	updaters := []io.WriterAt{}
+	writers := []Writer{}
+	updaters := []Writer{}
 
 	for address, b := range r.backends {
 		if b.mode != types.ERR {
@@ -265,6 +311,7 @@ func (r *replicator) Snapshot(name string, userCreated bool, created string) err
 	}
 	return nil
 }
+
 func (r *replicator) Resize(name string, size string) error {
 	retErrorLock := sync.Mutex{}
 	retError := &BackendError{

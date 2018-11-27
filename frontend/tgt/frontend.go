@@ -34,7 +34,7 @@ type Tgt struct {
 	scsiDevice   *ScsiDevice
 }
 
-func (t *Tgt) Startup(name string, frontendIP string, clusterIP string, size, sectorSize int64, rw types.ReaderWriterAt) error {
+func (t *Tgt) Startup(name string, frontendIP string, clusterIP string, size, sectorSize int64, rw types.IOs) error {
 	t.Volume = name
 	t.Size = size
 	t.SectorSize = int(sectorSize)
@@ -162,6 +162,14 @@ func (d DataProcessorWrapper) ReadAt(p []byte, off int64) (n int, err error) {
 
 func (d DataProcessorWrapper) WriteAt(p []byte, off int64) (n int, err error) {
 	return d.rw.WriteAt(p, off)
+}
+
+func (d DataProcessorWrapper) Sync() (int, error) {
+	return 0, nil
+}
+
+func (d DataProcessorWrapper) Unmap(offset int64, length int64) (int, error) {
+	return 0, nil
 }
 
 func (d DataProcessorWrapper) PingResponse() error {

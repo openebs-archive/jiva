@@ -831,6 +831,60 @@ func (c *Controller) WriteAt(b []byte, off int64) (int, error) {
 	return n, err
 }
 
+func (c *Controller) Sync() (int, error) {
+	c.Lock()
+	if c.ReadOnly == true {
+		err := fmt.Errorf("Mode: ReadOnly")
+		c.Unlock()
+		time.Sleep(1 * time.Second)
+		return -1, err
+	}
+	defer c.Unlock()
+	n, err := c.backend.Sync()
+	if err != nil {
+		errh := c.handleErrorNoLock(err)
+		if bErr, ok := err.(*BackendError); ok {
+			if len(bErr.Errors) > 0 {
+				for address := range bErr.Errors {
+					c.RemoveReplicaNoLock(address)
+				}
+			}
+		}
+		if n == -1 {
+			return -1, fmt.Errorf("Sync Failed")
+		}
+		return 0, errh
+	}
+	return 0, err
+}
+
+func (c *Controller) Unmap(offset int64, length int64) (int, error) {
+	c.Lock()
+	if c.ReadOnly == true {
+		err := fmt.Errorf("Mode: ReadOnly")
+		c.Unlock()
+		time.Sleep(1 * time.Second)
+		return -1, err
+	}
+	defer c.Unlock()
+	n, err := c.backend.Unmap(offset, length)
+	if err != nil {
+		errh := c.handleErrorNoLock(err)
+		if bErr, ok := err.(*BackendError); ok {
+			if len(bErr.Errors) > 0 {
+				for address := range bErr.Errors {
+					c.RemoveReplicaNoLock(address)
+				}
+			}
+		}
+		if n == -1 {
+			return -1, fmt.Errorf("Unmap Failed")
+		}
+		return 0, errh
+	}
+	return 0, err
+}
+
 func (c *Controller) ReadAt(b []byte, off int64) (int, error) {
 	c.Lock()
 	defer c.Unlock()
