@@ -20,7 +20,7 @@ const (
 )
 
 const (
-	MagicVersion = uint16(0x1b02) // Jiva02
+	MagicVersion = uint16(0x1b03) // Jiva03
 )
 
 type Message struct {
