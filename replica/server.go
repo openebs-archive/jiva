@@ -39,13 +39,12 @@ type Server struct {
 	MonitorChannel chan struct{}
 }
 
-func NewServer(dir string, backing *BackingFile, sectorSize int64, serverType string) *Server {
+func NewServer(dir string, sectorSize int64, serverType string) *Server {
 	ActionChannel = make(chan string, 5)
 	Dir = dir
 	StartTime = time.Now()
 	return &Server{
 		dir:               dir,
-		backing:           backing,
 		defaultSectorSize: sectorSize,
 		ServerType:        serverType,
 		MonitorChannel:    make(chan struct{}),

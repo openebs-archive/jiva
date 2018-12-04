@@ -128,13 +128,8 @@ func startReplica(c *cli.Context) error {
 	}
 
 	dir := c.Args()[0]
-	backingFile, err := openBackingFile(c.String("backing-file"))
-	if err != nil {
-		return err
-	}
-
 	replicaType := c.String("type")
-	s := replica.NewServer(dir, backingFile, 512, replicaType)
+	s := replica.NewServer(dir, 512, replicaType)
 
 	address := c.String("listen")
 	frontendIP := c.String("frontendIP")
