@@ -514,13 +514,17 @@ test_replica_ip_change() {
 
 test_controller_rpc_close() {
 	echo "----------------Test_controller_rpc_close---------------"
-	debug_controller_id=$(start_debug_controller "$CONTROLLER_IP" "store1" "1" "RPC_PING_TIMEOUT" "20")
+	debug_controller_id=$(start_debug_controller "$CONTROLLER_IP" "store1" "1" "RPC_PING_TIMEOUT" "25")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	sleep 30
 
+        writer_exit=`docker logs $debug_controller_id 2>&1 | grep "Exiting rpc writer" | wc -l`
         reader_exit=`docker logs $debug_controller_id 2>&1 | grep "Exiting rpc reader" | wc -l`
 	loop_exit=`docker logs $debug_controller_id 2>&1 | grep "Exiting rpc loop" | wc -l`
-	if [ "$reader_exit" == 0 ]; then
+	if [ "$writer_exit" == 0 ]; then
+		collect_logs_and_exit
+	fi
+        if [ "$reader_exit" == 0 ]; then
 		collect_logs_and_exit
 	fi
 	if [ "$loop_exit" == 0 ]; then
@@ -529,6 +533,7 @@ test_controller_rpc_close() {
 
 	curl -k --data "{ \"rpcPingTimeout\":\"0\" }" -H "Content-Type:application/json" -XPOST $CONTROLLER_IP:9501/timeout
 	verify_replica_cnt "1" "One replica count test1"
+    
 	cleanup
 }
 

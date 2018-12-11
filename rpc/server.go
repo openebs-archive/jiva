@@ -33,7 +33,7 @@ func (s *Server) SetMonitorChannel(monitorChan chan struct{}) {
 
 func (s *Server) Handle() error {
 	var (
-		msg    *Message
+		//msg    *Message
 		err    error
 		ticker = time.NewTicker(5 * time.Second)
 	)
@@ -48,20 +48,27 @@ func (s *Server) Handle() error {
 	s.pingStart = time.Now()
 	for {
 		select {
-		case <-s.done:
-			msg = &Message{
-				Type: TypeClose,
-			}
-			//Best effort to notify client to close connection
-			s.write(msg)
-			return nil
+		/*		case <-s.done:
+							msg = &Message{
+								Type: TypeClose,
+							}
+							//Best effort to notify client to close connection
+							s.write(msg)
+				return nil
+		*/
 		case err = <-ret:
 			if err != nil {
+				if err := s.Stop(); err != nil {
+					logrus.Error("Failed to stop rpc server, error: ", err)
+					return err
+				}
 				return err
 			}
 		case <-ticker.C:
 			if time.Since(s.pingStart) >= opPingTimeout*2 {
-				if err := s.wire.Close(); err != nil {
+				// Close the connection as Ping is not recieved
+				// since long time.
+				if err := s.Stop(); err != nil {
 					return err
 				}
 			}
@@ -87,6 +94,7 @@ func (s *Server) readWrite(ret chan<- error) {
 		case TypeWrite:
 			s.handleWrite(msg)
 		case TypePing:
+			logrus.Info("ping received")
 			s.handlePing(msg)
 		case TypeSync:
 			s.handleSync(msg)
@@ -102,10 +110,19 @@ func (s *Server) readWrite(ret chan<- error) {
 			break
 		}
 	}
+	logrus.Error("closing rpc server")
 }
 
-func (s *Server) Stop() {
-	s.done <- struct{}{}
+func (s *Server) Stop() error {
+	//	s.done <- struct{}{}
+	if err := s.wire.CloseRead(); err != nil {
+		return err
+	}
+
+	if err := s.wire.CloseWrite(); err != nil {
+		return err
+	}
+	return s.wire.Close()
 }
 
 func (s *Server) handleRead(msg *Message) {

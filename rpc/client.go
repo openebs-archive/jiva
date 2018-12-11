@@ -214,16 +214,35 @@ func (c *Client) operation(op uint32, buf []byte, offset int64, length int64) (i
 	}
 }
 
-/*
 //Close replica client
-func (c *Client) Close() {
-	c.wire.Close()
-	c.end <- struct{}{}
+func (c *Client) Close() error {
+	//	c.wire.Close()
+	//	c.end <- struct{}{}
+	if err := c.wire.CloseRead(); err != nil {
+		return err
+	}
+
+	if err := c.wire.CloseWrite(); err != nil {
+		return err
+	}
+	for {
+		if c.wire.readExit && c.wire.writeExit {
+			break
+		}
+		time.Sleep(2 * time.Second)
+	}
+	close(c.send)
+	return c.wire.Close()
 }
-*/
 
 func (c *Client) loop() {
-	defer close(c.send)
+	defer func() {
+	retry:
+		if err := c.Close(); err != nil {
+			logrus.Error("failed to close conn, err: ", err)
+			goto retry
+		}
+	}()
 
 	for {
 		select {
@@ -235,9 +254,6 @@ func (c *Client) loop() {
 			c.handleResponse(resp)
 			if c.err != nil {
 				logrus.Infof("Exiting rpc loop for %v with err %v", c.peerAddr, c.err)
-				if err := c.wire.Close(); err != nil {
-					logrus.Error("failed to close conn, err: ", err)
-				}
 				return
 			}
 		}

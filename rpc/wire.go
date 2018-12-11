@@ -116,6 +116,7 @@ func (w *Wire) Read() (*Message, error) {
 
 func (w *Wire) CloseRead() error {
 	if conn, ok := w.conn.(*net.TCPConn); ok {
+		logrus.Warning("Closing read on rpc conn")
 		return conn.CloseRead()
 	}
 	return fmt.Errorf("failed to close, type assert error")
@@ -123,25 +124,13 @@ func (w *Wire) CloseRead() error {
 
 func (w *Wire) CloseWrite() error {
 	if conn, ok := w.conn.(*net.TCPConn); ok {
+		logrus.Warning("Closing write on rpc conn")
 		return conn.CloseWrite()
 	}
 	return fmt.Errorf("failed to close, type assert error")
 }
 
 func (w *Wire) Close() error {
-	logrus.Warning("Closing read on TCP conn")
-	if err := w.CloseRead(); err != nil {
-		return err
-	}
-	logrus.Warning("Closing write on TCP conn")
-	if err := w.CloseWrite(); err != nil {
-		return err
-	}
-	for {
-		if w.readExit && w.writeExit {
-			break
-		}
-	}
 	logrus.Warning("Closing TCP conn")
 	return w.conn.Close()
 }
