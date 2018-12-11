@@ -4,3 +4,5 @@ package inject
 
 func AddTimeout() {
 }
+func AddPingTimeout() {
+}

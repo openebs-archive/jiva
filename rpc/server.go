@@ -3,6 +3,7 @@ package rpc
 import (
 	"io"
 	"net"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/types"
@@ -14,6 +15,7 @@ type Server struct {
 	done        chan struct{}
 	data        types.DataProcessor
 	monitorChan chan struct{}
+	pingStart   time.Time
 }
 
 func NewServer(conn net.Conn, data types.DataProcessor) *Server {
@@ -31,8 +33,9 @@ func (s *Server) SetMonitorChannel(monitorChan chan struct{}) {
 
 func (s *Server) Handle() error {
 	var (
-		msg *Message
-		err error
+		msg    *Message
+		err    error
+		ticker = time.NewTicker(5 * time.Second)
 	)
 	defer func() {
 		select {
@@ -42,7 +45,7 @@ func (s *Server) Handle() error {
 	}()
 	ret := make(chan error)
 	go s.readWrite(ret)
-
+	s.pingStart = time.Now()
 	for {
 		select {
 		case <-s.done:
@@ -55,6 +58,12 @@ func (s *Server) Handle() error {
 		case err = <-ret:
 			if err != nil {
 				return err
+			}
+		case <-ticker.C:
+			if time.Since(s.pingStart) >= opPingTimeout*2 {
+				if err := s.wire.Close(); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -113,6 +122,7 @@ func (s *Server) handleWrite(msg *Message) {
 func (s *Server) handlePing(msg *Message) {
 	err := s.data.PingResponse()
 	s.createResponse(0, msg, err)
+	s.pingStart = time.Now()
 }
 
 func (s *Server) handleSync(msg *Message) {
