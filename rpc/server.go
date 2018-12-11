@@ -94,7 +94,6 @@ func (s *Server) readWrite(ret chan<- error) {
 		case TypeWrite:
 			s.handleWrite(msg)
 		case TypePing:
-			logrus.Info("ping received")
 			s.handlePing(msg)
 		case TypeSync:
 			s.handleSync(msg)

@@ -231,16 +231,14 @@ func (c *Client) Close() error {
 		}
 		time.Sleep(2 * time.Second)
 	}
-	close(c.send)
 	return c.wire.Close()
 }
 
 func (c *Client) loop() {
 	defer func() {
-	retry:
+		close(c.send)
 		if err := c.Close(); err != nil {
 			logrus.Error("failed to close conn, err: ", err)
-			goto retry
 		}
 	}()
 
