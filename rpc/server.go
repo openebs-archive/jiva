@@ -10,12 +10,13 @@ import (
 )
 
 type Server struct {
-	wire        *Wire
-	responses   chan *Message
-	done        chan struct{}
-	data        types.DataProcessor
-	monitorChan chan struct{}
-	pingStart   time.Time
+	wire                *Wire
+	responses           chan *Message
+	done                chan struct{}
+	data                types.DataProcessor
+	monitorChan         chan struct{}
+	pingStart           time.Time
+	readExit, writeExit bool
 }
 
 func NewServer(conn net.Conn, data types.DataProcessor) *Server {
@@ -33,7 +34,6 @@ func (s *Server) SetMonitorChannel(monitorChan chan struct{}) {
 
 func (s *Server) Handle() error {
 	var (
-		//msg    *Message
 		err    error
 		ticker = time.NewTicker(5 * time.Second)
 	)
@@ -45,17 +45,8 @@ func (s *Server) Handle() error {
 	}()
 	ret := make(chan error)
 	go s.readWrite(ret)
-	s.pingStart = time.Now()
 	for {
 		select {
-		/*		case <-s.done:
-							msg = &Message{
-								Type: TypeClose,
-							}
-							//Best effort to notify client to close connection
-							s.write(msg)
-				return nil
-		*/
 		case err = <-ret:
 			if err != nil {
 				if err := s.Stop(); err != nil {
@@ -77,6 +68,7 @@ func (s *Server) Handle() error {
 }
 
 func (s *Server) readWrite(ret chan<- error) {
+	s.pingStart = time.Now()
 	for {
 		msg, err := s.wire.Read()
 		if err == io.EOF {
@@ -104,22 +96,33 @@ func (s *Server) readWrite(ret chan<- error) {
 					go s.handleUpdate(msg)
 			*/
 		}
+
+		if s.readExit {
+			logrus.Warning("Can't write, read is closed on rpc conn")
+			break
+		}
 		if err := s.write(msg); err != nil {
 			ret <- err
 			break
 		}
 	}
 	logrus.Error("closing rpc server")
+	s.writeExit = true
 }
 
 func (s *Server) Stop() error {
-	//	s.done <- struct{}{}
 	if err := s.wire.CloseRead(); err != nil {
 		return err
 	}
-
+	s.readExit = true
 	if err := s.wire.CloseWrite(); err != nil {
 		return err
+	}
+	for {
+		if s.writeExit {
+			break
+		}
+		time.Sleep(2 * time.Second)
 	}
 	return s.wire.Close()
 }

@@ -216,8 +216,6 @@ func (c *Client) operation(op uint32, buf []byte, offset int64, length int64) (i
 
 //Close replica client
 func (c *Client) Close() error {
-	//	c.wire.Close()
-	//	c.end <- struct{}{}
 	if err := c.wire.CloseRead(); err != nil {
 		return err
 	}
@@ -244,8 +242,6 @@ func (c *Client) loop() {
 
 	for {
 		select {
-		//		case <-c.end:
-		//			return
 		case req := <-c.requests:
 			c.handleRequest(req)
 		case resp := <-c.responses:
