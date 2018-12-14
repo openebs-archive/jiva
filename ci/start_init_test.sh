@@ -356,6 +356,13 @@ start_replica() {
 	echo "$replica_id"
 }
 
+# start_replica CONTROLLER_IP REPLICA_IP folder_name
+start_debug_replica() {
+	replica_id=$(docker run -d --net stg-net --ip "$2" -P --expose 9502-9504 -v /tmp/"$3":/"$3" $JI_DEBUG \
+	env RPC_PING_TIMEOUT=45 launch replica --frontendIP "$1" --listen "$2":9502 --size 2g /"$3")
+	echo "$replica_id"
+}
+
 # start_controller CONTROLLER_IP (debug build)
 start_debug_controller() {
 	controller_id=$(docker run -d --net stg-net --ip $1 -P --expose 3260 --expose 9501 --expose 9502-9504 $JI_DEBUG \
@@ -537,6 +544,19 @@ test_controller_rpc_close() {
 	cleanup
 }
 
+test_replica_rpc_close() {
+	echo "----------------Test_replica_rpc_close---------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
+	debug_replica_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	sleep 50
+
+	read_write_exit=`docker logs $debug_replica_id 2>&1 | grep -c "Closing TCP conn"`
+        if [ "$read_write_exit" == 0 ]; then
+		collect_logs_and_exit
+	fi
+
+	cleanup
+}
 
 test_two_replica_stop_start() {
 	echo "----------------Test_two_replica_stop_start---------------"
@@ -1459,6 +1479,7 @@ test_duplicate_data_delete() {
 
 
 prepare_test_env
+test_replica_rpc_close
 test_controller_rpc_close
 test_single_replica_stop_start
 test_replication_factor

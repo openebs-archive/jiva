@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/types"
 )
 
@@ -70,6 +71,7 @@ func (s *Server) Handle() error {
 func (s *Server) readWrite(ret chan<- error) {
 	s.pingStart = time.Now()
 	for {
+		inject.AddPingTimeout()
 		msg, err := s.wire.Read()
 		if err == io.EOF {
 			logrus.Errorf("Received EOF: %v", err)
@@ -106,7 +108,7 @@ func (s *Server) readWrite(ret chan<- error) {
 			break
 		}
 	}
-	logrus.Error("closing rpc server")
+	logrus.Error("Closing rpc server")
 	s.writeExit = true
 }
 
