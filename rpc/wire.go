@@ -55,9 +55,6 @@ func (w *Wire) Write(msg *Message) error {
 		logrus.Errorf("Write len(msg.Data) failed, Error: %v", err)
 		return err
 	}
-	if w.readExit {
-		return fmt.Errorf("Can't write, read is closed on rpc conn")
-	}
 	if len(msg.Data) > 0 {
 		if _, err := w.writer.Write(msg.Data); err != nil {
 			logrus.Errorf("Write msg.Data failed, Error: %v", err)
@@ -104,9 +101,6 @@ func (w *Wire) Read() (*Message, error) {
 	if err := binary.Read(w.reader, binary.LittleEndian, &length); err != nil {
 		logrus.Errorf("Read length failed, Error: %v", err)
 		return nil, err
-	}
-	if w.writeExit {
-		return &msg, fmt.Errorf("Can't read, write is closed on rpc conn")
 	}
 	if length > 0 {
 		msg.Data = make([]byte, length)

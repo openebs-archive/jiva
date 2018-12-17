@@ -11,13 +11,16 @@ import (
 )
 
 type Server struct {
-	wire                *Wire
-	responses           chan *Message
-	done                chan struct{}
-	data                types.DataProcessor
-	monitorChan         chan struct{}
-	pingStart           time.Time
-	readExit, writeExit bool
+	wire        *Wire
+	responses   chan *Message
+	done        chan struct{}
+	data        types.DataProcessor
+	monitorChan chan struct{}
+	// pingRecvd is the time connection get established
+	// with the client and get updated each time when ping
+	// is received from client.
+	pingRecvd time.Time
+	rwExit    bool
 }
 
 func NewServer(conn net.Conn, data types.DataProcessor) *Server {
@@ -45,6 +48,7 @@ func (s *Server) Handle() error {
 		}
 	}()
 	ret := make(chan error)
+	s.pingRecvd = time.Now()
 	go s.readWrite(ret)
 	for {
 		select {
@@ -57,7 +61,7 @@ func (s *Server) Handle() error {
 				return err
 			}
 		case <-ticker.C:
-			if time.Since(s.pingStart) >= opPingTimeout*2 {
+			if time.Since(s.pingRecvd) >= opPingTimeout*2 {
 				// Close the connection as Ping is not recieved
 				// since long time.
 				if err := s.Stop(); err != nil {
@@ -69,7 +73,6 @@ func (s *Server) Handle() error {
 }
 
 func (s *Server) readWrite(ret chan<- error) {
-	s.pingStart = time.Now()
 	for {
 		inject.AddPingTimeout()
 		msg, err := s.wire.Read()
@@ -99,29 +102,24 @@ func (s *Server) readWrite(ret chan<- error) {
 			*/
 		}
 
-		if s.readExit {
-			logrus.Warning("Can't write, read is closed on rpc conn")
-			break
-		}
 		if err := s.write(msg); err != nil {
 			ret <- err
 			break
 		}
 	}
 	logrus.Error("Closing rpc server")
-	s.writeExit = true
+	s.rwExit = true
 }
 
 func (s *Server) Stop() error {
 	if err := s.wire.CloseRead(); err != nil {
 		return err
 	}
-	s.readExit = true
 	if err := s.wire.CloseWrite(); err != nil {
 		return err
 	}
 	for {
-		if s.writeExit {
+		if s.rwExit {
 			break
 		}
 		time.Sleep(2 * time.Second)
@@ -143,7 +141,7 @@ func (s *Server) handleWrite(msg *Message) {
 func (s *Server) handlePing(msg *Message) {
 	err := s.data.PingResponse()
 	s.createResponse(0, msg, err)
-	s.pingStart = time.Now()
+	s.pingRecvd = time.Now()
 }
 
 func (s *Server) handleSync(msg *Message) {
