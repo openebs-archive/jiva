@@ -47,7 +47,7 @@ func (s *Server) Handle() error {
 		default:
 		}
 	}()
-	ret := make(chan error)
+	ret := make(chan error, 1)
 	s.pingRecvd = time.Now()
 	go s.readWrite(ret)
 	for {
