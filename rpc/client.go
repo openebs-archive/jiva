@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	inject "github.com/openebs/jiva/error-inject"
 	journal "github.com/rancher/sparse-tools/stats"
 )
 
@@ -214,18 +215,33 @@ func (c *Client) operation(op uint32, buf []byte, offset int64, length int64) (i
 }
 
 //Close replica client
-func (c *Client) Close() {
-	c.wire.Close()
-	c.end <- struct{}{}
+func (c *Client) Close() error {
+	if err := c.wire.CloseRead(); err != nil {
+		return err
+	}
+
+	if err := c.wire.CloseWrite(); err != nil {
+		return err
+	}
+	for {
+		if c.wire.readExit && c.wire.writeExit {
+			break
+		}
+		time.Sleep(2 * time.Second)
+	}
+	return c.wire.Close()
 }
 
 func (c *Client) loop() {
-	defer close(c.send)
+	defer func() {
+		close(c.send)
+		if err := c.Close(); err != nil {
+			logrus.Error("failed to close conn, err: ", err)
+		}
+	}()
 
 	for {
 		select {
-		case <-c.end:
-			return
 		case req := <-c.requests:
 			c.handleRequest(req)
 		case resp := <-c.responses:
@@ -310,6 +326,7 @@ func (c *Client) handleResponse(resp *Message) {
 
 func (c *Client) write() {
 	for msg := range c.send {
+		inject.AddPingTimeout()
 		if err := c.wire.Write(msg); err != nil {
 			logrus.Errorf("Error Writing to wire: %v, RemoteAddr: %v", err, c.peerAddr)
 			c.SetError(err)
@@ -317,6 +334,7 @@ func (c *Client) write() {
 		}
 	}
 	logrus.Infof("Exiting rpc writer, RemoteAddr:%v", c.peerAddr)
+	c.wire.writeExit = true
 }
 
 func (c *Client) read() {
@@ -330,4 +348,5 @@ func (c *Client) read() {
 		c.responses <- msg
 	}
 	logrus.Infof("Exiting rpc reader, RemoteAddr:%v", c.peerAddr)
+	c.wire.readExit = true
 }
