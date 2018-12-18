@@ -356,10 +356,17 @@ start_replica() {
 	echo "$replica_id"
 }
 
+# start_replica CONTROLLER_IP REPLICA_IP folder_name
+start_debug_replica() {
+	replica_id=$(docker run -d --net stg-net --ip "$2" -P --expose 9502-9504 -v /tmp/"$3":/"$3" $JI_DEBUG \
+	env RPC_PING_TIMEOUT=45 launch replica --frontendIP "$1" --listen "$2":9502 --size 2g /"$3")
+	echo "$replica_id"
+}
+
 # start_controller CONTROLLER_IP (debug build)
 start_debug_controller() {
 	controller_id=$(docker run -d --net stg-net --ip $1 -P --expose 3260 --expose 9501 --expose 9502-9504 $JI_DEBUG \
-			env REPLICATION_FACTOR="$3" DEBUG_TIMEOUT="5" launch controller --frontend gotgt --frontendIP "$1" "$2")
+			env REPLICATION_FACTOR="$3" "$4"="$5" launch controller --frontend gotgt --frontendIP "$1" "$2")
 	echo "$controller_id"
 }
 
@@ -490,7 +497,7 @@ test_single_replica_stop_start() {
 # to other replica after verifying the replication factor.
 test_replica_ip_change() {
 	echo "----------------Test_replica_ip_change---------------"
-	debug_controller_id=$(start_debug_controller "$CONTROLLER_IP" "store1" "2")
+	debug_controller_id=$(start_debug_controller "$CONTROLLER_IP" "store1" "2" "DEBUG_TIMEOUT" "5")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2"
 	sleep 1
@@ -509,6 +516,45 @@ test_replica_ip_change() {
 	sleep 5
 
 	verify_replica_cnt "2" "Two replica count test1"
+	cleanup
+}
+
+test_controller_rpc_close() {
+	echo "----------------Test_controller_rpc_close---------------"
+	debug_controller_id=$(start_debug_controller "$CONTROLLER_IP" "store1" "1" "RPC_PING_TIMEOUT" "25")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	sleep 40
+
+        writer_exit=`docker logs $debug_controller_id 2>&1 | grep "Exiting rpc writer" | wc -l`
+        reader_exit=`docker logs $debug_controller_id 2>&1 | grep "Exiting rpc reader" | wc -l`
+	loop_exit=`docker logs $debug_controller_id 2>&1 | grep "Exiting rpc loop" | wc -l`
+	if [ "$writer_exit" == 0 ]; then
+		collect_logs_and_exit
+	fi
+        if [ "$reader_exit" == 0 ]; then
+		collect_logs_and_exit
+	fi
+	if [ "$loop_exit" == 0 ]; then
+		collect_logs_and_exit
+	fi
+
+	curl -k --data "{ \"rpcPingTimeout\":\"0\" }" -H "Content-Type:application/json" -XPOST $CONTROLLER_IP:9501/timeout
+	verify_replica_cnt "1" "One replica count test1"
+    
+	cleanup
+}
+
+test_replica_rpc_close() {
+	echo "----------------Test_replica_rpc_close---------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
+	debug_replica_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	sleep 50
+
+	read_write_exit=`docker logs $debug_replica_id 2>&1 | grep -c "Closing TCP conn"`
+        if [ "$read_write_exit" == 0 ]; then
+		collect_logs_and_exit
+	fi
+
 	cleanup
 }
 
@@ -1433,6 +1479,8 @@ test_duplicate_data_delete() {
 
 
 prepare_test_env
+test_replica_rpc_close
+test_controller_rpc_close
 test_single_replica_stop_start
 test_replication_factor
 test_two_replica_delete
