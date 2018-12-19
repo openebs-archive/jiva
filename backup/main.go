@@ -194,11 +194,6 @@ func doBackupCreate(c *cli.Context) error {
 		if _, err := os.Stat(backingFileName); err != nil {
 			return err
 		}
-
-		backingFile, err = openBackingFile(backingFileName)
-		if err != nil {
-			return err
-		}
 	}
 	replicaBackup := replica.NewBackup(backingFile)
 
