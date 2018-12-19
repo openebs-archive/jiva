@@ -38,42 +38,6 @@ DOCKER_URL=DOCKER_URL_${ARCH}
 
 RUN wget ${!DOCKER_URL} -O docker_ce_${ARCH} && dpkg -i docker_ce_${ARCH}
 
-# Build TCMU
-RUN cd /usr/src && \
-    git clone https://github.com/open-iscsi/tcmu-runner.git && \
-    cd tcmu-runner && \
-    git checkout f34b67c65b7844a6d3fcb24c2feaf7db90a889cd
-RUN cd /usr/src/tcmu-runner && \
-    cmake . -Dwith-glfs=false && \
-    make && \
-    make install && \
-    cp scsi_defs.h /usr/local/include && \
-    cp libtcmu_static.a /usr/local/lib/libtcmu.a
-
-# Install libqcow
-RUN wget -O - https://github.com/libyal/libqcow/releases/download/20181216/libqcow-alpha-20181216.tar.gz | tar xvzf - -C /usr/src
-RUN cd /usr/src/libqcow-20181216 && \
-    ./configure
-RUN cd /usr/src/libqcow-20181216 && \
-    make -j$(nproc) && \
-    make install
-
-# Build liblonghorn
-RUN cd /usr/src && \
-    git clone https://github.com/yasker/liblonghorn.git && \
-    cd liblonghorn && \
-    git checkout 8ef0ed67bc882457ffe63ad0f1ae49cb59c01e57 && \
-    make deb && \
-    dpkg -i ./pkg/liblonghorn_*.deb
-
-# Build TGT
-RUN cd /usr/src && \
-    git clone https://github.com/yasker/tgt.git && \
-    cd tgt && \
-    git checkout 6475d1ddf4ff0ac1421a96725f3d472cbb2985c7 && \
-    ./scripts/build-pkg.sh deb && \
-    dpkg -i ./pkg/tgt_*.deb
-
 VOLUME /tmp
 ENV TMPDIR /tmp
 ENTRYPOINT ["./scripts/entry"]
