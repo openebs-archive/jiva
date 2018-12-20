@@ -116,6 +116,7 @@ func rmDisk(replica *types.Replica, disk string) error {
 	}
 	return repClient.RemoveDisk(disk)
 }
+
 func replaceDisk(replica *types.Replica, target, source string) error {
 	repClient, err := replicaClient.NewReplicaClient(replica.Address)
 	if err != nil {
@@ -123,6 +124,7 @@ func replaceDisk(replica *types.Replica, target, source string) error {
 	}
 	return repClient.ReplaceDisk(target, source)
 }
+
 func (s *Server) processRemoveSnapshot(replica *types.Replica, snapshot string, ops []replica_jiva.PrepareRemoveAction) error {
 	if len(ops) == 0 {
 		return nil
@@ -157,6 +159,7 @@ func (s *Server) processRemoveSnapshot(replica *types.Replica, snapshot string, 
 	}
 	return nil
 }
+
 func (s *Server) prepareRemoveSnapshot(replica *types.Replica, snapshot string) ([]replica_jiva.PrepareRemoveAction, error) {
 	if replica.Mode != "RW" {
 		return nil, fmt.Errorf("Can only removed snapshot from replica in mode RW, got %s", replica.Mode)
@@ -183,6 +186,7 @@ func (s *Server) checkPrerequisits(replicas []types.Replica) error {
 	}
 	return nil
 }
+
 func getReplicaInfo(addr string) (replica_rest.Replica, error) {
 	repClient, err := replicaClient.NewReplicaClient(addr)
 	if err != nil {
@@ -194,6 +198,7 @@ func getReplicaInfo(addr string) (replica_rest.Replica, error) {
 	}
 	return replicaInfo, nil
 }
+
 func isRemovable(replicas []types.Replica, name string) error {
 	var replica types.Replica
 	for _, replica = range replicas {
@@ -211,6 +216,7 @@ func isRemovable(replicas []types.Replica, name string) error {
 	}
 	return nil
 }
+
 func (s *Server) deleteSnapshot(replicas []types.Replica, name string) error {
 	s.c.Lock()
 	defer s.c.Unlock()
@@ -237,6 +243,7 @@ func (s *Server) deleteSnapshot(replicas []types.Replica, name string) error {
 	}
 	return nil
 }
+
 func (s *Server) DeleteSnapshot(rw http.ResponseWriter, req *http.Request) error {
 	apiContext := api.GetApiContext(req)
 	var input SnapshotInput
