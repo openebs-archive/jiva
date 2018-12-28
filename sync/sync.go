@@ -322,7 +322,13 @@ Register:
 	}
 	if action == "start" {
 		logrus.Infof("Received start from controller")
-		return t.client.Start(replicaAddress)
+		if err := t.client.Start(replicaAddress); err != nil {
+			return err
+		}
+		if err := s.Preload(); err != nil {
+			return err
+		}
+		return nil
 	}
 	logrus.Infof("CheckAndResetFailedRebuild %v", replicaAddress)
 	if err := t.checkAndResetFailedRebuild(replicaAddress, s); err != nil {
@@ -358,8 +364,12 @@ Register:
 	}
 
 	logrus.Infof("reloadAndVerify %v", replicaAddress)
-	return t.reloadAndVerify(replicaAddress, toClient)
+	if err := t.reloadAndVerify(replicaAddress, toClient); err != nil {
+		return err
+	}
 
+	logrus.Info("Start reading extents (Preload LUN map)")
+	return s.Preload()
 }
 
 func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server) error {

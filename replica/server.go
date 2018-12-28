@@ -102,6 +102,13 @@ func (s *Server) Create(size int64) error {
 	return r.Close()
 }
 
+func (s *Server) Preload() error {
+	if s.r == nil {
+		return fmt.Errorf("Can't read extents, s.r is nil")
+	}
+	return s.r.Preload()
+}
+
 func (s *Server) Open() error {
 	s.Lock()
 	defer s.Unlock()

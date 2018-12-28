@@ -297,5 +297,6 @@ func PreloadLunMap(d *diffDisk) error {
 			d.UsedLogicalBlocks++
 		}
 	}
+	logrus.Info("Read extents completed (Preload)")
 	return err
 }

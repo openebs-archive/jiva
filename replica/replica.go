@@ -217,11 +217,14 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 	r.insertBackingFile()
 	r.ReplicaType = replicaType
 
-	if err := PreloadLunMap(&r.volume); err != nil {
-		return r, fmt.Errorf("failed to load Lun map, error: %v", err)
-	}
-
 	return r, r.writeVolumeMetaData(true, r.info.Rebuilding)
+}
+
+func (r *Replica) Preload() error {
+	if err := PreloadLunMap(&r.volume); err != nil {
+		return fmt.Errorf("failed to load Lun map, error: %v", err)
+	}
+	return nil
 }
 
 func GenerateSnapshotDiskName(name string) string {
