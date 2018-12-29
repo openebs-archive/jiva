@@ -291,12 +291,13 @@ func preload(d *diffDisk) error {
 }
 
 func PreloadLunMap(d *diffDisk) error {
+	d.rmLock.Lock()
+	defer d.rmLock.Unlock()
 	err := preload(d)
 	for _, val := range d.location {
 		if val != 0 {
 			d.UsedLogicalBlocks++
 		}
 	}
-	logrus.Info("Read extents completed (Preload)")
 	return err
 }

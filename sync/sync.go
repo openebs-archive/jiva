@@ -325,9 +325,7 @@ Register:
 		if err := t.client.Start(replicaAddress); err != nil {
 			return err
 		}
-		if err := s.Preload(); err != nil {
-			return err
-		}
+		t.preload(s)
 		return nil
 	}
 	logrus.Infof("CheckAndResetFailedRebuild %v", replicaAddress)
@@ -368,8 +366,20 @@ Register:
 		return err
 	}
 
-	logrus.Info("Start reading extents (Preload LUN map)")
-	return s.Preload()
+	t.preload(s)
+	return nil
+}
+
+func (t *Task) preload(s *replica.Server) {
+	logrus.Info("Start reading extents")
+	go func() {
+		if err := s.Preload(); err != nil {
+			logrus.Error(err)
+			s.MonitorChannel <- struct{}{}
+			return
+		}
+		logrus.Info("Read extents successful")
+	}()
 }
 
 func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server) error {

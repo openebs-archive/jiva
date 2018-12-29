@@ -54,12 +54,16 @@ collect_logs_and_exit() {
 
 	echo "--------------------------ORIGINAL CONTROLLER LOGS ------------------------"
 	docker logs $orig_controller_id
+	echo "--------------------------DEBUG CONTROLLER LOGS ------------------------"
+	docker logs $debug_controller_id
 	echo "--------------------------REPLICA 1 LOGS ----------------------------------"
 	docker logs $replica1_id
 	echo "--------------------------REPLICA 2 LOGS ----------------------------------"
 	docker logs $replica2_id
 	echo "--------------------------REPLICA 3  LOGS ---------------------------------"
 	docker logs $replica3_id
+	echo "--------------------------DEBUG REPLICA LOGS ---------------------------------"
+	docker logs $debug_replica_id
 	echo "--------------------------CLONED CONTROLLER LOGS --------------------------"
 	docker logs $cloned_controller_id
 	echo "--------------------------CLONED REPLICA LOGS -----------------------------"
@@ -359,7 +363,7 @@ start_replica() {
 # start_replica CONTROLLER_IP REPLICA_IP folder_name
 start_debug_replica() {
 	replica_id=$(docker run -d --net stg-net --ip "$2" -P --expose 9502-9504 -v /tmp/"$3":/"$3" $JI_DEBUG \
-	env RPC_PING_TIMEOUT=45 launch replica --frontendIP "$1" --listen "$2":9502 --size 2g /"$3")
+	env $4=$5 launch replica --frontendIP "$1" --listen "$2":9502 --size 2g /"$3")
 	echo "$replica_id"
 }
 
@@ -544,10 +548,49 @@ test_controller_rpc_close() {
 	cleanup
 }
 
+test_preload() {
+	echo "----------------Test_preload---------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
+	debug_replica_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1" "PRELOAD_TIMEOUT" "5")
+	sleep 1
+	sudo docker stop $orig_controller_id
+	sudo docker start $orig_controller_id
+	sleep 5
+
+	rpc_close=`docker logs $debug_replica_id 2>&1 | grep -c "Closing TCP conn"`
+	if [ "$rpc_close" == 0 ]; then
+		collect_logs_and_exit
+	fi
+
+	controller_exit=`docker logs $orig_controller_id 2>&1 | grep -c "stopping target"`
+	if [ "$controller_exit" == 0 ]; then
+		collect_logs_and_exit
+	fi
+
+	register_replica=`docker logs $debug_replica_id 2>&1 | grep -c "Register replica at controller"`
+	if [ "$register_replica" -lt 2 ]; then
+		collect_logs_and_exit
+	fi
+
+	restart_autoconfigure=`docker logs $debug_replica_id 2>&1 | grep -c "Restart AutoConfigure Process"`
+	if [ "$restart_autoconfigure" == 0 ]; then
+		collect_logs_and_exit
+	fi
+
+	verify_replica_cnt "1" "One replica count test when controller is"
+	sleep 3
+	preload_success=`docker logs $debug_replica_id 2>&1 | grep -c "Read extents successful"`
+	if [ "$preload_success" == 0 ]; then
+		collect_logs_and_exit
+	fi
+
+	cleanup
+}
+
 test_replica_rpc_close() {
 	echo "----------------Test_replica_rpc_close---------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
-	debug_replica_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	debug_replica_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1" "RPC_PING_TIMEOUT" "45")
 	sleep 50
 
 	read_write_exit=`docker logs $debug_replica_id 2>&1 | grep -c "Closing TCP conn"`
@@ -1479,6 +1522,7 @@ test_duplicate_data_delete() {
 
 
 prepare_test_env
+test_preload
 test_replica_rpc_close
 test_controller_rpc_close
 test_single_replica_stop_start

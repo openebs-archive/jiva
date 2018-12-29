@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/types"
 )
 
@@ -103,6 +104,7 @@ func (s *Server) Create(size int64) error {
 }
 
 func (s *Server) Preload() error {
+	inject.AddPreloadTimeout()
 	if s.r == nil {
 		return fmt.Errorf("Can't read extents, s.r is nil")
 	}
