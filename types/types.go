@@ -12,8 +12,12 @@ const (
 
 	StateUp   = State("Up")
 	StateDown = State("Down")
+	Started   = PreloadStatus("Started")
+	Done      = PreloadStatus("Done")
+	Error     = PreloadStatus("Error")
 )
 
+type PreloadStatus string
 type ReaderWriterAt interface {
 	io.ReaderAt
 	io.WriterAt
@@ -134,6 +138,7 @@ type Frontend interface {
 }
 
 type DataProcessor interface {
+	Close(signalMonitor bool) error
 	IOs
 	PingResponse() error
 	//Update() error

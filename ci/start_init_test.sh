@@ -551,10 +551,11 @@ test_controller_rpc_close() {
 test_preload() {
 	echo "----------------Test_preload---------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
-	debug_replica_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1" "PRELOAD_TIMEOUT" "5")
+	debug_replica_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1" "PRELOAD_TIMEOUT" "12")
 	sleep 1
 	sudo docker stop $orig_controller_id
 	sudo docker start $orig_controller_id
+	verify_replica_cnt "1" "One replica count test when controller is restarted"
 	sleep 5
 
 	rpc_close=`docker logs $debug_replica_id 2>&1 | grep -c "Closing TCP conn"`
@@ -577,12 +578,21 @@ test_preload() {
 		collect_logs_and_exit
 	fi
 
-	verify_replica_cnt "1" "One replica count test when controller is"
-	sleep 3
-	preload_success=`docker logs $debug_replica_id 2>&1 | grep -c "Read extents successful"`
-	if [ "$preload_success" == 0 ]; then
-		collect_logs_and_exit
-	fi
+        preload_success=0
+        iter=0
+	while [ "$preload_success" -lt 2 ]; do
+		preload_success=`docker logs $debug_replica_id 2>&1 | grep -c "Read extents successful"`
+                if [ "$iter" == 100 ]; then
+                        collect_logs_and_exit
+                fi
+                let iter=iter+1
+                sleep 2
+        done
+
+        duplicate_preload_goroutine_exit=`docker logs $debug_replica_id 2>&1 | grep -c "Already reading extents in background"`
+        if [ "$duplicate_preload_goroutine_exit" == 0 ]; then
+                collect_logs_and_exit
+        fi
 
 	cleanup
 }
@@ -1349,7 +1359,7 @@ update_file_sizes() {
 }
 
 test_duplicate_data_delete() {
-	echo "----------------Test_two_replica_stop_start---------------"
+	echo "----------------Test_duplicate_data_delete---------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")

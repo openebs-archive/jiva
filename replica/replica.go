@@ -227,6 +227,12 @@ func (r *Replica) Preload() error {
 	return nil
 }
 
+func (r *Replica) GetPreloadStatus() types.PreloadStatus {
+	r.RLock()
+	defer r.RUnlock()
+	return r.volume.preloadStatus
+}
+
 func GenerateSnapshotDiskName(name string) string {
 	return fmt.Sprintf(diskName, name)
 }

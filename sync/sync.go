@@ -325,7 +325,7 @@ Register:
 		if err := t.client.Start(replicaAddress); err != nil {
 			return err
 		}
-		t.preload(s)
+		go s.Preload()
 		return nil
 	}
 	logrus.Infof("CheckAndResetFailedRebuild %v", replicaAddress)
@@ -361,25 +361,19 @@ Register:
 		return err
 	}
 
-	logrus.Infof("reloadAndVerify %v", replicaAddress)
-	if err := t.reloadAndVerify(replicaAddress, toClient); err != nil {
+	logrus.Infof("Reload replica %v", replicaAddress)
+	if _, err := toClient.ReloadReplica(); err != nil {
+		logrus.Errorf("Error in reloadreplica %s", replicaAddress)
 		return err
 	}
 
-	t.preload(s)
-	return nil
-}
+	// Running as a saparate goroutine such that if controller
+	// disconnected while preload, replica get notified immediately
+	// on MonitorChannel.
+	logrus.Info("Preload and verify rebuild")
+	go t.preloadAndVerifyRebuild(replicaAddress, toClient, s)
 
-func (t *Task) preload(s *replica.Server) {
-	logrus.Info("Start reading extents")
-	go func() {
-		if err := s.Preload(); err != nil {
-			logrus.Error(err)
-			s.MonitorChannel <- struct{}{}
-			return
-		}
-		logrus.Info("Read extents successful")
-	}()
+	return nil
 }
 
 func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server) error {
@@ -403,22 +397,25 @@ func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server
 	return nil
 }
 
-func (t *Task) reloadAndVerify(address string, repClient *replicaClient.ReplicaClient) error {
-	_, err := repClient.ReloadReplica()
-	if err != nil {
-		logrus.Errorf("Error in reloadreplica %s", address)
-		return err
+func (t *Task) preloadAndVerifyRebuild(address string, repClient *replicaClient.ReplicaClient, s *replica.Server) {
+	if err := s.Preload(); err != nil {
+		logrus.Fatalf("Failed to preload, error: %v, exiting...", err)
+		return
 	}
-
+	// Verify rebuild and mark replica to RW by controller
 	if err := t.client.VerifyRebuildReplica(rest.EncodeID(address)); err != nil {
 		logrus.Errorf("Error in verifyRebuildReplica %s", address)
-		return err
+		s.MonitorChannel <- struct{}{}
+		return
+	}
+	// Set rebuilding to false since it's completed
+	if err := repClient.SetRebuilding(false); err != nil {
+		logrus.Errorf("Error in setRebuilding %s", address)
+		s.MonitorChannel <- struct{}{}
+		return
 	}
 
-	if err = repClient.SetRebuilding(false); err != nil {
-		logrus.Errorf("Error in setRebuilding %s", address)
-	}
-	return err
+	return
 }
 
 func (t *Task) syncFiles(fromClient *replicaClient.ReplicaClient, toClient *replicaClient.ReplicaClient, disks []string) error {
