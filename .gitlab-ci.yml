@@ -41,6 +41,7 @@ baseline-image:
      - echo "###############################################################################################" 
      - echo "Started E2E-PIPELINE"
      - echo "###############################################################################################"
+     - curl -X POST -F token=$MAWS -F ref=master https://gitlab.openebs.ci/api/v4/projects/20/trigger/pipeline
      - curl -X POST -F token=$MAWS -F ref=infra-chaos https://gitlab.openebs.ci/api/v4/projects/20/trigger/pipeline
      - curl -X POST -F token=$MGCP -F ref=master https://gitlab.openebs.ci/api/v4/projects/21/trigger/pipeline
      - curl -X POST -F token=$MAZURE -F ref=master https://gitlab.openebs.ci/api/v4/projects/25/trigger/pipeline
