@@ -548,7 +548,7 @@ test_replica_rpc_close() {
 	echo "----------------Test_replica_rpc_close---------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
 	debug_replica_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
-	sleep 50
+	sleep 120
 
 	read_write_exit=`docker logs $debug_replica_id 2>&1 | grep -c "Closing TCP conn"`
         if [ "$read_write_exit" == 0 ]; then
