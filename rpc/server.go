@@ -3,6 +3,8 @@ package rpc
 import (
 	"io"
 	"net"
+	"os"
+	"syscall"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -111,6 +113,16 @@ func (s *Server) readWrite(ret chan<- error) {
 	s.rwExit = true
 }
 
+func (s *Server) isIOError(err error) bool {
+	if err1, ok := err.(*os.PathError); ok {
+		switch err1.Err.(syscall.Errno) {
+		case syscall.EIO:
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Server) Stop() error {
 	if err := s.wire.CloseRead(); err != nil {
 		return err
@@ -131,11 +143,23 @@ func (s *Server) handleRead(msg *Message) {
 	msg.Data = make([]byte, msg.Size)
 	c, err := s.data.ReadAt(msg.Data, msg.Offset)
 	s.createResponse(c, msg, err)
+	if err != nil {
+		logrus.Errorf("Failed to read data, error: %v", err)
+		if s.isIOError(err) {
+			logrus.Fatal("Exiting...")
+		}
+	}
 }
 
 func (s *Server) handleWrite(msg *Message) {
 	c, err := s.data.WriteAt(msg.Data, msg.Offset)
 	s.createResponse(c, msg, err)
+	if err != nil {
+		logrus.Errorf("Failed to write data, error: %v", err)
+		if s.isIOError(err) {
+			logrus.Fatal("Exiting...")
+		}
+	}
 }
 
 func (s *Server) handlePing(msg *Message) {
@@ -147,10 +171,22 @@ func (s *Server) handlePing(msg *Message) {
 func (s *Server) handleSync(msg *Message) {
 	_, err := s.data.Sync()
 	s.createResponse(0, msg, err)
+	if err != nil {
+		logrus.Errorf("Failed to sync data, error: %v", err)
+		if s.isIOError(err) {
+			logrus.Fatal("Exiting...")
+		}
+	}
 }
 func (s *Server) handleUnmap(msg *Message) {
 	_, err := s.data.Unmap(msg.Offset, msg.Size)
 	s.createResponse(0, msg, err)
+	if err != nil {
+		logrus.Errorf("Failed to unmap data, error: %v", err)
+		if s.isIOError(err) {
+			logrus.Fatal("Exiting...")
+		}
+	}
 }
 
 /*
