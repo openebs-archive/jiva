@@ -13,7 +13,7 @@ IS_DOCKER_INSTALLED       := $(shell which docker >> /dev/null 2>&1; echo $$?)
 
 TARGETS := $(shell ls scripts)
 
-help:
+help:  
 	@echo ""
 	@echo "Usage:-"
 	@echo "\tmake build             -- will create jiva image"

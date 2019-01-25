@@ -18,7 +18,7 @@ build-jiva:
     - echo "Building-Jiva"
     - echo $COMMIT
     - make build
-baseline-image:
+baseline-image: 
   stage: baseline
   script:
      - pwd
