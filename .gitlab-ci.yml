@@ -55,4 +55,4 @@ cleanup:
   script:
      - sudo rm -r ~/go
      - sudo docker images 
-     - sudo docker image prune -a
+     - sudo docker image prune -a --force
