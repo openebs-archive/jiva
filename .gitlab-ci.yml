@@ -17,7 +17,7 @@ build-jiva:
    script: 
     - echo "Building-Jiva"
     - echo $COMMIT
-    - build_gitlab
+    - make build_gitlab
 baseline-image: 
   stage: baseline
   script:
