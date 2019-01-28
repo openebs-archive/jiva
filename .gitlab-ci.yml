@@ -17,8 +17,8 @@ build-jiva:
    script: 
     - echo "Building-Jiva"
     - echo $COMMIT
-    - make build
-baseline-image:
+    - make build_gitlab
+baseline-image: 
   stage: baseline
   script:
      - pwd
@@ -55,4 +55,4 @@ cleanup:
   script:
      - sudo rm -r ~/go
      - sudo docker images 
-     - sudo docker image prune -a
+     - sudo docker image prune -a --force

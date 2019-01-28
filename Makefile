@@ -13,7 +13,7 @@ IS_DOCKER_INSTALLED       := $(shell which docker >> /dev/null 2>&1; echo $$?)
 
 TARGETS := $(shell ls scripts)
 
-help:
+help:  
 	@echo ""
 	@echo "Usage:-"
 	@echo "\tmake build             -- will create jiva image"
@@ -88,6 +88,7 @@ endif
 	$(shell golint $(shell find . -maxdepth 1 -type d \( ! -iname ".git" ! -iname "vendor" \)) )
 
 build: deps _install_trash ci _run_ci _push_image
+build_gitlab: deps _install_trash ci _push_image
 
 #
 # This is done to avoid conflict with a file of same name as the targets
