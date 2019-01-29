@@ -12,7 +12,8 @@ import (
 
 type Timeout struct {
 	client.Resource
-	Timeout string `json:"timeout"`
+	Timeout        string `json:"timeout"`
+	RPCPingTimeout string `json:"rpcPingTimeout"`
 }
 
 type DeleteReplicaOutput struct {

@@ -12,11 +12,12 @@ import (
 )
 
 type Wire struct {
-	WriteLock sync.Mutex
-	ReadLock  sync.Mutex
-	conn      net.Conn
-	writer    *bufio.Writer
-	reader    io.Reader
+	WriteLock           sync.Mutex
+	ReadLock            sync.Mutex
+	conn                net.Conn
+	writer              *bufio.Writer
+	reader              io.Reader
+	readExit, writeExit bool
 }
 
 func NewWire(conn net.Conn) *Wire {
@@ -101,7 +102,6 @@ func (w *Wire) Read() (*Message, error) {
 		logrus.Errorf("Read length failed, Error: %v", err)
 		return nil, err
 	}
-
 	if length > 0 {
 		msg.Data = make([]byte, length)
 		if _, err := io.ReadFull(w.reader, msg.Data); err != nil {
@@ -113,6 +113,23 @@ func (w *Wire) Read() (*Message, error) {
 	return &msg, nil
 }
 
+func (w *Wire) CloseRead() error {
+	if conn, ok := w.conn.(*net.TCPConn); ok {
+		logrus.Warning("Closing read on rpc conn")
+		return conn.CloseRead()
+	}
+	return fmt.Errorf("failed to close, type assert error")
+}
+
+func (w *Wire) CloseWrite() error {
+	if conn, ok := w.conn.(*net.TCPConn); ok {
+		logrus.Warning("Closing write on rpc conn")
+		return conn.CloseWrite()
+	}
+	return fmt.Errorf("failed to close, type assert error")
+}
+
 func (w *Wire) Close() error {
+	logrus.Warning("Closing TCP conn")
 	return w.conn.Close()
 }
