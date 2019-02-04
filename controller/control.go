@@ -86,7 +86,7 @@ func (c *Controller) UpdateVolStatus() {
 	} else {
 		c.ReadOnly = true
 	}
-	logrus.Infof("controller readonly p:%v c:%v rcount:%v rw_count:%v",
+	logrus.Infof("Controller's previous RO status: %v, current: %v replica count:%v,  RW replica count:%v",
 		prev, c.ReadOnly, len(c.replicas), rwReplicaCount)
 	logrus.Infof("backends len: %d", len(c.backend.backends))
 }
@@ -706,7 +706,8 @@ getCloneStatus:
 	} else if status == "error" {
 		return fmt.Errorf("Replica clone status returned error %s", address)
 	}
-	c.setReplicaModeNoLock(address, types.RW)
+	c.setReplicaModeNoLock(address, types.WO)
+	go c.monitorPreload(address)
 	return nil
 }
 
@@ -730,8 +731,6 @@ func (c *Controller) Start(addresses ...string) error {
 	}
 
 	c.reset()
-
-	defer c.startFrontend()
 
 	c.size = math.MaxInt64
 	for _, address := range addresses {
@@ -790,7 +789,6 @@ func (c *Controller) Start(addresses ...string) error {
 	}
 	logrus.Info("Update volume status")
 	c.UpdateVolStatus()
-
 	return nil
 }
 
@@ -962,9 +960,11 @@ func (c *Controller) shutdownFrontend() error {
 	c.RLock()
 	defer c.RUnlock()
 
+	logrus.Info("Stopping controller")
 	if c.frontend != nil {
 		return c.frontend.Shutdown()
 	}
+
 	return nil
 }
 
@@ -1034,4 +1034,15 @@ func (c *Controller) monitoring(address string, backend types.Backend) {
 	}
 	logrus.Infof("Monitoring stopped %v", address)
 	c.RemoveReplicaNoLock(address)
+}
+
+func (c *Controller) monitorPreload(address string) {
+	logrus.Infof("Get preload status of backend %s", address)
+	if err := c.backend.GetPreloadStatus(address); err != nil {
+		logrus.Errorf("Failed to monitor preload, error: %v", err)
+		return
+	}
+	c.startFrontend()
+	c.setReplicaModeNoLock(address, types.RW)
+	c.UpdateVolStatus()
 }

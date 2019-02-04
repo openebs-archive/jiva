@@ -47,6 +47,7 @@ type Backend interface {
 	RemainSnapshots() (int, error)
 	GetRevisionCounter() (int64, error)
 	GetCloneStatus() (string, error)
+	GetPreloadStatus() (string, error)
 	GetVolUsage() (VolUsage, error)
 	SetRevisionCounter(counter int64) error
 	SetRebuilding(rebuilding bool) error

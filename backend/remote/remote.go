@@ -42,7 +42,7 @@ type Remote struct {
 }
 
 func (r *Remote) Close() error {
-	logrus.Infof("Closing: %s", r.Name)
+	logrus.Infof("Close replica: %s", r.Name)
 	r.StopMonitoring()
 	return nil
 }
@@ -154,6 +154,14 @@ func (r *Remote) GetCloneStatus() (string, error) {
 		return "", err
 	}
 	return replica.CloneStatus, nil
+}
+
+func (r *Remote) GetPreloadStatus() (string, error) {
+	replica, err := r.info()
+	if err != nil {
+		return "", err
+	}
+	return string(replica.PreloadStatus), nil
 }
 
 func (r *Remote) GetVolUsage() (types.VolUsage, error) {
@@ -301,6 +309,6 @@ func (r *Remote) GetMonitorChannel() types.MonitorChannel {
 }
 
 func (r *Remote) StopMonitoring() {
-	logrus.Infof("stopping monitoring %v", r.Name)
+	logrus.Infof("Stop monitoring of replica: %v", r.Name)
 	r.closeChan <- struct{}{}
 }

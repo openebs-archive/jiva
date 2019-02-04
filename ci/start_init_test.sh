@@ -24,10 +24,6 @@ collect_logs_and_exit() {
 	echo "--------------------------REPLICA 3  LOGS ---------------------------------"
 	curl http://$REPLICA_IP3:9502/v1/replicas | jq
 
-	#Take system output
-	ps -auxwww
-	top -n 10 -b
-	netstat -nap
 
 #	i=0
 #	while [ "$i" != 10 ]; do
@@ -68,7 +64,11 @@ collect_logs_and_exit() {
 	docker logs $cloned_controller_id
 	echo "--------------------------CLONED REPLICA LOGS -----------------------------"
 	docker logs $cloned_replica_id
-	exit 1
+	#Take system output
+	ps -auxwww
+	top -n 10 -b
+	netstat -nap
+        exit 1
 }
 cleanup() {
 	rm -rf /tmp/vol*
@@ -563,7 +563,7 @@ test_preload() {
 		collect_logs_and_exit
 	fi
 
-	controller_exit=`docker logs $orig_controller_id 2>&1 | grep -c "stopping target"`
+	controller_exit=`docker logs $orig_controller_id 2>&1 | grep -c "Stopping controller"`
 	if [ "$controller_exit" == 0 ]; then
 		collect_logs_and_exit
 	fi

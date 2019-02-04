@@ -7,6 +7,7 @@ import (
 	"math"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/backend/remote"
@@ -504,4 +505,28 @@ func (r *replicator) GetCloneStatus(address string) (string, error) {
 	logrus.Infof("Get backend %s clone status", address)
 
 	return status, nil
+}
+
+func (r *replicator) GetPreloadStatus(address string) error {
+	backend, ok := r.backends[address]
+	if !ok {
+		return fmt.Errorf("Cannot find backend %v", address)
+	}
+	for true {
+		status, err := backend.backend.GetPreloadStatus()
+		if err != nil {
+			return err
+		}
+		switch types.PreloadStatus(status) {
+		case types.Done:
+			logrus.Infof("Preload is completed on backend %s", address)
+			return nil
+		case types.Started:
+			logrus.Warningf("Preload is not done yet on backend %s, current status: %s", address, status)
+			time.Sleep(2 * time.Second)
+		case types.Error:
+			return fmt.Errorf("Preload status of backend is %s", status)
+		}
+	}
+	return nil
 }

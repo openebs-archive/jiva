@@ -149,10 +149,11 @@ func (t *goTgt) startScsiTarget(cfg *config.Config) error {
 
 func (t *goTgt) stopScsiTarget() error {
 	if t.targetDriver == nil {
+		logrus.Warning("No target is available, ignoring...")
 		return nil
 	}
-	logrus.Infof("stopping target %v ...", t.tgtName)
+	logrus.Infof("Stopping target %v ...", t.tgtName)
 	t.targetDriver.Stop()
-	logrus.Infof("target %v stopped", t.tgtName)
+	logrus.Infof("Target %v stopped", t.tgtName)
 	return nil
 }

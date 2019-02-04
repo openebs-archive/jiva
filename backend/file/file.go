@@ -86,6 +86,10 @@ func (f *Wrapper) GetCloneStatus() (string, error) {
 	return "", nil
 }
 
+func (f *Wrapper) GetPreloadStatus() (string, error) {
+	return "", nil
+}
+
 func (f *Wrapper) PingResponse() error {
 	return nil
 }
