@@ -306,7 +306,7 @@ func PreloadLunMap(d *diffDisk) error {
 			d.UsedLogicalBlocks++
 		}
 	}
-	logrus.Info("Updating preload status to '%v'", types.Done)
+	logrus.Infof("Updating preload status to '%v'", types.Done)
 	d.preloadStatus = types.Done
 	return nil
 }

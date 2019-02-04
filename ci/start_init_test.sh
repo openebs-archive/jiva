@@ -573,14 +573,9 @@ test_preload() {
 		collect_logs_and_exit
 	fi
 
-	restart_autoconfigure=`docker logs $debug_replica_id 2>&1 | grep -c "Restart AutoConfigure Process"`
-	if [ "$restart_autoconfigure" == 0 ]; then
-		collect_logs_and_exit
-	fi
-
         preload_success=0
         iter=0
-	while [ "$preload_success" -lt 2 ]; do
+	while [ "$preload_success" -lt 1 ]; do
 		preload_success=`docker logs $debug_replica_id 2>&1 | grep -c "Read extents successful"`
                 if [ "$iter" == 100 ]; then
                         collect_logs_and_exit

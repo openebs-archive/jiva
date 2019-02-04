@@ -526,6 +526,8 @@ func (r *replicator) GetPreloadStatus(address string) error {
 			time.Sleep(2 * time.Second)
 		case types.Error:
 			return fmt.Errorf("Preload status of backend is %s", status)
+		case "":
+			time.Sleep(2 * time.Second)
 		}
 	}
 	return nil

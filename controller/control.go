@@ -599,6 +599,9 @@ func (c *Controller) SetReplicaMode(address string, mode types.Mode) error {
 	case types.RW:
 		c.Lock()
 		defer c.Unlock()
+	case types.WO:
+		c.Lock()
+		defer c.Unlock()
 	default:
 		return fmt.Errorf("Can not set to mode %s", mode)
 	}
@@ -706,7 +709,7 @@ getCloneStatus:
 	} else if status == "error" {
 		return fmt.Errorf("Replica clone status returned error %s", address)
 	}
-	c.setReplicaModeNoLock(address, types.WO)
+	c.SetReplicaMode(address, types.WO)
 	go c.monitorPreload(address)
 	return nil
 }
@@ -1043,6 +1046,6 @@ func (c *Controller) monitorPreload(address string) {
 		return
 	}
 	c.startFrontend()
-	c.setReplicaModeNoLock(address, types.RW)
+	c.SetReplicaMode(address, types.RW)
 	c.UpdateVolStatus()
 }

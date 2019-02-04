@@ -187,7 +187,6 @@ func (c *ReplicaClient) OpenReplica() error {
 
 func (c *ReplicaClient) GetReplica() (rest.Replica, error) {
 	var replica rest.Replica
-
 	err := c.get(c.address+"/replicas/1", &replica)
 	return replica, err
 }
