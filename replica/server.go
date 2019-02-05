@@ -34,7 +34,7 @@ type Server struct {
 	dir               string
 	defaultSectorSize int64
 	backing           *BackingFile
-	PreloadStatus     string
+	PreloadStatus     types.PreloadStatus
 	//This channel is used to montitor the IO connection
 	//between controller and replica. If the connection is broken,
 	//the replica attempts to connect back to controller
@@ -112,11 +112,14 @@ func (s *Server) Preload() error {
 	if s.r == nil {
 		return fmt.Errorf("Can't read extents, s.r is nil")
 	}
+	s.PreloadStatus = types.Started
 	// injecting timeout in debug build
 	inject.AddPreloadTimeout()
 	if err := s.r.Preload(); err != nil {
+		s.PreloadStatus = types.Error
 		return err
 	}
+	s.PreloadStatus = types.Done
 	logrus.Info("Read extents successful")
 	return nil
 }
@@ -398,7 +401,7 @@ func (s *Server) Close(signalMonitor bool) error {
 	if s.r.volume.preloadStatus != types.Done {
 		logrus.Warning("Already reading extents in background")
 		// verify if goroutine exited safely
-		for s.r.volume.preloadStatus == types.Started {
+		for s.PreloadStatus == types.Started {
 			// This is to notify preload go routine to exit safely
 			s.r.volume.preloadStatus = types.Error
 			time.Sleep(1 * time.Second)

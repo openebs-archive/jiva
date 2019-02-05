@@ -584,11 +584,6 @@ test_preload() {
                 sleep 2
         done
 
-        duplicate_preload_goroutine_exit=`docker logs $debug_replica_id 2>&1 | grep -c "Already reading extents in background"`
-        if [ "$duplicate_preload_goroutine_exit" == 0 ]; then
-                collect_logs_and_exit
-        fi
-
 	cleanup
 }
 
