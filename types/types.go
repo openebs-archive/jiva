@@ -14,6 +14,7 @@ const (
 	StateDown = State("Down")
 	Started   = PreloadStatus("Started")
 	Done      = PreloadStatus("Done")
+	None      = PreloadStatus("NA")
 	Error     = PreloadStatus("Error")
 )
 

@@ -1040,6 +1040,8 @@ func (c *Controller) monitoring(address string, backend types.Backend) {
 }
 
 func (c *Controller) monitorPreload(address string) {
+	c.Lock()
+	defer c.Unlock()
 	logrus.Infof("Get preload status of backend %s", address)
 	if err := c.backend.GetPreloadStatus(address); err != nil {
 		logrus.Errorf("Failed to monitor preload, error: %v", err)

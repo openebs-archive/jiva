@@ -88,6 +88,9 @@ func (s *Server) Create(size int64) error {
 	state, _ := s.Status()
 
 	if state != Initial {
+		r := &Replica{}
+		r.volume.preloadStatus = types.None
+		s.r = r
 		fmt.Println("STATE = ", state)
 		return nil
 	}

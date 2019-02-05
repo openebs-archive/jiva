@@ -173,7 +173,7 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 		r.info.BackingFileName = backingFile.Name
 	}
 	r.volume.sectorSize = defaultSectorSize
-
+	r.volume.preloadStatus = types.None
 	// Scan all the disks to build the disk map
 	exists, err := r.readMetadata()
 	if err != nil {

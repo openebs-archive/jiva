@@ -508,11 +508,11 @@ func (r *replicator) GetCloneStatus(address string) (string, error) {
 }
 
 func (r *replicator) GetPreloadStatus(address string) error {
-	backend, ok := r.backends[address]
-	if !ok {
-		return fmt.Errorf("Cannot find backend %v", address)
-	}
 	for true {
+		backend, ok := r.backends[address]
+		if !ok {
+			return fmt.Errorf("Cannot find backend %v", address)
+		}
 		status, err := backend.backend.GetPreloadStatus()
 		if err != nil {
 			return err
@@ -526,7 +526,8 @@ func (r *replicator) GetPreloadStatus(address string) error {
 			time.Sleep(2 * time.Second)
 		case types.Error:
 			return fmt.Errorf("Preload status of backend is %s", status)
-		case "":
+		default:
+			logrus.Warningf("Preload is not done yet on backend %s, current status: %s", address, status)
 			time.Sleep(2 * time.Second)
 		}
 	}
