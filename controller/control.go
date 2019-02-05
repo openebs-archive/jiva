@@ -709,7 +709,7 @@ getCloneStatus:
 	} else if status == "error" {
 		return fmt.Errorf("Replica clone status returned error %s", address)
 	}
-	c.SetReplicaMode(address, types.WO)
+	c.setReplicaModeNoLock(address, types.WO)
 	go c.monitorPreload(address)
 	return nil
 }
@@ -1046,6 +1046,6 @@ func (c *Controller) monitorPreload(address string) {
 		return
 	}
 	c.startFrontend()
-	c.SetReplicaMode(address, types.RW)
+	c.setReplicaModeNoLock(address, types.RW)
 	c.UpdateVolStatus()
 }
