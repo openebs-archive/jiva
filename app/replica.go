@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -18,7 +19,7 @@ import (
 	"github.com/openebs/jiva/replica"
 	"github.com/openebs/jiva/replica/rest"
 	"github.com/openebs/jiva/replica/rpc"
-	"github.com/openebs/jiva/sync"
+	osync "github.com/openebs/jiva/sync"
 	"github.com/openebs/jiva/util"
 )
 
@@ -84,29 +85,36 @@ func CheckReplicaState(frontendIP string, replicaIP string) (string, error) {
 }
 
 func AutoConfigureReplica(s *replica.Server, frontendIP string, address string, replicaType string) {
-checkagain:
-	state, err := CheckReplicaState(frontendIP, address)
-	logrus.Infof("Replicastate: %v err:%v", state, err)
-	if err == nil && (state == "" || state == "ERR") {
-		s.Close(false)
-	} else {
-		time.Sleep(5 * time.Second)
-		goto checkagain
-	}
-	AutoRmReplica(frontendIP, address)
-	AutoAddReplica(s, frontendIP, address, replicaType)
-	logrus.Infof("Waiting on MonitorChannel")
-	select {
-	case <-s.MonitorChannel:
+	for {
+		wg := sync.WaitGroup{}
+		state, err := CheckReplicaState(frontendIP, address)
+		logrus.Infof("Replicastate: %v err:%v", state, err)
+		if err == nil && (state == "" || state == "ERR") {
+			s.Close(false)
+		} else {
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		AutoRmReplica(frontendIP, address)
+		logrus.Infof("Waiting on MonitorChannel")
+		wg.Add(2)
+		go func() {
+			<-s.MonitorChannel
+			wg.Done()
+		}()
 		logrus.Infof("Restart AutoConfigure Process")
-		goto checkagain
+		go func() {
+			AutoAddReplica(s, frontendIP, address, replicaType)
+			wg.Done()
+		}()
+		wg.Wait()
 	}
 }
 
 func CloneReplica(s *replica.Server, address string, cloneIP string, snapName string) error {
 	var err error
 	url := "http://" + cloneIP + ":9501"
-	task := sync.NewTask(url)
+	task := osync.NewTask(url)
 	if err = task.CloneReplica(url, address, cloneIP, snapName); err != nil {
 		return err
 	}

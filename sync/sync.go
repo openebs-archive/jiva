@@ -325,7 +325,7 @@ Register:
 		if err := t.client.Start(replicaAddress); err != nil {
 			return err
 		}
-		go s.Preload()
+		s.Preload()
 		return nil
 	}
 	logrus.Infof("CheckAndResetFailedRebuild %v", replicaAddress)
@@ -367,12 +367,10 @@ Register:
 		return err
 	}
 
-	// Running as a saparate goroutine such that if controller
-	// disconnected while preload, replica get notified immediately
-	// on MonitorChannel.
 	logrus.Info("Preload and verify rebuild")
-	go t.preloadAndVerifyRebuild(replicaAddress, toClient, s)
-
+	if err := t.preloadAndVerifyRebuild(replicaAddress, toClient, s); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -397,25 +395,19 @@ func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server
 	return nil
 }
 
-func (t *Task) preloadAndVerifyRebuild(address string, repClient *replicaClient.ReplicaClient, s *replica.Server) {
+func (t *Task) preloadAndVerifyRebuild(address string, repClient *replicaClient.ReplicaClient, s *replica.Server) error {
 	if err := s.Preload(); err != nil {
 		logrus.Fatalf("Failed to preload, error: %v, exiting...", err)
-		return
 	}
 	// Verify rebuild and mark replica to RW by controller
 	if err := t.client.VerifyRebuildReplica(rest.EncodeID(address)); err != nil {
-		logrus.Errorf("Error in verifyRebuildReplica %s", address)
-		s.MonitorChannel <- struct{}{}
-		return
+		return fmt.Errorf("Error in verifyRebuildReplica %s", address)
 	}
 	// Set rebuilding to false since it's completed
 	if err := repClient.SetRebuilding(false); err != nil {
-		logrus.Errorf("Error in setRebuilding %s", address)
-		s.MonitorChannel <- struct{}{}
-		return
+		return fmt.Errorf("Error in setRebuilding %s", address)
 	}
-
-	return
+	return nil
 }
 
 func (t *Task) syncFiles(fromClient *replicaClient.ReplicaClient, toClient *replicaClient.ReplicaClient, disks []string) error {

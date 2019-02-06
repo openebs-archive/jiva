@@ -709,17 +709,11 @@ getCloneStatus:
 	} else if status == "error" {
 		return fmt.Errorf("Replica clone status returned error %s", address)
 	}
-	c.setReplicaModeNoLock(address, types.WO)
 	go c.monitorPreload(address)
 	return nil
 }
 
 func (c *Controller) Start(addresses ...string) error {
-	var (
-		expectedRevision int64
-		sendSignal       int
-	)
-
 	c.Lock()
 	defer c.Unlock()
 
@@ -743,55 +737,29 @@ func (c *Controller) Start(addresses ...string) error {
 			return err
 		}
 	}
+	/*
+	   * This code has been commented since we start with only one replica currently
+	   	revisionCounters := make(map[string]int64)
+	   	for _, r := range c.replicas {
+	   		counter, err := c.backend.GetRevisionCounter(r.Address)
+	   		if err != nil {
+	   			logrus.Errorf("GetRevisionCounter failed %s %v", r.Address, err)
+	   			return err
+	   		}
+	   		if counter > expectedRevision {
+	   			expectedRevision = counter
+	   		}
+	   		revisionCounters[r.Address] = counter
+	   	}
 
-	revisionCounters := make(map[string]int64)
-	for _, r := range c.replicas {
-		counter, err := c.backend.GetRevisionCounter(r.Address)
-		if err != nil {
-			logrus.Errorf("GetRevisionCounter failed %s %v", r.Address, err)
-			return err
-		}
-		if counter > expectedRevision {
-			expectedRevision = counter
-		}
-		revisionCounters[r.Address] = counter
-	}
-
-	for address, counter := range revisionCounters {
-		if counter != expectedRevision {
-			logrus.Errorf("Revision conflict detected! Expect %v, got %v in replica %v. Mark as ERR",
-				expectedRevision, counter, address)
-			c.setReplicaModeNoLock(address, types.ERR)
-		}
-	}
-	for regrep := range c.RegisteredReplicas {
-		sendSignal = 1
-		for _, tmprep := range c.replicas {
-			if tmprep.Address == "tcp://"+regrep+":9502" {
-				sendSignal = 0
-				break
-			}
-		}
-		if sendSignal == 1 {
-			logrus.Infof("sending add signal to %v", regrep)
-			c.factory.SignalToAdd(regrep, "add")
-		}
-	}
-	for regrep := range c.RegisteredQuorumReplicas {
-		sendSignal = 1
-		for _, tmprep := range c.quorumReplicas {
-			if tmprep.Address == "tcp://"+regrep+":9502" {
-				sendSignal = 0
-				break
-			}
-		}
-		if sendSignal == 1 {
-			logrus.Infof("sending add signal to quorum %v", regrep)
-			c.factory.SignalToAdd(regrep, "add")
-		}
-	}
-	logrus.Info("Update volume status")
-	c.UpdateVolStatus()
+	   	for address, counter := range revisionCounters {
+	   		if counter != expectedRevision {
+	   			logrus.Errorf("Revision conflict detected! Expect %v, got %v in replica %v. Mark as ERR",
+	   				expectedRevision, counter, address)
+	   			c.setReplicaModeNoLock(address, types.ERR)
+	   		}
+	   	}
+	*/
 	return nil
 }
 
@@ -1039,15 +1007,67 @@ func (c *Controller) monitoring(address string, backend types.Backend) {
 	c.RemoveReplicaNoLock(address)
 }
 
+// monitorPreload This function should only be called for the first replica
 func (c *Controller) monitorPreload(address string) {
-	c.Lock()
-	defer c.Unlock()
+	var (
+		sendSignal bool
+		status     string
+		err        error
+	)
 	logrus.Infof("Get preload status of backend %s", address)
-	if err := c.backend.GetPreloadStatus(address); err != nil {
-		logrus.Errorf("Failed to monitor preload, error: %v", err)
-		return
+	verifyPreload := true
+	for verifyPreload {
+		c.Lock()
+		if status, err = c.backend.GetPreloadStatus(address); err != nil {
+			logrus.Errorf("Failed to monitor preload, error: %v", err)
+			c.Unlock()
+			return
+		}
+		c.Unlock()
+		switch types.PreloadStatus(status) {
+		case types.Done:
+			verifyPreload = false
+			logrus.Infof("Preload is completed on backend %s", address)
+		case types.Started:
+			logrus.Warningf("Preload is not done yet on backend %s, current status: %s", address, status)
+			time.Sleep(2 * time.Second)
+		case types.Error:
+			logrus.Errorf("Preload status of backend is %s", status)
+			return
+		default:
+			logrus.Warningf("Preload is not done yet on backend %s, current status: %s", address, status)
+			time.Sleep(2 * time.Second)
+		}
 	}
+	c.Lock()
 	c.startFrontend()
 	c.setReplicaModeNoLock(address, types.RW)
 	c.UpdateVolStatus()
+	for regrep := range c.RegisteredReplicas {
+		sendSignal = true
+		for _, tmprep := range c.replicas {
+			if tmprep.Address == "tcp://"+regrep+":9502" {
+				sendSignal = false
+				break
+			}
+		}
+		if sendSignal {
+			logrus.Infof("sending add signal to %v", regrep)
+			c.factory.SignalToAdd(regrep, "add")
+		}
+	}
+	for regrep := range c.RegisteredQuorumReplicas {
+		sendSignal = true
+		for _, tmprep := range c.quorumReplicas {
+			if tmprep.Address == "tcp://"+regrep+":9502" {
+				sendSignal = false
+				break
+			}
+		}
+		if sendSignal {
+			logrus.Infof("sending add signal to quorum %v", regrep)
+			c.factory.SignalToAdd(regrep, "add")
+		}
+	}
+	c.Unlock()
 }

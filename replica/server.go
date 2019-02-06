@@ -109,9 +109,16 @@ func (s *Server) Create(size int64) error {
 
 func (s *Server) Preload() error {
 	logrus.Info("Start reading extents")
-	if s.r == nil {
+	s.Lock()
+	r := s.r
+	if r == nil {
+		s.Unlock()
 		return fmt.Errorf("Can't read extents, s.r is nil")
 	}
+	r.Lock()
+	defer r.Unlock()
+	s.Unlock()
+
 	s.PreloadStatus = types.Started
 	// injecting timeout in debug build
 	inject.AddPreloadTimeout()
