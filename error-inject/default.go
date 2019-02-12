@@ -2,7 +2,6 @@
 
 package inject
 
-func AddTimeout() {
-}
-func AddPingTimeout() {
-}
+func AddTimeout()        {}
+func AddPingTimeout()    {}
+func AddPreloadTimeout() {}

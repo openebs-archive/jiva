@@ -235,7 +235,12 @@ func preload(d *diffDisk) error {
 	//d.SnapIndx because this will also aid in removing duplicate blocks
 	//in auto-created snapshots between 2 user created snapshots
 	var userCreatedSnapIndx byte
+	d.preloadStatus = types.Started
+	logrus.Infof("Updating preload status to '%s'", d.preloadStatus)
 	for i, f := range d.files {
+		if d.preloadStatus == types.Error {
+			return fmt.Errorf("preload status: error, replica may got disconnected to controller")
+		}
 		if i == 0 {
 			continue
 		}
@@ -292,10 +297,18 @@ func preload(d *diffDisk) error {
 
 func PreloadLunMap(d *diffDisk) error {
 	err := preload(d)
+	if err != nil {
+		// no need to log error, caller will log it
+		logrus.Errorf("Updating preload status to '%v'", types.Error)
+		d.preloadStatus = types.Error
+		return err
+	}
 	for _, val := range d.location {
 		if val != 0 {
 			d.UsedLogicalBlocks++
 		}
 	}
-	return err
+	logrus.Infof("Updating preload status to '%v'", types.Done)
+	d.preloadStatus = types.Done
+	return nil
 }

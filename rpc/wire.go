@@ -17,7 +17,7 @@ type Wire struct {
 	conn                net.Conn
 	writer              *bufio.Writer
 	reader              io.Reader
-	readExit, writeExit bool
+	ReadExit, WriteExit bool
 }
 
 func NewWire(conn net.Conn) *Wire {

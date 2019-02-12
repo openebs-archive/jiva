@@ -16,6 +16,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	units "github.com/docker/go-units"
+	"github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
 	"github.com/rancher/sparse-tools/sparse"
@@ -62,6 +63,7 @@ type Replica struct {
 	cloneStatus   string
 	CloneSnapName string
 	Clone         bool
+	PreloadStatus types.PreloadStatus
 }
 
 type Info struct {
@@ -216,11 +218,14 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 
 	r.insertBackingFile()
 	r.ReplicaType = replicaType
-
+	r.PreloadStatus = types.Started
+	inject.AddPreloadTimeout()
 	if err := PreloadLunMap(&r.volume); err != nil {
+		r.PreloadStatus = types.Error
 		return r, fmt.Errorf("failed to load Lun map, error: %v", err)
 	}
-
+	r.PreloadStatus = types.Done
+	logrus.Info("Read extents successful")
 	return r, r.writeVolumeMetaData(true, r.info.Rebuilding)
 }
 
@@ -1153,6 +1158,12 @@ func (r *Replica) GetCloneStatus() string {
 	}
 
 	return info.CloneStatus
+}
+
+func (r *Replica) GetPreloadStatus() types.PreloadStatus {
+	r.RLock()
+	defer r.RUnlock()
+	return r.volume.preloadStatus
 }
 
 func (r *Replica) SetCloneStatus(status string) error {

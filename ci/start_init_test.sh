@@ -66,6 +66,7 @@ collect_logs_and_exit() {
 	docker logs $cloned_replica_id
 	exit 1
 }
+
 cleanup() {
 	rm -rf /tmp/vol*
 	rm -rf /mnt/logs
@@ -359,7 +360,7 @@ start_replica() {
 # start_replica CONTROLLER_IP REPLICA_IP folder_name
 start_debug_replica() {
 	replica_id=$(docker run -d --net stg-net --ip "$2" -P --expose 9502-9504 -v /tmp/"$3":/"$3" $JI_DEBUG \
-	env RPC_PING_TIMEOUT=45 launch replica --frontendIP "$1" --listen "$2":9502 --size 2g /"$3")
+	env $4=$5 launch replica --frontendIP "$1" --listen "$2":9502 --size 2g /"$3")
 	echo "$replica_id"
 }
 
@@ -516,6 +517,45 @@ test_replica_ip_change() {
 	sleep 5
 
 	verify_replica_cnt "2" "Two replica count test1"
+	cleanup
+}
+
+test_preload() {
+	echo "----------------Test_preload---------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
+	debug_replica_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1" "PRELOAD_TIMEOUT" "12")
+	sleep 1
+	sudo docker stop $orig_controller_id
+	sudo docker start $orig_controller_id
+	verify_replica_cnt "1" "One replica count test when controller is restarted"
+	sleep 5
+
+	rpc_close=`docker logs $debug_replica_id 2>&1 | grep -c "Closing TCP conn"`
+	if [ "$rpc_close" == 0 ]; then
+		collect_logs_and_exit
+	fi
+
+	controller_exit=`docker logs $orig_controller_id 2>&1 | grep -c "Stopping controller"`
+	if [ "$controller_exit" == 0 ]; then
+		collect_logs_and_exit
+	fi
+
+	register_replica=`docker logs $debug_replica_id 2>&1 | grep -c "Register replica at controller"`
+	if [ "$register_replica" -lt 2 ]; then
+		collect_logs_and_exit
+	fi
+
+        preload_success=0
+        iter=0
+	while [ "$preload_success" -lt 1 ]; do
+		preload_success=`docker logs $debug_replica_id 2>&1 | grep -c "Read extents successful"`
+                if [ "$iter" == 100 ]; then
+                        collect_logs_and_exit
+                fi
+                let iter=iter+1
+                sleep 2
+        done
+
 	cleanup
 }
 
@@ -1479,6 +1519,7 @@ test_duplicate_data_delete() {
 
 
 prepare_test_env
+test_preload
 test_replica_rpc_close
 test_controller_rpc_close
 test_single_replica_stop_start

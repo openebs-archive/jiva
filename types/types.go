@@ -12,7 +12,13 @@ const (
 
 	StateUp   = State("Up")
 	StateDown = State("Down")
+	Started   = PreloadStatus("Started")
+	Done      = PreloadStatus("Done")
+	None      = PreloadStatus("NA")
+	Error     = PreloadStatus("Error")
 )
+
+type PreloadStatus string
 
 type ReaderWriterAt interface {
 	io.ReaderAt

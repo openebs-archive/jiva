@@ -3,6 +3,8 @@ package rest
 import (
 	"strconv"
 
+	"github.com/openebs/jiva/types"
+
 	"github.com/openebs/jiva/replica"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
@@ -25,6 +27,7 @@ type Replica struct {
 	UsedLogicalBlocks string                      `json:"usedlogicalblocks"`
 	UsedBlocks        string                      `json:"usedblocks"`
 	CloneStatus       string                      `json:"clonestatus"`
+	PreloadStatus     types.PreloadStatus         `json:"preloadStatus"`
 }
 
 type DeleteReplicaOutput struct {
@@ -204,6 +207,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		r.RemainSnapshots = rep.GetRemainSnapshotCounts()
 		r.RevisionCounter = strconv.FormatInt(rep.GetRevisionCounter(), 10)
 		r.CloneStatus = rep.GetCloneStatus()
+		r.PreloadStatus = rep.GetPreloadStatus()
 	}
 	return r
 }

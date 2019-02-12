@@ -23,6 +23,10 @@ var (
 	opUnmapTimeout  = 30 * time.Second // client unmap
 	opPingTimeout   = 20 * time.Second
 	opUpdateTimeout = 15 * time.Second // client update
+	// upon testing we have observed that replica was
+	// taking 1 sec for reading one thousand extents
+	// per file.
+	pingDeadline = 600 * time.Second // client update
 )
 
 //SampleOp operation
@@ -224,7 +228,7 @@ func (c *Client) Close() error {
 		return err
 	}
 	for {
-		if c.wire.readExit && c.wire.writeExit {
+		if c.wire.ReadExit && c.wire.WriteExit {
 			break
 		}
 		time.Sleep(2 * time.Second)
@@ -334,7 +338,12 @@ func (c *Client) write() {
 		}
 	}
 	logrus.Infof("Exiting rpc writer, RemoteAddr:%v", c.peerAddr)
-	c.wire.writeExit = true
+	c.wire.WriteExit = true
+}
+
+func (c *Client) SetRWExitTrue() {
+	c.wire.ReadExit = true
+	c.wire.WriteExit = true
 }
 
 func (c *Client) read() {
@@ -348,5 +357,5 @@ func (c *Client) read() {
 		c.responses <- msg
 	}
 	logrus.Infof("Exiting rpc reader, RemoteAddr:%v", c.peerAddr)
-	c.wire.readExit = true
+	c.wire.ReadExit = true
 }

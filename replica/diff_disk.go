@@ -31,6 +31,11 @@ type diffDisk struct {
 	// Index of latest user created snapshot
 	SnapIndx   int
 	sectorSize int64
+	// there are three status:
+	// Done    : Preload is completed
+	// Started : Preload is started and is running in background
+	// Error   : There was some error in preload
+	preloadStatus types.PreloadStatus
 }
 
 func (d *diffDisk) RemoveIndex(index int) error {

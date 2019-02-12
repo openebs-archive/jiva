@@ -226,9 +226,7 @@ func (rf *Factory) Create(address string) (types.Backend, error) {
 		Name:       address,
 		replicaURL: fmt.Sprintf("http://%s/v1/replicas/1", controlAddress),
 		pingURL:    fmt.Sprintf("http://%s/ping", controlAddress),
-		httpClient: &http.Client{
-			Timeout: timeout,
-		},
+		httpClient: &http.Client{},
 		// We don't want sender to wait for receiver, because receiver may
 		// has been already notified
 		closeChan:   make(chan struct{}, 5),
@@ -249,14 +247,16 @@ func (rf *Factory) Create(address string) (types.Backend, error) {
 		return nil, err
 	}
 
-	rpc := rpc.NewClient(conn, r.closeChan)
-	r.IOs = rpc
+	remote := rpc.NewClient(conn, r.closeChan)
+	r.IOs = remote
 
 	if err := r.open(); err != nil {
+		remote.SetRWExitTrue()
+		remote.Close()
 		return nil, err
 	}
 
-	go r.monitorPing(rpc)
+	go r.monitorPing(remote)
 
 	return r, nil
 }
