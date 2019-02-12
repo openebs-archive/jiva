@@ -1520,7 +1520,6 @@ test_duplicate_data_delete() {
 
 prepare_test_env
 test_preload
-test_replica_rpc_close
 test_controller_rpc_close
 test_single_replica_stop_start
 test_replication_factor
