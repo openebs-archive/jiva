@@ -23,10 +23,6 @@ var (
 	opUnmapTimeout  = 30 * time.Second // client unmap
 	opPingTimeout   = 20 * time.Second
 	opUpdateTimeout = 15 * time.Second // client update
-	// upon testing we have observed that replica was
-	// taking 1 sec for reading one thousand extents
-	// per file.
-	pingDeadline = 600 * time.Second // client update
 )
 
 //SampleOp operation

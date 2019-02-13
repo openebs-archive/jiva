@@ -91,7 +91,6 @@ func AutoConfigureReplica(s *replica.Server, frontendIP string, address string, 
 	for {
 		state, err = CheckReplicaState(frontendIP, address)
 		logrus.Infof("Replicastate: %v err:%v", state, err)
-
 		if err != nil {
 			logrus.Infof("checkReplicaState failed, err:%v retry after 5sec..", err)
 			time.Sleep(5 * time.Second)

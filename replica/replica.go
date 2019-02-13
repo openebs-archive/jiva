@@ -63,7 +63,6 @@ type Replica struct {
 	cloneStatus   string
 	CloneSnapName string
 	Clone         bool
-	PreloadStatus types.PreloadStatus
 }
 
 type Info struct {
@@ -218,13 +217,10 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 
 	r.insertBackingFile()
 	r.ReplicaType = replicaType
-	r.PreloadStatus = types.Started
 	inject.AddPreloadTimeout()
 	if err := PreloadLunMap(&r.volume); err != nil {
-		r.PreloadStatus = types.Error
 		return r, fmt.Errorf("failed to load Lun map, error: %v", err)
 	}
-	r.PreloadStatus = types.Done
 	logrus.Info("Read extents successful")
 	return r, r.writeVolumeMetaData(true, r.info.Rebuilding)
 }
