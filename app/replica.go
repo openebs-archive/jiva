@@ -91,17 +91,23 @@ func AutoConfigureReplica(s *replica.Server, frontendIP string, address string, 
 	for {
 		state, err = CheckReplicaState(frontendIP, address)
 		logrus.Infof("Replicastate: %v err:%v", state, err)
-		if err == nil && (state == "" || state == "ERR") {
-			s.Close(false)
-		} else {
+
+		if err != nil {
+			logrus.Infof("checkReplicaState failed, err:%v retry after 5sec..", err)
 			time.Sleep(5 * time.Second)
 			continue
 		}
-		if err = AutoRmReplica(frontendIP, address); err != nil {
-			logrus.Warning("AutoRmReplica failed, retry after 5 second")
+		if state == "WO" || state == "ERR" {
+			if err = AutoRmReplica(frontendIP, address); err != nil {
+				logrus.Warning("AutoRmReplica failed, retry after 5 second")
+				time.Sleep(5 * time.Second)
+				continue
+			}
+		} else if state == "RW" {
 			time.Sleep(5 * time.Second)
 			continue
 		}
+		s.Close(false)
 		if err = AutoAddReplica(s, frontendIP, address, replicaType); err != nil {
 			logrus.Warning("AutoAddReplica failed, retry after 5 second")
 			time.Sleep(5 * time.Second)
