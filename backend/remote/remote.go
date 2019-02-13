@@ -96,7 +96,14 @@ func (r *Remote) doAction(action string, obj interface{}) error {
 		req.Header.Add("Content-Type", "application/json")
 	}
 
-	resp, err := r.httpClient.Do(req)
+	client := r.httpClient
+	// Removing timeout for open call helps in cases
+	// where preload takes time at replica
+	if action == "open" {
+		client.Timeout = 0
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -226,7 +233,9 @@ func (rf *Factory) Create(address string) (types.Backend, error) {
 		Name:       address,
 		replicaURL: fmt.Sprintf("http://%s/v1/replicas/1", controlAddress),
 		pingURL:    fmt.Sprintf("http://%s/ping", controlAddress),
-		httpClient: &http.Client{},
+		httpClient: &http.Client{
+			Timeout: timeout,
+		},
 		// We don't want sender to wait for receiver, because receiver may
 		// has been already notified
 		closeChan:   make(chan struct{}, 5),

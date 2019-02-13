@@ -282,18 +282,18 @@ func (t *Task) AddReplica(replicaAddress string, s *replica.Server) error {
 	var action string
 
 	if s == nil {
-		return fmt.Errorf("Server not present for %v, Add replica using CLI not supported", replicaAddress)
+		logrus.Fatalf("Server not present for %v, Add replica using CLI not supported", replicaAddress)
 	}
 	logrus.Infof("Addreplica %v", replicaAddress)
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 	Replica, err := replica.CreateTempReplica()
 	if err != nil {
-		return fmt.Errorf("failed to create temp replica, error: %s", err.Error())
+		logrus.Fatalf("failed to create temp replica, error: %s", err.Error())
 	}
 	server, err := replica.CreateTempServer()
 	if err != nil {
-		return fmt.Errorf("failed to create temp server, error: %s", err.Error())
+		logrus.Fatalf("failed to create temp server, error: %s", err.Error())
 	}
 Register:
 	logrus.Infof("Get Volume info from controller")

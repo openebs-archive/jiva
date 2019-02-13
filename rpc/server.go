@@ -49,7 +49,6 @@ func (s *Server) Handle() error {
 		default:
 		}
 	}()
-	start := time.Now()
 	ret := make(chan error, 1)
 	go s.readWrite(ret)
 	for {
@@ -63,16 +62,9 @@ func (s *Server) Handle() error {
 				return err
 			}
 		case <-ticker.C:
-			if s.pingRecvd.IsZero() && time.Since(start) >= pingDeadline {
-				// Close the connection as Ping is not recieved
-				// after 600 second, this is the case when open
-				// request from controller is blocked on preload
-				// and hence monitorPing goroutine is not yet started.
-				// Meanwhile if data connection errored readWrite
-				// goroutine will take care of it.
-				if err := s.Stop(); err != nil {
-					return err
-				}
+			// Wait until first ping is received from controller
+			if s.pingRecvd.IsZero() {
+				break
 			}
 
 			if time.Since(s.pingRecvd) >= opPingTimeout*2 {

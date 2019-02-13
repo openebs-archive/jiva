@@ -238,9 +238,6 @@ func preload(d *diffDisk) error {
 	d.preloadStatus = types.Started
 	logrus.Infof("Updating preload status to '%s'", d.preloadStatus)
 	for i, f := range d.files {
-		if d.preloadStatus == types.Error {
-			return fmt.Errorf("preload status: error, replica may got disconnected to controller")
-		}
 		if i == 0 {
 			continue
 		}

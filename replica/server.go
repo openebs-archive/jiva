@@ -376,17 +376,6 @@ func (s *Server) Close(signalMonitor bool) error {
 		return nil
 	}
 
-	if s.r.volume.preloadStatus != types.Done {
-		logrus.Warning("Already reading extents in background")
-		// This is to notify preload go routine to exit safely
-		s.r.volume.preloadStatus = types.Error
-		// verify if goroutine exited safely
-		for s.r.PreloadStatus == types.Started {
-			time.Sleep(1 * time.Second)
-			continue
-		}
-	}
-
 	if err := s.r.Close(); err != nil {
 		s.Unlock()
 		return err

@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -85,9 +84,12 @@ func CheckReplicaState(frontendIP string, replicaIP string) (string, error) {
 }
 
 func AutoConfigureReplica(s *replica.Server, frontendIP string, address string, replicaType string) {
+	var (
+		err   error
+		state string
+	)
 	for {
-		wg := sync.WaitGroup{}
-		state, err := CheckReplicaState(frontendIP, address)
+		state, err = CheckReplicaState(frontendIP, address)
 		logrus.Infof("Replicastate: %v err:%v", state, err)
 		if err == nil && (state == "" || state == "ERR") {
 			s.Close(false)
@@ -95,19 +97,16 @@ func AutoConfigureReplica(s *replica.Server, frontendIP string, address string, 
 			time.Sleep(5 * time.Second)
 			continue
 		}
-		AutoRmReplica(frontendIP, address)
+		if err = AutoRmReplica(frontendIP, address); err != nil {
+			continue
+		}
+		if err = AutoAddReplica(s, frontendIP, address, replicaType); err != nil {
+			continue
+		}
+
 		logrus.Infof("Waiting on MonitorChannel")
-		wg.Add(2)
-		go func() {
-			<-s.MonitorChannel
-			wg.Done()
-		}()
+		<-s.MonitorChannel
 		logrus.Infof("Restart AutoConfigure Process")
-		go func() {
-			AutoAddReplica(s, frontendIP, address, replicaType)
-			wg.Done()
-		}()
-		wg.Wait()
 	}
 }
 

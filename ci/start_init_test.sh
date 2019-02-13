@@ -524,7 +524,7 @@ test_preload() {
 	echo "----------------Test_preload---------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
 	debug_replica_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1" "PRELOAD_TIMEOUT" "12")
-	sleep 1
+	sleep 12
 	sudo docker stop $orig_controller_id
 	sudo docker start $orig_controller_id
 	verify_replica_cnt "1" "One replica count test when controller is restarted"
@@ -588,8 +588,9 @@ test_replica_rpc_close() {
 	echo "----------------Test_replica_rpc_close---------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
 	debug_replica_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
-	sleep 50
-
+	sleep 5
+        docker stop $orig_controller_id
+        sleep 20
 	read_write_exit=`docker logs $debug_replica_id 2>&1 | grep -c "Closing TCP conn"`
         if [ "$read_write_exit" == 0 ]; then
 		collect_logs_and_exit
@@ -1170,6 +1171,8 @@ test_upgrade() {
 test_upgrades() {
        test_upgrade "openebs/jiva:0.6.0" "controller-replica"
        test_upgrade "openebs/jiva:0.7.0" "replica-controller"
+       test_upgrade "openebs/jiva:0.8.0" "replica-controller"
+       test_upgrade "openebs/jiva:0.8.0" "controller-replica"
 }
 
 di_test_on_raw_disk() {
@@ -1520,6 +1523,7 @@ test_duplicate_data_delete() {
 
 prepare_test_env
 test_preload
+test_replica_rpc_close
 test_controller_rpc_close
 test_single_replica_stop_start
 test_replication_factor
