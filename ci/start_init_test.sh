@@ -524,8 +524,18 @@ test_preload() {
 	echo "----------------Test_preload---------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
 	debug_replica_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1" "PRELOAD_TIMEOUT" "12")
-	sleep 12
+        # Since this is first time for replica to connect
+        # timeout of 12sec is injected
+        sleep 15
 	sudo docker stop $orig_controller_id
+	sudo docker start $orig_controller_id
+	verify_replica_cnt "1" "One replica count test when controller is restarted"
+
+        # Restart controller once it has registered
+        # to test whether rpc connection is closed,
+        # since tcp connection is created only after
+        # replica is registered.
+        sudo docker stop $orig_controller_id
 	sudo docker start $orig_controller_id
 	verify_replica_cnt "1" "One replica count test when controller is restarted"
 	sleep 5
@@ -544,6 +554,7 @@ test_preload() {
 	if [ "$register_replica" -lt 2 ]; then
 		collect_logs_and_exit
 	fi
+
 
         preload_success=0
         iter=0
@@ -629,11 +640,10 @@ test_two_replica_stop_start() {
 		docker start $replica1_id &
 		sleep `echo "$count * 0.3" | bc`
 		docker stop $replica2_id
-		# Replica1 might be in Registering mode with status as 'closed' or its rebuild is done with mode as 'RW'
-		verify_rep_state 1 "Replica1 status after restarting it, and stopping other one in 2 replicas case" "$REPLICA_IP1" "RW"
-
 		docker start $replica2_id
 		verify_replica_cnt "2" "Two replica count test3"
+		# Replica1 might be in Registering mode with status as 'closed' or its rebuild is done with mode as 'RW'
+		verify_rep_state 1 "Replica1 status after restarting it, and stopping other one in 2 replicas case" "$REPLICA_IP1" "RW"
 		verify_vol_status "RW" "when there are 2 replicas and replicas restarted multiple times"
 
 		count=`expr $count + 1`

@@ -98,9 +98,13 @@ func AutoConfigureReplica(s *replica.Server, frontendIP string, address string, 
 			continue
 		}
 		if err = AutoRmReplica(frontendIP, address); err != nil {
+			logrus.Warning("AutoRmReplica failed, retry after 5 second")
+			time.Sleep(5 * time.Second)
 			continue
 		}
 		if err = AutoAddReplica(s, frontendIP, address, replicaType); err != nil {
+			logrus.Warning("AutoAddReplica failed, retry after 5 second")
+			time.Sleep(5 * time.Second)
 			continue
 		}
 
