@@ -539,7 +539,7 @@ test_preload() {
 	verify_replica_cnt "1" "One replica count test when controller is restarted"
 	sleep 5
 
-	rpc_close=`docker logs $debug_replica_id 2>&1 | grep -c "Closing TCP conn"`
+	rpc_close=`docker logs $debug_replica_id 2>&1 | grep -c "Closing RPC conn with replica:"`
 	if [ "$rpc_close" == 0 ]; then
 		collect_logs_and_exit
 	fi
@@ -600,9 +600,9 @@ test_replica_rpc_close() {
 	debug_replica_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	sleep 5
         docker stop $orig_controller_id
-        sleep 20
+        sleep 25
 
-	read_write_exit=`docker logs $debug_replica_id 2>&1 | grep -c "Closing TCP conn"`
+	read_write_exit=`docker logs $debug_replica_id 2>&1 | grep -c "Closing RPC conn with replica:"`
         if [ "$read_write_exit" == 0 ]; then
 		collect_logs_and_exit
 	fi
