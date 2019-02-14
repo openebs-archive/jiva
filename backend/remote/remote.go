@@ -96,10 +96,20 @@ func (r *Remote) doAction(action string, obj interface{}) error {
 		req.Header.Add("Content-Type", "application/json")
 	}
 
-	resp, err := r.httpClient.Do(req)
+	client := r.httpClient
+	// timeout of zero means there is no timeout
+	// Since preload can take time while opening
+	// replica, we don't know the exact time elapsed
+	// to complete the request.
+	if action == "open" {
+		client.Timeout = 0
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -249,14 +259,16 @@ func (rf *Factory) Create(address string) (types.Backend, error) {
 		return nil, err
 	}
 
-	rpc := rpc.NewClient(conn, r.closeChan)
-	r.IOs = rpc
+	remote := rpc.NewClient(conn, r.closeChan)
+	r.IOs = remote
 
 	if err := r.open(); err != nil {
+		logrus.Errorf("Failed to open replica, error: %v", err)
+		remote.Close()
 		return nil, err
 	}
 
-	go r.monitorPing(rpc)
+	go r.monitorPing(remote)
 
 	return r, nil
 }

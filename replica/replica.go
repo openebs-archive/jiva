@@ -16,6 +16,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	units "github.com/docker/go-units"
+	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
 	"github.com/rancher/sparse-tools/sparse"
@@ -216,11 +217,12 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 
 	r.insertBackingFile()
 	r.ReplicaType = replicaType
-
+	inject.AddPreloadTimeout()
+	logrus.Info("Start reading extents")
 	if err := PreloadLunMap(&r.volume); err != nil {
 		return r, fmt.Errorf("failed to load Lun map, error: %v", err)
 	}
-
+	logrus.Info("Read extents successful")
 	return r, r.writeVolumeMetaData(true, r.info.Rebuilding)
 }
 

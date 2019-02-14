@@ -28,3 +28,9 @@ func AddPingTimeout() {
 		pingTimeout = false
 	}
 }
+
+func AddPreloadTimeout() {
+	timeout, _ := strconv.Atoi(os.Getenv("PRELOAD_TIMEOUT"))
+	logrus.Infof("Add preload timeout of %vs for debug build", timeout)
+	time.Sleep(time.Duration(timeout) * time.Second)
+}
