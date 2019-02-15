@@ -371,7 +371,7 @@ func (s *Server) Close(signalMonitor bool) error {
 	s.Lock()
 
 	if s.r == nil {
-		logrus.Infof("Close replica failed, s.r not set")
+		logrus.Infof("Skip closing replica, s.r not set")
 		s.Unlock()
 		return nil
 	}

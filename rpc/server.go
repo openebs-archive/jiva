@@ -50,7 +50,6 @@ func (s *Server) Handle() error {
 		}
 	}()
 	ret := make(chan error, 1)
-	s.pingRecvd = time.Now()
 	go s.readWrite(ret)
 	for {
 		select {
@@ -63,9 +62,14 @@ func (s *Server) Handle() error {
 				return err
 			}
 		case <-ticker.C:
+			if s.pingRecvd.IsZero() {
+				// ignore if no ping received, i.e, replica is
+				// opening and preload is going on.
+				break
+			}
 			if time.Since(s.pingRecvd) >= opPingTimeout*2 {
 				// Close the connection as Ping is not recieved
-				// since long time.
+				// since long time after replica is opened.
 				if err := s.Stop(); err != nil {
 					return err
 				}
