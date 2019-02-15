@@ -1001,6 +1001,7 @@ func (c *Controller) Shutdown() error {
 		Need to shutdown frontend first because it will write
 		the final piece of data to backend
 	*/
+	logrus.Info("Stopping controller")
 	err := c.shutdownFrontend()
 	if err != nil {
 		logrus.Error("Error when shutting down frontend:", err)

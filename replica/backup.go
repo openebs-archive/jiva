@@ -291,11 +291,14 @@ func preload(d *diffDisk) error {
 }
 
 func PreloadLunMap(d *diffDisk) error {
-	err := preload(d)
+	if err := preload(d); err != nil {
+		return err
+	}
+
 	for _, val := range d.location {
 		if val != 0 {
 			d.UsedLogicalBlocks++
 		}
 	}
-	return err
+	return nil
 }
