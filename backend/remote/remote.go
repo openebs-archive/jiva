@@ -263,7 +263,7 @@ func (rf *Factory) Create(address string) (types.Backend, error) {
 	r.IOs = remote
 
 	if err := r.open(); err != nil {
-		logrus.Errorf("Failed to open replica, error: %v", err)
+		logrus.Errorf("Failed to open replica: %v, error: %v", conn.RemoteAddr(), err)
 		remote.Close()
 		return nil, err
 	}

@@ -84,22 +84,38 @@ func CheckReplicaState(frontendIP string, replicaIP string) (string, error) {
 }
 
 func AutoConfigureReplica(s *replica.Server, frontendIP string, address string, replicaType string) {
-checkagain:
-	state, err := CheckReplicaState(frontendIP, address)
-	logrus.Infof("Replicastate: %v err:%v", state, err)
-	if err == nil && (state == "" || state == "ERR") {
+	var (
+		err   error
+		state string
+	)
+	for {
+		state, err = CheckReplicaState(frontendIP, address)
+		logrus.Infof("Replica state: %v,  err: %v", state, err)
+		if err != nil {
+			logrus.Warningf("Failed to check replica state, err:%v, retry after 5 second", err)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		if state == "WO" || state == "ERR" {
+			if err = AutoRmReplica(frontendIP, address); err != nil {
+				logrus.Warningf("Failed to remove replica, err: %v, retry after 5 second", err)
+				time.Sleep(5 * time.Second)
+				continue
+			}
+		} else if state == "RW" {
+			time.Sleep(5 * time.Second)
+			continue
+		}
 		s.Close(false)
-	} else {
-		time.Sleep(5 * time.Second)
-		goto checkagain
-	}
-	AutoRmReplica(frontendIP, address)
-	AutoAddReplica(s, frontendIP, address, replicaType)
-	logrus.Infof("Waiting on MonitorChannel")
-	select {
-	case <-s.MonitorChannel:
+		if err = AutoAddReplica(s, frontendIP, address, replicaType); err != nil {
+			logrus.Warningf("Failed to add replica to controller, err: %v,  retry after 5 second", err)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		logrus.Infof("Waiting on MonitorChannel")
+		<-s.MonitorChannel
 		logrus.Infof("Restart AutoConfigure Process")
-		goto checkagain
 	}
 }
 
