@@ -12,6 +12,7 @@ import (
 	"github.com/openebs/jiva/types"
 )
 
+type operation func(*Message)
 type Server struct {
 	wire        *Wire
 	responses   chan *Message
@@ -78,6 +79,37 @@ func (s *Server) Handle() error {
 	}
 }
 
+// timed is wrapper over various operations to varify whether
+// those operations took more than the expected time to complete.
+func timed(f operation, msg *Message) {
+	msgType := msg.Type
+	start := time.Now()
+	f(msg)
+	timeSinceStart := time.Since(start)
+	switch msgType {
+	case TypeRead:
+		if timeSinceStart > opReadTimeout {
+			logrus.Warning("Read time: %d greater than read timeout: %d at controller", opReadTimeout)
+		}
+	case TypeWrite:
+		if timeSinceStart > opWriteTimeout {
+			logrus.Warning("Write time: %d greater than write timeout: %d at controller", opWriteTimeout)
+		}
+	case TypeSync:
+		if timeSinceStart > opSyncTimeout {
+			logrus.Warning("Sync time: %d greater than sync timeout: %d at controller", opSyncTimeout)
+		}
+	case TypeUnmap:
+		if timeSinceStart > opUnmapTimeout {
+			logrus.Warning("Unmap time: %d greater than unmap timeout: %d at controller", opUnmapTimeout)
+		}
+	case TypePing:
+		if timeSinceStart > opPingTimeout {
+			logrus.Warning("Ping time: %d greater than ping timeout: %d at controller", opPingTimeout)
+		}
+	}
+}
+
 func (s *Server) readWrite(ret chan<- error) {
 	for {
 		inject.AddPingTimeout()
@@ -91,17 +123,18 @@ func (s *Server) readWrite(ret chan<- error) {
 			ret <- err
 			break
 		}
+
 		switch msg.Type {
 		case TypeRead:
-			s.handleRead(msg)
+			timed(s.handleRead, msg)
 		case TypeWrite:
-			s.handleWrite(msg)
+			timed(s.handleWrite, msg)
 		case TypePing:
-			s.handlePing(msg)
+			timed(s.handlePing, msg)
 		case TypeSync:
-			s.handleSync(msg)
+			timed(s.handleSync, msg)
 		case TypeUnmap:
-			s.handleUnmap(msg)
+			timed(s.handleUnmap, msg)
 			/*
 				case TypeUpdate:
 					go s.handleUpdate(msg)
