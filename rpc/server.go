@@ -89,23 +89,23 @@ func timed(f operation, msg *Message) {
 	switch msgType {
 	case TypeRead:
 		if timeSinceStart > opReadTimeout {
-			logrus.Warning("Read time: %d greater than read timeout: %d at controller", opReadTimeout)
+			logrus.Warningf("Read time: %vs greater than read timeout: %v at controller", timeSinceStart.Seconds(), opReadTimeout)
 		}
 	case TypeWrite:
 		if timeSinceStart > opWriteTimeout {
-			logrus.Warning("Write time: %d greater than write timeout: %d at controller", opWriteTimeout)
+			logrus.Warningf("Write time: %vs greater than write timeout: %v at controller", timeSinceStart.Seconds(), opWriteTimeout)
 		}
 	case TypeSync:
 		if timeSinceStart > opSyncTimeout {
-			logrus.Warning("Sync time: %d greater than sync timeout: %d at controller", opSyncTimeout)
+			logrus.Warningf("Sync time: %vs greater than sync timeout: %v at controller", timeSinceStart.Seconds(), opSyncTimeout)
 		}
 	case TypeUnmap:
 		if timeSinceStart > opUnmapTimeout {
-			logrus.Warning("Unmap time: %d greater than unmap timeout: %d at controller", opUnmapTimeout)
+			logrus.Warningf("Unmap time: %vs greater than unmap timeout: %v at controller", timeSinceStart.Seconds(), opUnmapTimeout)
 		}
 	case TypePing:
 		if timeSinceStart > opPingTimeout {
-			logrus.Warning("Ping time: %d greater than ping timeout: %d at controller", opPingTimeout)
+			logrus.Warningf("Ping time: %vs greater than ping timeout: %v at controller", timeSinceStart.Seconds(), opPingTimeout)
 		}
 	}
 }
