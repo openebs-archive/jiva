@@ -21,7 +21,7 @@ var (
 	opWriteTimeout  = 15 * time.Second // client write
 	opSyncTimeout   = 30 * time.Second // client sync
 	opUnmapTimeout  = 30 * time.Second // client unmap
-	opPingTimeout   = 20 * time.Second
+	opPingTimeout   = 40 * time.Second
 	opUpdateTimeout = 15 * time.Second // client update
 )
 
