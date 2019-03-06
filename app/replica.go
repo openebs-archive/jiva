@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -18,7 +19,7 @@ import (
 	"github.com/openebs/jiva/replica"
 	"github.com/openebs/jiva/replica/rest"
 	"github.com/openebs/jiva/replica/rpc"
-	"github.com/openebs/jiva/sync"
+	jiva_sync "github.com/openebs/jiva/sync"
 	"github.com/openebs/jiva/util"
 )
 
@@ -87,10 +88,10 @@ func AutoConfigureReplica(s *replica.Server, frontendIP string, address string, 
 	var (
 		err   error
 		state string
+		wg    sync.WaitGroup
 	)
 	for {
 		state, err = CheckReplicaState(frontendIP, address)
-		logrus.Infof("Replica state: %v,  err: %v", state, err)
 		if err != nil {
 			logrus.Warningf("Failed to check replica state, err:%v, retry after 5 second", err)
 			time.Sleep(5 * time.Second)
@@ -102,27 +103,41 @@ func AutoConfigureReplica(s *replica.Server, frontendIP string, address string, 
 				time.Sleep(5 * time.Second)
 				continue
 			}
-		} else if state == "RW" {
-			time.Sleep(5 * time.Second)
-			continue
 		}
 		s.Close(false)
+
+		wg.Add(1)
+		go func() {
+			logrus.Infof("Waiting on MonitorChannel")
+			<-s.MonitorChannel
+			wg.Done()
+			logrus.Infof("Restart AutoConfigure Process")
+		}()
+
 		if err = AutoAddReplica(s, frontendIP, address, replicaType); err != nil {
 			logrus.Warningf("Failed to add replica to controller, err: %v,  retry after 5 second", err)
 			time.Sleep(5 * time.Second)
-			continue
+			// notify MonitorChannel so that goroutine exits
+			select {
+			case s.MonitorChannel <- struct{}{}:
+				// it's possible that controller got disconnected when
+				// replica was stuck in AutoAddReplica and hence data
+				// connection will be closed and and immediately notified
+				// on MonitorChannel but as s.MonitorChannel is not buffered
+				// channel having default case ensures that it does not get
+				// blocked since that go routine exited earlier
+			default:
+			}
 		}
-
-		logrus.Infof("Waiting on MonitorChannel")
-		<-s.MonitorChannel
-		logrus.Infof("Restart AutoConfigure Process")
+		// blocking call to wait until any error happens
+		wg.Wait()
 	}
 }
 
 func CloneReplica(s *replica.Server, address string, cloneIP string, snapName string) error {
 	var err error
 	url := "http://" + cloneIP + ":9501"
-	task := sync.NewTask(url)
+	task := jiva_sync.NewTask(url)
 	if err = task.CloneReplica(url, address, cloneIP, snapName); err != nil {
 		return err
 	}
