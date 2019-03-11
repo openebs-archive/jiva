@@ -571,9 +571,10 @@ test_preload() {
 
 test_controller_rpc_close() {
 	echo "----------------Test_controller_rpc_close---------------"
-	debug_controller_id=$(start_debug_controller "$CONTROLLER_IP" "store1" "1" "RPC_PING_TIMEOUT" "25")
+	debug_controller_id=$(start_debug_controller "$CONTROLLER_IP" "store1" "1" "RPC_PING_TIMEOUT" "45")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
-	sleep 40
+        # Adding this sleep to ensure ping timeout
+        sleep 60
 
         writer_exit=`docker logs $debug_controller_id 2>&1 | grep "Exiting rpc writer" | wc -l`
         reader_exit=`docker logs $debug_controller_id 2>&1 | grep "Exiting rpc reader" | wc -l`
