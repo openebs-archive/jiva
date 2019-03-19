@@ -27,6 +27,7 @@ baseline-image:
      - export COMMIT=${CI_COMMIT_SHA:0:7}
      - echo $COMMIT
      - git clone https://github.com/$BASELINE_REPO/e2e-infrastructure.git
+     - git checkout $BRANCH
      - cd e2e-infrastructure/baseline
      - ansible-playbook commit-writer.yml --extra-vars "branch=$BRANCH repo=$CI_PROJECT_NAME commit=$COMMIT"
      - git status
@@ -41,13 +42,7 @@ baseline-image:
      - echo "###############################################################################################" 
      - echo "Started E2E-PIPELINE"
      - echo "###############################################################################################"
-     - curl -X POST -F token=$MAWS -F ref=master https://gitlab.openebs.ci/api/v4/projects/20/trigger/pipeline
-     - curl -X POST -F token=$MAWS -F ref=infra-chaos https://gitlab.openebs.ci/api/v4/projects/20/trigger/pipeline
-     - curl -X POST -F token=$MGCP -F ref=master https://gitlab.openebs.ci/api/v4/projects/21/trigger/pipeline
-     - curl -X POST -F token=$MAZURE -F ref=master https://gitlab.openebs.ci/api/v4/projects/25/trigger/pipeline
-     - curl -X POST -F token=$MPACKET -F ref=master https://gitlab.openebs.ci/api/v4/projects/23/trigger/pipeline
-     - curl -X POST -F token=$MEKS -F ref=master https://gitlab.openebs.ci/api/v4/projects/19/trigger/pipeline
-     - curl -X POST -F token=$MGKE -F ref=master https://gitlab.openebs.ci/api/v4/projects/22/trigger/pipeline 
+     - curl -X POST -F variables[INFRA_BRANCH]=$BRANCH -F token=$OPENSHIFT -F ref=openebsbase https://gitlab.openebs.ci/api/v4/projects/15/trigger/pipeline
 
 cleanup:
   when: always
