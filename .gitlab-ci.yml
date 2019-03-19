@@ -30,7 +30,7 @@ baseline-image:
      - pwd
      - export BRANCH=${CI_COMMIT_REF_NAME}
      - echo $BRANCH
-     - export COMMIT=${CI_COMMIT_SHORT_SHA}
+     - export COMMIT=${CI_COMMIT_SHA:0:7}
      - echo $COMMIT
      - git clone https://github.com/openebs/e2e-infrastructure.git
      - git checkout $BRANCH
