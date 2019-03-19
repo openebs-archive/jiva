@@ -5,6 +5,9 @@ stages:
 
 build-jiva:
    stage: build
+   only:
+     refs:
+       - /^(v[0-9][.][0-9][.]x|master)?$/
    before_script:
      - export COMMIT=${CI_COMMIT_SHA:0:7}
      - sudo apt-get install -y
@@ -20,6 +23,9 @@ build-jiva:
     - make build_gitlab
 baseline-image: 
   stage: baseline
+  only:
+    refs:
+      - /^(v[0-9][.][0-9][.]x|master)?$/
   script:
      - pwd
      - export BRANCH=${CI_COMMIT_REF_NAME}
@@ -47,6 +53,9 @@ baseline-image:
 cleanup:
   when: always
   stage: cleanup
+  only:
+    refs:
+      - /^(v[0-9][.][0-9][.]x|master)?$/
   script:
      - sudo rm -r ~/go
      - sudo docker images 
