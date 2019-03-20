@@ -32,8 +32,7 @@ baseline-image:
      - echo $BRANCH
      - export COMMIT=${CI_COMMIT_SHA:0:7}
      - echo $COMMIT
-     - git clone https://github.com/$BASELINE_REPO/e2e-infrastructure.git
-     - git checkout $BRANCH
+     - git clone -b $BRANCH https://github.com/$BASELINE_REPO/e2e-infrastructure.git
      - cd e2e-infrastructure/baseline
      - ansible-playbook commit-writer.yml --extra-vars "branch=$BRANCH repo=$CI_PROJECT_NAME commit=$COMMIT"
      - git status
