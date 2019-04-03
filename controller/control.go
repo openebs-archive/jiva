@@ -269,20 +269,20 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 		logrus.Infof("There are already some replicas attached")
 		return nil
 	}
+
 	if c.StartSignalled == true {
 		if c.MaxRevReplica == register.Address {
-			logrus.Infof("Replica %v signalled to start again %d:%d", c.MaxRevReplica,
-				len(c.RegisteredReplicas), c.replicaCount)
+			logrus.Infof("Replica %v signalled to start again, registered replicas: %#v", c.MaxRevReplica, c.RegisteredReplicas)
 			if err := c.signalReplica(); err != nil {
-				c.StartSignalled = false
 				return err
 			}
 		} else {
 			logrus.Infof("Can signal only to %s ,can't signal to %s, no of registered replicas are %d and replica count is %d",
 				c.MaxRevReplica, register.Address, len(c.RegisteredReplicas), c.replicaCount)
-			return nil
 		}
+		return nil
 	}
+
 	if register.RepState == "rebuilding" {
 		logrus.Errorf("Cannot add replica in rebuilding state, addr: %v", register.Address)
 		return nil
@@ -298,12 +298,10 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 
 	if (len(c.RegisteredReplicas) >= ((c.replicaCount / 2) + 1)) &&
 		((len(c.RegisteredReplicas) + len(c.RegisteredQuorumReplicas)) >= (((c.quorumReplicaCount + c.replicaCount) / 2) + 1)) {
-		logrus.Infof("Replica %v signalled to start, no of registered replicas are %d and replica count is %d", c.MaxRevReplica,
-			len(c.RegisteredReplicas), c.replicaCount)
+		logrus.Infof("Replica %v signalled to start, registered replicas: %#v", c.MaxRevReplica, c.RegisteredReplicas)
 		if err := c.signalReplica(); err != nil {
 			return err
 		}
-		c.StartSignalled = true
 		return nil
 	}
 
@@ -322,8 +320,10 @@ func (c *Controller) signalReplica() error {
 			c.MaxRevReplica, err.Error())
 		delete(c.RegisteredReplicas, c.MaxRevReplica)
 		c.MaxRevReplica = ""
+		c.StartSignalled = false
 		return err
 	}
+	c.StartSignalled = true
 	return nil
 }
 
