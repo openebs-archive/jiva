@@ -272,15 +272,15 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 
 	if c.StartSignalled == true {
 		if c.MaxRevReplica == register.Address {
-			logrus.Infof("Replica %v signalled to start again, registered replicas: %v", c.MaxRevReplica, c.RegisteredReplicas)
+			logrus.Infof("Replica %v signalled to start again, registered replicas: %#v", c.MaxRevReplica, c.RegisteredReplicas)
 			if err := c.signalReplica(); err != nil {
 				return err
 			}
 		} else {
 			logrus.Infof("Can signal only to %s ,can't signal to %s, no of registered replicas are %d and replica count is %d",
 				c.MaxRevReplica, register.Address, len(c.RegisteredReplicas), c.replicaCount)
-			return nil
 		}
+		return nil
 	}
 
 	if register.RepState == "rebuilding" {
@@ -298,8 +298,7 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 
 	if (len(c.RegisteredReplicas) >= ((c.replicaCount / 2) + 1)) &&
 		((len(c.RegisteredReplicas) + len(c.RegisteredQuorumReplicas)) >= (((c.quorumReplicaCount + c.replicaCount) / 2) + 1)) {
-		logrus.Infof("Replica %v signalled to start, no of registered replicas are %d and replica count is %d", c.MaxRevReplica,
-			len(c.RegisteredReplicas), c.replicaCount)
+		logrus.Infof("Replica %v signalled to start, registered replicas: %#v", c.MaxRevReplica, c.RegisteredReplicas)
 		if err := c.signalReplica(); err != nil {
 			return err
 		}
