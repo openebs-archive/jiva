@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/types"
 )
 
@@ -52,6 +53,7 @@ func NewServer(dir string, sectorSize int64, serverType string) *Server {
 }
 
 func (s *Server) Start(action string) error {
+	inject.IncStartCountAndPanic() // increase inject.startCount and panic for debug build
 	s.Lock()
 	defer s.Unlock()
 	ActionChannel <- action

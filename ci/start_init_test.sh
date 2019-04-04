@@ -359,7 +359,7 @@ start_replica() {
 # start_replica CONTROLLER_IP REPLICA_IP folder_name
 start_debug_replica() {
 	replica_id=$(docker run -d --net stg-net --ip "$2" -P --expose 9502-9504 -v /tmp/"$3":/"$3" $JI_DEBUG \
-	env $4=$5 launch replica --frontendIP "$1" --listen "$2":9502 --size 2g /"$3")
+	env $4=$5 $6=$7 launch replica --frontendIP "$1" --listen "$2":9502 --size 2g /"$3")
 	echo "$replica_id"
 }
 
@@ -608,6 +608,26 @@ test_replica_rpc_close() {
 		collect_logs_and_exit
 	fi
 
+	cleanup
+}
+
+# This test case verifies the fix for controller where it is getting stuck
+# forever and not accepting connection from replica while registration.
+test_signal_replica() {
+	echo "----------------Test_Signal_Replica---------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
+	start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1" "SHOULD_PANIC" "TRUE"
+	start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2" "DEBUG_TIMEOUT" "5"
+        sleep 2
+	start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1" "START_COUNT" "2" "DEBUG_TIMEOUT" "5"
+        sleep 20
+
+        signal_error_count=`docker logs $orig_controller_id 2>&1 | grep -c "Can signal only to  ,can't signal to"`
+
+        if [ "$signal_error_count" != 0 ];
+        then
+                collect_logs_and_exit
+        fi
 	cleanup
 }
 
@@ -1534,6 +1554,7 @@ test_duplicate_data_delete() {
 
 
 prepare_test_env
+test_signal_replica
 test_preload
 test_replica_rpc_close
 test_controller_rpc_close

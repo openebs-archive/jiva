@@ -49,6 +49,7 @@ func (r *Remote) Close() error {
 
 func (r *Remote) open() error {
 	logrus.Infof("Opening: %s", r.Name)
+	inject.AddPreloadTimeout()
 	return r.doAction("open", nil)
 }
 
