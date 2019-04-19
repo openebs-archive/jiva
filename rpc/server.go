@@ -12,6 +12,7 @@ import (
 	"github.com/openebs/jiva/types"
 )
 
+type operation func(*Message)
 type Server struct {
 	wire        *Wire
 	responses   chan *Message
@@ -78,6 +79,37 @@ func (s *Server) Handle() error {
 	}
 }
 
+// timed is wrapper over various operations to varify whether
+// those operations took more than the expected time to complete.
+func timed(f operation, msg *Message) {
+	msgType := msg.Type
+	start := time.Now()
+	f(msg)
+	timeSinceStart := time.Since(start)
+	switch msgType {
+	case TypeRead:
+		if timeSinceStart > opReadTimeout {
+			logrus.Warningf("Read time: %vs greater than read timeout: %v at controller", timeSinceStart.Seconds(), opReadTimeout)
+		}
+	case TypeWrite:
+		if timeSinceStart > opWriteTimeout {
+			logrus.Warningf("Write time: %vs greater than write timeout: %v at controller", timeSinceStart.Seconds(), opWriteTimeout)
+		}
+	case TypeSync:
+		if timeSinceStart > opSyncTimeout {
+			logrus.Warningf("Sync time: %vs greater than sync timeout: %v at controller", timeSinceStart.Seconds(), opSyncTimeout)
+		}
+	case TypeUnmap:
+		if timeSinceStart > opUnmapTimeout {
+			logrus.Warningf("Unmap time: %vs greater than unmap timeout: %v at controller", timeSinceStart.Seconds(), opUnmapTimeout)
+		}
+	case TypePing:
+		if timeSinceStart > opPingTimeout {
+			logrus.Warningf("Ping time: %vs greater than ping timeout: %v at controller", timeSinceStart.Seconds(), opPingTimeout)
+		}
+	}
+}
+
 func (s *Server) readWrite(ret chan<- error) {
 	for {
 		inject.AddPingTimeout()
@@ -91,17 +123,18 @@ func (s *Server) readWrite(ret chan<- error) {
 			ret <- err
 			break
 		}
+
 		switch msg.Type {
 		case TypeRead:
-			s.handleRead(msg)
+			timed(s.handleRead, msg)
 		case TypeWrite:
-			s.handleWrite(msg)
+			timed(s.handleWrite, msg)
 		case TypePing:
-			s.handlePing(msg)
+			timed(s.handlePing, msg)
 		case TypeSync:
-			s.handleSync(msg)
+			timed(s.handleSync, msg)
 		case TypeUnmap:
-			s.handleUnmap(msg)
+			timed(s.handleUnmap, msg)
 			/*
 				case TypeUpdate:
 					go s.handleUpdate(msg)
