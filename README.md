@@ -1,6 +1,7 @@
 # jiva
 
 [![Build Status](https://travis-ci.org/openebs/jiva.svg?branch=master)](https://travis-ci.org/openebs/jiva)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fopenebs%2Fjiva.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fopenebs%2Fjiva?ref=badge_shield)
 
 Jiva is a Docker image for creating OpenEBS Volumes. OpenEBS Volumes provide block storage to your application containers. An OpenEBS Volume - is itself launched as a container, making OpenEBS a true Container Native Storage for Containers.
 
@@ -104,3 +105,5 @@ IQN : iqn.2016-09.com.openebs.jiva:demo-vol1
 ## Inspiration and Credit
 
 [Rancher Longhorn](https://github.com/rancher/longhorn), which helped with the significant portion of the code in this repo, helped us to validate that Storage controllers can be run as microservices and they can be coded in Go. The iSCSI functionality is derived from [gostor/gotgt](https://github.com/gostor/gotgt).
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fopenebs%2Fjiva.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fopenebs%2Fjiva?ref=badge_large)
