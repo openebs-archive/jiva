@@ -115,11 +115,11 @@ func (c *Controller) hasWOReplica() (string, bool) {
 
 func (c *Controller) canAdd(address string) (bool, error) {
 	if c.hasReplica(address) {
-		logrus.Warning("replica %s is already added with this controller instance", address)
+		logrus.Warningf("replica %s is already added with this controller instance", address)
 		return false, fmt.Errorf("replica: %s is already added", address)
 	}
 	if woReplica, ok := c.hasWOReplica(); ok {
-		logrus.Warning("can have only one WO replica at a time, found WO replica: %s", woReplica)
+		logrus.Warningf("can have only one WO replica at a time, found WO replica: %s", woReplica)
 		return false, fmt.Errorf("can only have one WO replica at a time, found WO Replica: %s",
 			woReplica)
 	}

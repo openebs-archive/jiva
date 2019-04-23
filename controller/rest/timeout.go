@@ -13,7 +13,7 @@ func (s *Server) AddTimeout(rw http.ResponseWriter, req *http.Request) error {
 	var timeout Timeout
 	apiContext := api.GetApiContext(req)
 	if err := apiContext.Read(&timeout); err != nil {
-		logrus.Error("failed to read the request body, error: %v", err)
+		logrus.Errorf("failed to read the request body, error: %v", err)
 		return err
 	}
 	if timeout.Timeout != "" {

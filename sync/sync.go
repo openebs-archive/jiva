@@ -11,6 +11,7 @@ import (
 	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/replica"
 	replicaClient "github.com/openebs/jiva/replica/client"
+	"github.com/openebs/jiva/types"
 )
 
 var (
@@ -285,6 +286,7 @@ func (t *Task) AddReplica(replicaAddress string, s *replica.Server) error {
 	if s == nil {
 		return fmt.Errorf("Server not present for %v, Add replica using CLI not supported", replicaAddress)
 	}
+	types.IsMasterReplica = false
 	logrus.Infof("Addreplica %v", replicaAddress)
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
@@ -323,13 +325,19 @@ Register:
 	}
 	if action == "start" {
 		logrus.Infof("Received start from controller")
-		return t.client.Start(replicaAddress)
+		types.IsMasterReplica = true
+		if err := t.client.Start(replicaAddress); err != nil {
+			types.IsMasterReplica = false
+			return err
+		}
+		return nil
 	}
 	logrus.Infof("CheckAndResetFailedRebuild %v", replicaAddress)
 	if err := t.checkAndResetFailedRebuild(replicaAddress, s); err != nil {
 		return fmt.Errorf("CheckAndResetFailedRebuild failed, error: %s", err.Error())
 	}
 
+	types.IsRebuilding = true // Used to ignore punch hole
 	logrus.Infof("Adding replica %s in WO mode", replicaAddress)
 	_, err = t.client.CreateReplica(replicaAddress)
 	if err != nil {

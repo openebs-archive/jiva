@@ -213,7 +213,7 @@ func (s *Server) SnapshotReplica(rw http.ResponseWriter, req *http.Request) erro
 	var input SnapshotInput
 	apiContext := api.GetApiContext(req)
 	if err := apiContext.Read(&input); err != nil && err != io.EOF {
-		logrus.Errorf("Err %v for reading in snapshotReplica %v", err)
+		logrus.Errorf("Err %v for reading in snapshotReplica", err)
 		return err
 	}
 
@@ -234,7 +234,7 @@ func (s *Server) RevertReplica(rw http.ResponseWriter, req *http.Request) error 
 	var input RevertInput
 	apiContext := api.GetApiContext(req)
 	if err := apiContext.Read(&input); err != nil && err != io.EOF {
-		logrus.Errorf("Err %v for reading in revertReplica %v", err)
+		logrus.Errorf("Err %v for reading in revertReplica", err)
 		return err
 	}
 

@@ -132,6 +132,10 @@ func (s *Server) Reload() error {
 		return nil
 	}
 
+	types.IsReloadOperation = true
+	defer func() {
+		types.IsReloadOperation = false
+	}()
 	logrus.Infof("Reloading volume")
 	newReplica, err := s.r.Reload()
 	if err != nil {
@@ -234,6 +238,7 @@ func (s *Server) SetRebuilding(rebuilding bool) error {
 		return fmt.Errorf("Can not set rebuilding=%v from state %s", rebuilding, state)
 	}
 
+	types.IsRebuilding = rebuilding
 	return s.r.SetRebuilding(rebuilding)
 }
 
@@ -374,6 +379,15 @@ func (s *Server) Close(signalMonitor bool) error {
 		logrus.Infof("Skip closing replica, s.r not set")
 		s.Unlock()
 		return nil
+	}
+
+	types.DrainOps = types.DrainStart
+	HoleCreatorChan <- Hole{}
+	for {
+		if types.DrainOps == types.DrainDone {
+			break
+		}
+		time.Sleep(1 * time.Second)
 	}
 
 	if err := s.r.Close(); err != nil {

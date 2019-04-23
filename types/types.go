@@ -16,6 +16,11 @@ const (
 	StateDown = State("Down")
 )
 
+const (
+	DrainStart HoleChannelOps = iota + 1
+	DrainDone
+)
+
 type ReaderWriterAt interface {
 	io.ReaderAt
 	io.WriterAt
@@ -34,6 +39,15 @@ type DiffDisk interface {
 }
 
 type MonitorChannel chan error
+type HoleChannelOps int
+
+var DrainOps HoleChannelOps
+
+var (
+	IsReloadOperation bool
+	IsRebuilding      bool
+	IsMasterReplica   bool
+)
 
 type Backend interface {
 	IOs
