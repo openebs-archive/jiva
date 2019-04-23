@@ -17,7 +17,11 @@ const (
 )
 
 const (
+	// DrainStart flag is used to notify CreateHoles goroutine
+	// for draining the data in HoleCreatorChan
 	DrainStart HoleChannelOps = iota + 1
+	// DrainDone flag is used to notify the s.Close that data
+	// from HoleCreatorChan has been flushed
 	DrainDone
 )
 
@@ -39,14 +43,25 @@ type DiffDisk interface {
 }
 
 type MonitorChannel chan error
+
+// HoleChannelOps is the operation that has to be performed
+// on HoleCreatorChan such as DrainStart, DrainDone for draining
+// the chan and notify the caller if drain is done.
 type HoleChannelOps int
 
+// DrainOps is flag used for various operations on HoleCreatorChan
 var DrainOps HoleChannelOps
 
 var (
+	// IsReloadOperation if true, is used for creating holes, while
+	// reload replica is in progress.
 	IsReloadOperation bool
-	IsRebuilding      bool
-	IsMasterReplica   bool
+	// IsRebuilding if false, is used for creating holes while
+	// write operation is in progress.
+	IsRebuilding bool
+	// IsMasterReplica if true, is used for creating holes while
+	// preload operation is in progress
+	IsMasterReplica bool
 )
 
 type Backend interface {
