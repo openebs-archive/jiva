@@ -1085,24 +1085,27 @@ func (r *Replica) Unmap(offset int64, length int64) (int, error) {
 
 func (r *Replica) WriteAt(buf []byte, offset int64) (int, error) {
 	var (
-		c   int
-		err error
+		c	int
+		err	error
+		mode	types.Mode
 	)
 	if r.readOnly {
 		return 0, fmt.Errorf("Can not write on read-only replica")
 	}
-
 	if r.ReplicaType != "quorum" {
 		r.RLock()
 		r.info.Dirty = true
 		c, err = r.volume.WriteAt(buf, offset)
+		mode = r.Mode
 		r.RUnlock()
 		if err != nil {
 			return c, err
 		}
 	}
-	if err := r.increaseRevisionCounter(); err != nil {
-		return c, err
+	if mode == types.RW {
+		if err := r.increaseRevisionCounter(); err != nil {
+			return c, err
+		}
 	}
 	return c, nil
 }
