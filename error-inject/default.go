@@ -2,8 +2,17 @@
 
 package inject
 
-func AddTimeout()          {}
-func AddPingTimeout()      {}
-func AddPreloadTimeout()   {}
+// AddTimeout add delays into the code
+func AddTimeout() {}
+
+// AddPingTimeout add delay in ping response
+func AddPingTimeout() {}
+
+// AddPreloadTimeout add delay in preload
+func AddPreloadTimeout() {}
+
+// AddPunchHoleTimeout add delay in while punching hole
 func AddPunchHoleTimeout() {}
-func IsDebugBuild() bool   { return false }
+
+// DisablePunchHoles is used for disabling punch holes
+func DisablePunchHoles() bool { return false }

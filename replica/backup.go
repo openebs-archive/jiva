@@ -189,6 +189,8 @@ type Hole struct {
 
 var HoleCreatorChan = make(chan Hole, 1000000)
 
+// drainHoleCreatorChan is called if replica is closed, to drain
+// all the data for punching hole in the HoleCreatorChan.
 func drainHoleCreatorChan() {
 	for {
 		select {
@@ -239,6 +241,8 @@ func sendToCreateHole(f types.DiffDisk, offset int64, len int64) {
 	HoleCreatorChan <- hole
 }
 
+// shouldCreateHoles returns bool which is used to as prerequisit for
+// punching holes.
 func shouldCreateHoles() bool {
 	if types.IsReloadOperation || types.IsMasterReplica {
 		return true

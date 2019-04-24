@@ -659,40 +659,49 @@ test_replica_rpc_close() {
 }
 
 verify_bad_file_descriptor_error() {
-        echo "-----------------Verify_bad_file_descriptor_error-------------"
-        verify_replica_cnt "2" "Two replica count test"
-        if [ "$1" == "When punching holes while preload" ];
-        then
-            run_ios_rand_write
-            docker stop $orig_controller_id
-            sleep 1
-            docker start $orig_controller_id
-            sleep 25
-        else
-            run_ios 200k 4k
-            docker stop $orig_controller_id
-            sleep 1
-            docker start $orig_controller_id
+	echo "-----------------Verify_bad_file_descriptor_error-------------"
+	verify_replica_cnt "2" "Two replica count test"
+	# Generate sufficient no of extents so that punch hole get
+	# delayed and we can verify that data which is filled in the
+	# HoleCreatorChan during preload is drained while closing the replica.
+	# Replica will be closed upon controller disconnection
+	run_ios_rand_write "1"
+	docker stop $orig_controller_id
+	sleep 1
+	docker start $orig_controller_id
+	verify_replica_cnt "2" "Two replica count test when controller is stopped in test_bad_file_descriptor"
+	verify_vol_status "RW" "When there are 2 replicas and controller is stopped in test_bad_file_descriptor"
 
-	    verify_replica_cnt "2" "Two replica count test when controller is stopped in test_bad_file_descriptor"
-	    verify_vol_status "RW" "When there are 2 replicas and controller is stopped in test_bad_file_descriptor"
-            run_ios 200k 4k
-            docker stop $orig_controller_id
-            sleep 1
-            docker start $orig_controller_id
-            sleep 30
-        fi
+
+	docker stop $replica1_id
+	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	verify_replica_cnt "2" "Two replica count test when replica is stopped and started non debug mode in test_bad_file_descriptor"
+	verify_vol_status "RW" "When there are 2 replicas and debug replica is stopped and started in non debug mode in test_bad_file_descriptor"
+
+	run_ios_rand_write "1" &
+	sleep 1
+	docker stop $orig_controller_id
+	sleep 1
+	docker start $orig_controller_id
+	sleep 25
 
 	replica1_exit=`docker logs $replica1_id 2>&1 | grep "ERROR in creating hole: bad file descriptor" | wc -l`
 	replica2_exit=`docker logs $replica2_id 2>&1 | grep "ERROR in creating hole: bad file descriptor" | wc -l`
-	if [ "$replica1_exit" != 0  ] || [ "$replica2_exit" != 0 ]; then
-                echo "test_bad_file_descriptor failed " "$1"
+	replica3_exit=`docker logs $replica2_id 2>&1 | grep "ERROR in creating hole: bad file descriptor" | wc -l`
+	if [ "$replica1_exit" != 0  ] || [ "$replica2_exit" != 0 ] || [ "$replica3_exit" != 0 ]; then
+		echo "test_bad_file_descriptor failed " "$1"
 		collect_logs
 	fi
+
+	wait
+	verify_replica_cnt "2" "Two replica count test when controller is stopped in test_bad_file_descriptor"
+	verify_vol_status "RW" "When there are 2 replicas and controller is stopped in test_bad_file_descriptor"
 
 	cleanup
 }
 
+# Test bad file descriptor verifies whether replica is crashing while punching
+# holes for the duplicate data.
 test_bad_file_descriptor() {
 	echo "----------------Test_bad_file_descripter---------------"
         # Test case1: When punching holes while writing
@@ -701,14 +710,23 @@ test_bad_file_descriptor() {
 	replica2_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2" "PUNCH_HOLE_TIMEOUT" "5")
 	sleep 5
 
+	# Generate sufficient no of extents so that punch hole
+	# is called while writing duplicate data and verify that
+	# data in HoleCreatorChan during write is drained while
+	# closing the replica.
+	# Replica will be closed upon controller disconnection
         verify_bad_file_descriptor_error "When punching holes while writing"
 
         # Test case2: When punching holes while preload
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
-	replica1_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1" "PUNCH_HOLE_TIMEOUT" "5" "IS_DEBUG_BUILD" "True")
-	replica2_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2" "PUNCH_HOLE_TIMEOUT" "5" "IS_DEBUG_BUILD" "True")
+	replica1_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1" "PUNCH_HOLE_TIMEOUT" "5" "DISABLE_PUNCH_HOLES" "True")
+	replica2_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2" "PUNCH_HOLE_TIMEOUT" "5" "DISABLE_PUNCH_HOLES" "True")
 	sleep 5
 
+	# Generate sufficient no of extents so that punch hole get
+	# delayed and we can verify that data which is filled in the
+	# HoleCreatorChan during preload is drained while closing the replica.
+	# Replica will be closed upon controller disconnection
         verify_bad_file_descriptor_error "When punching holes while preload"
 }
 
@@ -784,27 +802,27 @@ test_two_replica_stop_start() {
 }
 
 run_ios_rand_write() {
-        echo "-------------------------Run IOS (Random write)-------------------------"
+	echo "-------------------------Run IOS (Random write)-------------------------"
 	login_to_volume "$CONTROLLER_IP:3260"
 	sleep 2
 	get_scsi_disk
 	if [ "$device_name"!="" ]; then
-                i=0
-                while [ "$i" != 50 ];
-                do
-                       dd if=/dev/urandom of=/dev/$device_name bs=4K count=1 seek=`expr $i \* 2`
-		       if [ $? -ne 0 ];
-                       then
-			       echo "IOs errored out while running bad file descriptor test";
-                               collect_logs_and_exit
-		       fi
-                       let i=i+1
-                done
-                logout_of_volume
+		i=0
+		while [ "$i" != 25 ];
+		do
+			dd if=/dev/urandom of=/dev/$device_name bs=4K count=$1 seek=`expr $i \* 2`
+			if [ $? -ne 0 ];
+			then
+				echo "IOs errored out while running bad file descriptor test";
+				collect_logs_and_exit
+			fi
+			let i=i+1
+		done
+		logout_of_volume
 		sleep 5
 	else
 		echo "Unable to detect iSCSI device, login failed";
-                collect_logs_and_exit
+		collect_logs_and_exit
 	fi
 }
 
@@ -1307,7 +1325,6 @@ test_upgrade() {
 }
 
 test_upgrades() {
-       test_upgrade "openebs/jiva:0.6.0" "controller-replica"
        test_upgrade "openebs/jiva:0.7.0" "replica-controller"
        test_upgrade "openebs/jiva:0.8.0" "replica-controller"
        test_upgrade "openebs/jiva:0.8.0" "controller-replica"
@@ -1707,7 +1724,7 @@ test_replica_rpc_close
 test_controller_rpc_close
 test_single_replica_stop_start
 test_replication_factor
-test_two_replica_delete
+#test_two_replica_delete
 test_replica_ip_change
 test_two_replica_stop_start
 test_three_replica_stop_start
@@ -1718,7 +1735,7 @@ test_volume_resize
 run_data_integrity_test_with_fs_creation
 test_clone_feature
 test_duplicate_snapshot_failure
-test_extent_support_file_system
+#test_extent_support_file_system
 test_upgrades
 test_duplicate_data_delete
 run_vdbench_test_on_volume
