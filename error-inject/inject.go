@@ -14,6 +14,14 @@ var (
 	pingTimeout = true
 )
 
+func IsDebugBuild() bool {
+	ok := os.Getenv("IS_DEBUG_BUILD")
+	if ok == "True" {
+		return true
+	}
+	return false
+}
+
 func AddTimeout() {
 	timeout, _ := strconv.Atoi(os.Getenv("DEBUG_TIMEOUT"))
 	logrus.Infof("Add timeout of %vs for debug build", timeout)
@@ -41,4 +49,10 @@ func PanicAfterPrepareRebuild() {
 		time.Sleep(2 * time.Second)
 		panic("panic replica after getting start signal")
 	}
+}
+
+func AddPunchHoleTimeout() {
+	timeout, _ := strconv.Atoi(os.Getenv("PUNCH_HOLE_TIMEOUT"))
+	logrus.Infof("Add punch hole timeout of %vs for debug build", timeout)
+	time.Sleep(time.Duration(timeout) * time.Second)
 }
