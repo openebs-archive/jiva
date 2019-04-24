@@ -342,6 +342,18 @@ Register:
 		return fmt.Errorf("failed to get transfer clients, error: %s", err.Error())
 	}
 
+	ok, err := isReplicaCountSame(fromClient, toClient)
+	if err != nil {
+		return err
+	}
+
+	if ok {
+		if err := t.verifyRebuild(replicaAddress, toClient); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	logrus.Infof("SetRebuilding %v", replicaAddress)
 	if err := toClient.SetRebuilding(true); err != nil {
 		return fmt.Errorf("failed to set rebuilding: true, error: %s", err.Error())
@@ -361,6 +373,34 @@ Register:
 	logrus.Infof("reloadAndVerify %v", replicaAddress)
 	return t.reloadAndVerify(replicaAddress, toClient)
 
+}
+
+func (t *Task) verifyRebuild(addr string, toClient *replicaClient.ReplicaClient) error {
+	if err := t.client.VerifyRebuildReplica(rest.EncodeID(addr)); err != nil {
+		return fmt.Errorf("Failed to verify rebuild in replica, err: %v", err)
+	}
+
+	if err := toClient.SetRebuilding(false); err != nil {
+		return fmt.Errorf("Failed to set rebuilding: true, error: %v", err)
+	}
+	return nil
+}
+
+func isReplicaCountSame(fromClient, toClient *replicaClient.ReplicaClient) (bool, error) {
+	rwReplica, err := fromClient.GetReplica()
+	if err != nil {
+		return false, err
+	}
+
+	curReplica, err := toClient.GetReplica()
+	if err != nil {
+		return false, err
+	}
+
+	if rwReplica.RevisionCounter == curReplica.RevisionCounter {
+		return true, err
+	}
+	return false, nil
 }
 
 func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server) error {
