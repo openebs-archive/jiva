@@ -2,6 +2,7 @@ package sync
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -342,21 +343,21 @@ Register:
 		return fmt.Errorf("failed to get transfer clients, error: %s", err.Error())
 	}
 
-	ok, err := isReplicaCountSame(fromClient, toClient)
+	logrus.Infof("SetRebuilding %v", replicaAddress)
+	if err := toClient.SetRebuilding(true); err != nil {
+		return fmt.Errorf("failed to set rebuilding: true, error: %s", err.Error())
+	}
+
+	ok, err := t.isRevisionCountAndChainSame(replicaAddress, fromClient, toClient)
 	if err != nil {
 		return err
 	}
 
 	if ok {
-		if err := t.verifyRebuild(replicaAddress, toClient); err != nil {
-			return err
+		if err := toClient.SetRebuilding(false); err != nil {
+			return fmt.Errorf("Failed to set rebuilding: true, error: %v", err)
 		}
 		return nil
-	}
-
-	logrus.Infof("SetRebuilding %v", replicaAddress)
-	if err := toClient.SetRebuilding(true); err != nil {
-		return fmt.Errorf("failed to set rebuilding: true, error: %s", err.Error())
 	}
 
 	logrus.Infof("PrepareRebuild %v", replicaAddress)
@@ -375,18 +376,7 @@ Register:
 
 }
 
-func (t *Task) verifyRebuild(addr string, toClient *replicaClient.ReplicaClient) error {
-	if err := t.client.VerifyRebuildReplica(rest.EncodeID(addr)); err != nil {
-		return fmt.Errorf("Failed to verify rebuild in replica, err: %v", err)
-	}
-
-	if err := toClient.SetRebuilding(false); err != nil {
-		return fmt.Errorf("Failed to set rebuilding: true, error: %v", err)
-	}
-	return nil
-}
-
-func isReplicaCountSame(fromClient, toClient *replicaClient.ReplicaClient) (bool, error) {
+func (t *Task) isRevisionCountAndChainSame(addr string, fromClient, toClient *replicaClient.ReplicaClient) (bool, error) {
 	rwReplica, err := fromClient.GetReplica()
 	if err != nil {
 		return false, err
@@ -398,7 +388,15 @@ func isReplicaCountSame(fromClient, toClient *replicaClient.ReplicaClient) (bool
 	}
 
 	if rwReplica.RevisionCounter == curReplica.RevisionCounter {
-		return true, err
+		if !reflect.DeepEqual(rwReplica.Chain[1:], curReplica.Chain[1:]) {
+			logrus.Errorf("Replica %v's chain not equal to RW replica %v's chain", toClient.GetAddress(), fromClient.GetAddress())
+			return false, nil
+		}
+
+		if err := t.client.VerifyRebuildReplica(rest.EncodeID(addr)); err != nil {
+			return false, fmt.Errorf("Failed to verify rebuild in replica, err: %v", err)
+		}
+		return true, nil
 	}
 	return false, nil
 }

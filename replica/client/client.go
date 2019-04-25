@@ -34,6 +34,11 @@ type ReplicaClient struct {
 	httpClient *http.Client
 }
 
+// GetAddress is used to get the address of replica client
+func (c *ReplicaClient) GetAddress() string {
+	return c.address
+}
+
 func NewReplicaClient(address string) (*ReplicaClient, error) {
 	if strings.HasPrefix(address, "tcp://") {
 		address = address[6:]
