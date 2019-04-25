@@ -153,6 +153,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["replacedisk"] = true
 		actions["revert"] = true
 		actions["prepareremovedisk"] = true
+		actions["setreplicamode"] = true
 		actions["setrevisioncounter"] = true
 		actions["updatecloneinfo"] = true
 		actions["setreplicacounter"] = true
@@ -187,6 +188,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["setrebuilding"] = true
 		actions["close"] = true
 		actions["reload"] = true
+		actions["setreplicamode"] = true
 		actions["setrevisioncounter"] = true
 		actions["setreplicacounter"] = true
 		actions["updatecloneinfo"] = true
@@ -209,6 +211,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		r.Disks = rep.ListDisks()
 		r.RemainSnapshots = rep.GetRemainSnapshotCounts()
 		r.RevisionCounter = strconv.FormatInt(rep.GetRevisionCounter(), 10)
+		r.ReplicaMode = rep.GetReplicaMode()
 		r.CloneStatus = rep.GetCloneStatus()
 	}
 	return r

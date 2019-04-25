@@ -1179,6 +1179,12 @@ func (r *Replica) getDiskSize(disk string) int64 {
 	return util.GetFileActualSize(r.diskPath(disk))
 }
 
+func (r *Replica) GetReplicaMode() string {
+	r.Lock()
+	defer r.Unlock()
+	return string(r.mode)
+}
+
 func (r *Replica) SetReplicaMode(mode string) error {
 	r.Lock()
 	defer r.Unlock()
