@@ -53,7 +53,6 @@ func (s *Server) GetReplicaStats(apiContext *api.ApiContext) *types.Stats {
 }
 
 func (s *Server) GetUsage(apiContext *api.ApiContext) (*types.VolUsage, error) {
-	logrus.Infof("GetUsage")
 	s.s.RLock()
 	defer s.s.RUnlock()
 	return s.s.GetUsage()
@@ -80,7 +79,6 @@ func (s *Server) GetStats(rw http.ResponseWriter, req *http.Request) error {
 }
 
 func (s *Server) GetVolUsage(rw http.ResponseWriter, req *http.Request) error {
-	logrus.Infof("Get Volume Usage")
 	apiContext := api.GetApiContext(req)
 	usage, _ := s.GetUsage(apiContext)
 
