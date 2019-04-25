@@ -6,10 +6,11 @@ import (
 )
 
 const (
-	WO   = Mode("WO")
-	RW   = Mode("RW")
-	ERR  = Mode("ERR")
-	INIT = Mode("INIT")
+	WO     = Mode("WO")
+	RW     = Mode("RW")
+	ERR    = Mode("ERR")
+	INIT   = Mode("INIT")
+	CLOSED = Mode("CLOSED")
 
 	StateUp   = State("Up")
 	StateDown = State("Down")

@@ -1000,6 +1000,7 @@ func (r *Replica) Close() error {
 	r.Lock()
 	defer r.Unlock()
 
+	r.mode = types.Closed
 	return r.close()
 }
 
