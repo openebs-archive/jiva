@@ -1425,7 +1425,11 @@ test_restart_during_prepare_rebuild() {
 	rev_counter1=`cat /tmp/vol1/revision.counter`
 	rev_counter2=`cat /tmp/vol2/revision.counter`
 	if [ $rev_counter1 -ne $rev_counter2 ]; then
-		echo "replica restart during prepare rebuild -- failed"
+		echo "replica restart during prepare rebuild1 -- failed"
+		collect_logs_and_exit
+	fi
+	if [ $rev_counter1 -lt 5 ]; then
+		echo "replica restart during prepare rebuild2 -- failed"
 		collect_logs_and_exit
 	fi
 	cleanup
