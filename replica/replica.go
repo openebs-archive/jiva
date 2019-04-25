@@ -51,7 +51,7 @@ type Replica struct {
 	diskChildrenMap  map[string]map[string]bool
 	activeDiskData   []*disk
 	readOnly         bool
-	mode		 types.Mode
+	mode             types.Mode
 
 	revisionLock  sync.Mutex
 	revisionCache int64
@@ -123,7 +123,7 @@ func CreateTempReplica() (*Replica, error) {
 	r := &Replica{
 		dir:              Dir,
 		ReplicaStartTime: StartTime,
-		mode:		  types.INIT,
+		mode:             types.INIT,
 	}
 	if err := r.initRevisionCounter(); err != nil {
 		logrus.Errorf("Error in initializing revision counter while creating temp replica")
@@ -168,7 +168,7 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 		activeDiskData:  make([]*disk, 1),
 		diskData:        make(map[string]*disk),
 		diskChildrenMap: map[string]map[string]bool{},
-		mode:		 types.INIT,
+		mode:            types.INIT,
 	}
 	r.info.Size = size
 	r.info.SectorSize = sectorSize
@@ -1089,9 +1089,9 @@ func (r *Replica) Unmap(offset int64, length int64) (int, error) {
 
 func (r *Replica) WriteAt(buf []byte, offset int64) (int, error) {
 	var (
-		c	int
-		err	error
-		mode	types.Mode
+		c    int
+		err  error
+		mode types.Mode
 	)
 	if r.readOnly {
 		return 0, fmt.Errorf("Can not write on read-only replica")
@@ -1192,4 +1192,3 @@ func (r *Replica) SetReplicaMode(mode string) error {
 	}
 	return nil
 }
-

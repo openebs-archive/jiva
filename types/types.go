@@ -6,9 +6,9 @@ import (
 )
 
 const (
-	WO  = Mode("WO")
-	RW  = Mode("RW")
-	ERR = Mode("ERR")
+	WO   = Mode("WO")
+	RW   = Mode("RW")
+	ERR  = Mode("ERR")
 	INIT = Mode("INIT")
 
 	StateUp   = State("Up")

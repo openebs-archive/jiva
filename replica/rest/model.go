@@ -20,7 +20,7 @@ type Replica struct {
 	Chain             []string                    `json:"chain"`
 	Disks             map[string]replica.DiskInfo `json:"disks"`
 	RemainSnapshots   int                         `json:"remainsnapshots"`
-	ReplicaMode	  string		      `json:"replicamode"`
+	ReplicaMode       string                      `json:"replicamode"`
 	RevisionCounter   string                      `json:"revisioncounter"`
 	ReplicaCounter    int64                       `json:"replicacounter"`
 	UsedLogicalBlocks string                      `json:"usedlogicalblocks"`
