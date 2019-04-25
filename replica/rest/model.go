@@ -178,6 +178,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["replacedisk"] = true
 		actions["updatediskmode"] = true
 		actions["revert"] = true
+		actions["setreplicamode"] = true
 		actions["prepareremovedisk"] = true
 		actions["setreplicacounter"] = true
 		actions["updatecloneinfo"] = true
