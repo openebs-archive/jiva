@@ -9,6 +9,7 @@ const (
 	WO  = Mode("WO")
 	RW  = Mode("RW")
 	ERR = Mode("ERR")
+	INIT = Mode("INIT")
 
 	StateUp   = State("Up")
 	StateDown = State("Down")
@@ -44,6 +45,7 @@ type Backend interface {
 	GetRevisionCounter() (int64, error)
 	GetCloneStatus() (string, error)
 	GetVolUsage() (VolUsage, error)
+	SetReplicaMode(mode Mode) error
 	SetRevisionCounter(counter int64) error
 	SetRebuilding(rebuilding bool) error
 	GetMonitorChannel() MonitorChannel

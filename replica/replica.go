@@ -51,6 +51,7 @@ type Replica struct {
 	diskChildrenMap  map[string]map[string]bool
 	activeDiskData   []*disk
 	readOnly         bool
+	mode		 types.Mode
 
 	revisionLock  sync.Mutex
 	revisionCache int64
@@ -122,6 +123,7 @@ func CreateTempReplica() (*Replica, error) {
 	r := &Replica{
 		dir:              Dir,
 		ReplicaStartTime: StartTime,
+		mode:		  types.INIT,
 	}
 	if err := r.initRevisionCounter(); err != nil {
 		logrus.Errorf("Error in initializing revision counter while creating temp replica")
@@ -166,6 +168,7 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 		activeDiskData:  make([]*disk, 1),
 		diskData:        make(map[string]*disk),
 		diskChildrenMap: map[string]map[string]bool{},
+		mode:		 types.INIT,
 	}
 	r.info.Size = size
 	r.info.SectorSize = sectorSize
@@ -322,6 +325,7 @@ func (r *Replica) Reload() (*Replica, error) {
 	if err != nil {
 		return nil, err
 	}
+	newReplica.mode = r.mode
 	newReplica.info.Dirty = r.info.Dirty
 	return newReplica, nil
 }
@@ -1096,7 +1100,7 @@ func (r *Replica) WriteAt(buf []byte, offset int64) (int, error) {
 		r.RLock()
 		r.info.Dirty = true
 		c, err = r.volume.WriteAt(buf, offset)
-		mode = r.Mode
+		mode = r.mode
 		r.RUnlock()
 		if err != nil {
 			return c, err
@@ -1106,6 +1110,8 @@ func (r *Replica) WriteAt(buf []byte, offset int64) (int, error) {
 		if err := r.increaseRevisionCounter(); err != nil {
 			return c, err
 		}
+	} else if mode != types.WO {
+		return c, fmt.Errorf("write happening on invalid rep state %v", mode)
 	}
 	return c, nil
 }
@@ -1172,3 +1178,18 @@ func (r *Replica) SetCloneStatus(status string) error {
 func (r *Replica) getDiskSize(disk string) int64 {
 	return util.GetFileActualSize(r.diskPath(disk))
 }
+
+func (r *Replica) SetReplicaMode(mode string) error {
+	r.Lock()
+	defer r.Unlock()
+
+	if mode == "RW" {
+		r.mode = types.RW
+	} else if mode == "WO" {
+		r.mode = types.WO
+	} else {
+		return fmt.Errorf("invalid mode string %s", mode)
+	}
+	return nil
+}
+

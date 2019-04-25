@@ -67,7 +67,7 @@ func (r *Replica) initRevisionCounter() error {
 			logrus.Errorf("failed to open revision counter file")
 			return err
 		}
-		if err := r.writeRevisionCounter(0); err != nil {
+		if err := r.writeRevisionCounter(1); err != nil {
 			logrus.Errorf("failed to update revision counter")
 			return err
 		}

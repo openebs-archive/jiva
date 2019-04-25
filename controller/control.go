@@ -484,6 +484,10 @@ func (c *Controller) addReplicaNoLock(newBackend types.Backend, address string, 
 		}
 	}
 
+	if err := newBackend.SetReplicaMode(types.WO); err != nil {
+		return fmt.Errorf("Fail to set replica mode for %v: %v", address, err)
+	}
+
 	c.replicas = append(c.replicas, types.Replica{
 		Address: address,
 		Mode:    types.WO,
@@ -697,6 +701,7 @@ func (c *Controller) addReplicaDuringStartNoLock(address string) error {
 	}
 getCloneStatus:
 	if status, err1 = c.backend.GetCloneStatus(address); err1 != nil {
+		c.RemoveReplicaNoLock(address)
 		return err1
 	}
 	if status == "" || status == "inProgress" {
@@ -704,8 +709,15 @@ getCloneStatus:
 		time.Sleep(2 * time.Second)
 		goto getCloneStatus
 	} else if status == "error" {
+		c.RemoveReplicaNoLock(address)
 		return fmt.Errorf("Replica clone status returned error %s", address)
 	}
+
+	if err := c.backend.SetReplicaMode(address, types.RW); err != nil {
+		c.RemoveReplicaNoLock(address)
+		return fmt.Errorf("Fail to set replica mode for %v: %v", address, err)
+	}
+
 	c.setReplicaModeNoLock(address, types.RW)
 	return nil
 }

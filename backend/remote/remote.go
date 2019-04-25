@@ -194,6 +194,19 @@ func (r *Remote) GetVolUsage() (types.VolUsage, error) {
 	return volUsage, err
 }
 
+func (r *Remote) SetReplicaMode(mode types.Mode) error {
+	var m string
+	logrus.Infof("Set replica mode of %s to : %v", r.Name, mode)
+	if mode == types.RW {
+		m = "RW"
+	} else if mode == types.WO {
+		m = "WO"
+	} else {
+		return fmt.Errorf("invalid mode string %v", mode)
+	}
+	return r.doAction("setreplicamode", &map[string]string{"mode": m})
+}
+
 func (r *Remote) SetRevisionCounter(counter int64) error {
 	logrus.Infof("Set revision counter of %s to : %v", r.Name, counter)
 	localRevCount := strconv.FormatInt(counter, 10)
