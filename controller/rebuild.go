@@ -94,11 +94,11 @@ func (c *Controller) VerifyRebuildReplica(address string) error {
 	}
 	logrus.Infof("rw replica %s revision counter %d", rwReplica.Address, counter)
 
-	if err := c.backend.SetRevisionCounter(address, counter); err != nil {
-		return fmt.Errorf("Fail to set revision counter for %v: %v", address, err)
-	}
 	if err := c.backend.SetReplicaMode(address, types.RW); err != nil {
 		return fmt.Errorf("Fail to set replica mode for %v: %v", address, err)
+	}
+	if err := c.backend.SetRevisionCounter(address, counter); err != nil {
+		return fmt.Errorf("Fail to set revision counter for %v: %v", address, err)
 	}
 	logrus.Debugf("WO replica %v's chain verified, update mode to RW", address)
 	c.setReplicaModeNoLock(address, types.RW)
@@ -149,11 +149,6 @@ func syncFile(from, to string, fromReplica, toReplica *types.Replica) error {
 func (c *Controller) PrepareRebuildReplica(address string) ([]string, error) {
 	c.Lock()
 	defer c.Unlock()
-	/*
-		if err := c.backend.SetRevisionCounter(address, 0); err != nil {
-			return nil, fmt.Errorf("Fail to set revision counter for %v: %v", address, err)
-		}
-	*/
 	replica, rwReplica, err := c.getCurrentAndRWReplica(address)
 	if err != nil {
 		return nil, err
