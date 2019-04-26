@@ -183,8 +183,9 @@ func startReplica(c *cli.Context) error {
 		server := rest.NewServer(s)
 		router := http.Handler(rest.NewRouter(server))
 		router = util.FilteredLoggingHandler(map[string]struct{}{
-			"/ping":          {},
-			"/v1/replicas/1": {},
+			"/ping":                   {},
+			"/v1/replicas/1":          {},
+			"/v1/replicas/1/volusage": {},
 		}, os.Stdout, router)
 		logrus.Infof("Listening on control %s", controlAddress)
 		controlResp <- http.ListenAndServe(controlAddress, router)
