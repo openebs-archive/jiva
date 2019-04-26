@@ -343,21 +343,9 @@ Register:
 		return fmt.Errorf("failed to get transfer clients, error: %s", err.Error())
 	}
 
-	logrus.Infof("SetRebuilding %v", replicaAddress)
+	logrus.Infof("SetRebuilding to true in %v", replicaAddress)
 	if err := toClient.SetRebuilding(true); err != nil {
 		return fmt.Errorf("failed to set rebuilding: true, error: %s", err.Error())
-	}
-
-	ok, err := t.isRevisionCountAndChainSame(replicaAddress, fromClient, toClient)
-	if err != nil {
-		return err
-	}
-
-	if ok {
-		if err := toClient.SetRebuilding(false); err != nil {
-			return fmt.Errorf("Failed to set rebuilding: true, error: %v", err)
-		}
-		return nil
 	}
 
 	logrus.Infof("PrepareRebuild %v", replicaAddress)
@@ -366,9 +354,17 @@ Register:
 		return fmt.Errorf("failed to prepare rebuild, error: %s", err.Error())
 	}
 	inject.PanicAfterPrepareRebuild()
-	logrus.Infof("syncFiles from:%v to:%v", fromClient, toClient)
-	if err = t.syncFiles(fromClient, toClient, output.Disks); err != nil {
+
+	ok, err := t.isRevisionCountAndChainSame(replicaAddress, fromClient, toClient)
+	if err != nil {
 		return err
+	}
+
+	if !ok {
+		logrus.Infof("syncFiles from:%v to:%v", fromClient, toClient)
+		if err = t.syncFiles(fromClient, toClient, output.Disks); err != nil {
+			return err
+		}
 	}
 
 	logrus.Infof("reloadAndVerify %v", replicaAddress)
@@ -388,13 +384,10 @@ func (t *Task) isRevisionCountAndChainSame(addr string, fromClient, toClient *re
 	}
 
 	if rwReplica.RevisionCounter == curReplica.RevisionCounter {
+		// ignoring Chain[0] since it's head file and it is opened for writing the latest data.
 		if !reflect.DeepEqual(rwReplica.Chain[1:], curReplica.Chain[1:]) {
-			logrus.Errorf("Replica %v's chain not equal to RW replica %v's chain", toClient.GetAddress(), fromClient.GetAddress())
+			logrus.Warningf("Replica %v's chain not equal to RW replica %v's chain", toClient.GetAddress(), fromClient.GetAddress())
 			return false, nil
-		}
-
-		if err := t.client.VerifyRebuildReplica(rest.EncodeID(addr)); err != nil {
-			return false, fmt.Errorf("Failed to verify rebuild in replica, err: %v", err)
 		}
 		return true, nil
 	}
