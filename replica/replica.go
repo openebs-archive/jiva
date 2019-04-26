@@ -1186,6 +1186,7 @@ func (r *Replica) GetReplicaMode() string {
 	return string(r.mode)
 }
 
+// SetReplicaMode ...
 func (r *Replica) SetReplicaMode(mode string) error {
 	r.Lock()
 	defer r.Unlock()
