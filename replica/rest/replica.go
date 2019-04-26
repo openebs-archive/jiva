@@ -291,6 +291,18 @@ func (s *Server) StartReplica(rw http.ResponseWriter, req *http.Request) error {
 	return s.doOp(req, s.s.Start(action.Value))
 }
 
+// SetReplicaMode ...
+func (s *Server) SetReplicaMode(rw http.ResponseWriter, req *http.Request) error {
+	var mode ReplicaMode
+	apiContext := api.GetApiContext(req)
+	if err := apiContext.Read(&mode); err != nil && err != io.EOF {
+		logrus.Errorf("Err %v during read in setReplicaMode", err)
+		return err
+	}
+	logrus.Infof("SetReplicaMode to %v", mode.Mode)
+	return s.doOp(req, s.s.SetReplicaMode(mode.Mode))
+}
+
 func (s *Server) SetRevisionCounter(rw http.ResponseWriter, req *http.Request) error {
 	var input RevisionCounter
 	apiContext := api.GetApiContext(req)
