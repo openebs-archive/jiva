@@ -132,14 +132,12 @@ func (s *Server) Reload() error {
 		return nil
 	}
 
-	types.IsReloadOperation = true
-	defer func() {
-		types.IsReloadOperation = false
-	}()
+	types.ShouldPunchHoles = true
 	logrus.Infof("Reloading volume")
 	newReplica, err := s.r.Reload()
 	if err != nil {
 		logrus.Errorf("error in Reload")
+		types.ShouldPunchHoles = false
 		return err
 	}
 
@@ -238,7 +236,6 @@ func (s *Server) SetRebuilding(rebuilding bool) error {
 		return fmt.Errorf("Can not set rebuilding=%v from state %s", rebuilding, state)
 	}
 
-	types.IsRebuilding = rebuilding
 	return s.r.SetRebuilding(rebuilding)
 }
 

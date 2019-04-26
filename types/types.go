@@ -53,15 +53,9 @@ type HoleChannelOps int
 var DrainOps HoleChannelOps
 
 var (
-	// IsReloadOperation if true, is used for creating holes, while
-	// reload replica is in progress.
-	IsReloadOperation bool
-	// IsRebuilding if false, is used for creating holes while
-	// write operation is in progress.
-	IsRebuilding bool
-	// IsMasterReplica if true, is used for creating holes while
-	// preload operation is in progress
-	IsMasterReplica bool
+	// ShouldPunchHoles is a flag used to verify if
+	// we should punch holes.
+	ShouldPunchHoles bool
 )
 
 type Backend interface {

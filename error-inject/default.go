@@ -16,3 +16,7 @@ func AddPunchHoleTimeout() {}
 
 // DisablePunchHoles is used for disabling punch holes
 func DisablePunchHoles() bool { return false }
+
+// PanicAfterPrepareRebuild is used for crashing the replica
+// just after prepare rebuild.
+func PanicAfterPrepareRebuild() {}

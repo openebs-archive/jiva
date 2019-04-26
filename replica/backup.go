@@ -241,11 +241,8 @@ func sendToCreateHole(f types.DiffDisk, offset int64, len int64) {
 	HoleCreatorChan <- hole
 }
 
-// shouldCreateHoles returns bool which is used to as prerequisit for
-// punching holes.
-// TODO: Visit this function again in case of optimization while preload call.
 func shouldCreateHoles() bool {
-	if types.IsReloadOperation || types.IsMasterReplica {
+	if types.ShouldPunchHoles {
 		return true
 	}
 	return false
