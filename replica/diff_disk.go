@@ -6,6 +6,7 @@ import (
 	"syscall"
 
 	fibmap "github.com/frostschutz/go-fibmap"
+	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/types"
 	"github.com/rancher/sparse-tools/sparse"
 )
@@ -168,7 +169,7 @@ func (d *diffDisk) fullWriteAt(buf []byte, offset int64) (int, error) {
 			//fileIndx pointed to by this block
 			if d.location[startSector+i] != fileIndx ||
 				startSector+i != lOffset+length {
-				if file != nil && int(fileIndx) > d.SnapIndx {
+				if file != nil && int(fileIndx) > d.SnapIndx && shouldCreateHoles() && !inject.DisablePunchHoles() {
 					sendToCreateHole(d.files[val], lOffset*d.sectorSize, length*d.sectorSize)
 				}
 				file = d.files[d.location[startSector+i]]
@@ -185,7 +186,7 @@ func (d *diffDisk) fullWriteAt(buf []byte, offset int64) (int, error) {
 	}
 	//This will take care of the case when the last call in the above loop
 	//enters else case
-	if (file != nil) && (int(fileIndx) > d.SnapIndx) {
+	if (file != nil) && (int(fileIndx) > d.SnapIndx) && shouldCreateHoles() && !inject.DisablePunchHoles() {
 		sendToCreateHole(file, lOffset*d.sectorSize, length*d.sectorSize)
 	}
 	file = nil
