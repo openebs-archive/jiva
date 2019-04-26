@@ -16,6 +16,15 @@ const (
 	StateDown = State("Down")
 )
 
+const (
+	// DrainStart flag is used to notify CreateHoles goroutine
+	// for draining the data in HoleCreatorChan
+	DrainStart HoleChannelOps = iota + 1
+	// DrainDone flag is used to notify the s.Close that data
+	// from HoleCreatorChan has been flushed
+	DrainDone
+)
+
 type ReaderWriterAt interface {
 	io.ReaderAt
 	io.WriterAt
@@ -34,6 +43,20 @@ type DiffDisk interface {
 }
 
 type MonitorChannel chan error
+
+// HoleChannelOps is the operation that has to be performed
+// on HoleCreatorChan such as DrainStart, DrainDone for draining
+// the chan and notify the caller if drain is done.
+type HoleChannelOps int
+
+// DrainOps is flag used for various operations on HoleCreatorChan
+var DrainOps HoleChannelOps
+
+var (
+	// ShouldPunchHoles is a flag used to verify if
+	// we should punch holes.
+	ShouldPunchHoles bool
+)
 
 type Backend interface {
 	IOs
