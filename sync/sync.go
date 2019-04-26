@@ -8,6 +8,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/controller/client"
 	"github.com/openebs/jiva/controller/rest"
+	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/replica"
 	replicaClient "github.com/openebs/jiva/replica/client"
 )
@@ -351,7 +352,7 @@ Register:
 	if err != nil {
 		return fmt.Errorf("failed to prepare rebuild, error: %s", err.Error())
 	}
-
+	inject.PanicAfterPrepareRebuild()
 	logrus.Infof("syncFiles from:%v to:%v", fromClient, toClient)
 	if err = t.syncFiles(fromClient, toClient, output.Disks); err != nil {
 		return err

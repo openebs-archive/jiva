@@ -103,6 +103,24 @@ verify_replica_cnt() {
 	return
 }
 
+verify_container_dead() {
+	i=0
+	replica_id=`echo $1 | cut -b 1-12`
+	echo $replica_id
+	while [ $i -lt 100 ]; do
+		cnt=`docker ps -a | grep $replica_id | grep -w Exited | wc -l`
+		if [ $cnt -eq 1 ]; then
+			return
+		fi
+		sleep 2
+		i=`expr $i + 1`
+	done
+	docker ps -a
+	echo $1
+	echo $2 " -- failed"
+	collect_logs_and_exit
+}
+
 # RW=1 RO=0
 # verify_rw_status "RO/RW"
 verify_rw_status() {
@@ -254,6 +272,23 @@ verify_vol_status() {
 	return
 }
 
+verify_replica_mode() {
+	i=0
+	while [ "$i" != 50 ]; do
+		date
+		rep_mode=`curl http://$3:9502/v1/replicas | jq '.data[0].replicamode' | tr -d '"'`
+		if [ "$rep_mode" == "$4" ]; then
+			passed=`expr $passed + 1`
+		fi
+		if [ "$passed" == "$1" ]; then
+			echo $2 " -- passed"
+			return
+		fi
+	done
+	echo $2 " -- failed"
+	collect_logs_and_exit
+}
+
 #$1 - pass count
 #$2 - message
 #$3 - Replica IP
@@ -359,7 +394,7 @@ start_replica() {
 # start_replica CONTROLLER_IP REPLICA_IP folder_name
 start_debug_replica() {
 	replica_id=$(docker run -d --net stg-net --ip "$2" -P --expose 9502-9504 -v /tmp/"$3":/"$3" $JI_DEBUG \
-	env $4=$5 launch replica --frontendIP "$1" --listen "$2":9502 --size 2g /"$3")
+	env $4=$5 $6=$7 launch replica --frontendIP "$1" --listen "$2":9502 --size 2g /"$3")
 	echo "$replica_id"
 }
 
@@ -1203,7 +1238,7 @@ di_test_on_raw_disk() {
 			hash2=$(md5sum test_file2 | awk '{print $1}')
 			if [ $hash1 == $hash2 ]; then echo "DI Test: PASSED"
 			else
-				echo "DI Test: FAILED"; collect_logs_and_exit1
+				echo "DI Test: FAILED"; collect_logs_and_exit
 			fi
 			logout_of_volume
 			sleep 5
@@ -1358,6 +1393,46 @@ update_file_sizes() {
 		snapsize[$i]=$x
 		let i=i+1
 	done
+}
+
+test_restart_during_prepare_rebuild() {
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	verify_replica_cnt "2" "test restart during add"
+
+	login_to_volume "$CONTROLLER_IP:3260"
+	sleep 5
+	get_scsi_disk
+	if [ "$device_name"!="" ]; then
+		mkfs.ext2 -F /dev/$device_name
+		mount /dev/$device_name /mnt/store
+		if [ $? -ne 0 ]; then
+			echo "mount failed in test_restart_during_add_replica"
+			collect_logs_and_exit
+		fi
+		umount /mnt/store
+	else
+		echo "Unable to detect iSCSI device during test_restart_add_replica"; collect_logs_and_exit
+	fi
+	logout_of_volume
+
+	docker stop $replica2_id
+	sleep 1
+	verify_replica_mode 1 "replica mode in test with restart during prepare rebuild" "$REPLICA_IP1" "RW"
+	replica2_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2" "PANIC_AFTER_PREPARE_REBUILD" "TRUE")
+	verify_container_dead $replica2_id "restart during prepare rebuild"
+	rev_counter1=`cat /tmp/vol1/revision.counter`
+	rev_counter2=`cat /tmp/vol2/revision.counter`
+	if [ $rev_counter1 -ne $rev_counter2 ]; then
+		echo "replica restart during prepare rebuild1 -- failed"
+		collect_logs_and_exit
+	fi
+	if [ $rev_counter1 -lt 5 ]; then
+		echo "replica restart during prepare rebuild2 -- failed"
+		collect_logs_and_exit
+	fi
+	cleanup
 }
 
 test_duplicate_data_delete() {
@@ -1534,6 +1609,7 @@ test_duplicate_data_delete() {
 
 
 prepare_test_env
+test_restart_during_prepare_rebuild
 test_preload
 test_replica_rpc_close
 test_controller_rpc_close
