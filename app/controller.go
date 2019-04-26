@@ -115,6 +115,7 @@ func startController(c *cli.Context) error {
 	router = util.FilteredLoggingHandler(map[string]struct{}{
 		"/v1/volumes":  {},
 		"/v1/replicas": {},
+		"/v1/stats":    {},
 	}, os.Stdout, router)
 	router = handlers.ProxyHeaders(router)
 

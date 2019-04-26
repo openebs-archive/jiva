@@ -49,7 +49,6 @@ func init() {
 }
 
 func (s *Server) ListReplicas(rw http.ResponseWriter, req *http.Request) error {
-	logrus.Infof("List Replicas")
 	apiContext := api.GetApiContext(req)
 	resp := client.GenericCollection{}
 	s.c.Lock()
@@ -76,7 +75,6 @@ func (s *Server) GetReplica(rw http.ResponseWriter, req *http.Request) error {
 		rw.WriteHeader(http.StatusNotFound)
 		return nil
 	}
-	logrus.Infof("Get Replica for id %v", id)
 
 	r := s.getReplica(apiContext, id)
 	if r == nil {
@@ -104,7 +102,6 @@ func (s *Server) RegisterReplica(rw http.ResponseWriter, req *http.Request) erro
 		logrus.Errorf("read in RegReplica failed %v", err)
 		return err
 	}
-	logrus.Infof("Register Replica for address %v", regReplica.Address)
 
 	localRevCount, _ = strconv.ParseInt(regReplica.RevCount, 10, 64)
 	local := types.RegReplica{
