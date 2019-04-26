@@ -355,7 +355,7 @@ Register:
 	}
 	inject.PanicAfterPrepareRebuild()
 
-	ok, err := t.isRevisionCountAndChainSame(replicaAddress, fromClient, toClient)
+	ok, err := t.isRevisionCountAndChainSame(fromClient, toClient)
 	if err != nil {
 		return err
 	}
@@ -372,7 +372,7 @@ Register:
 
 }
 
-func (t *Task) isRevisionCountAndChainSame(addr string, fromClient, toClient *replicaClient.ReplicaClient) (bool, error) {
+func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.ReplicaClient) (bool, error) {
 	rwReplica, err := fromClient.GetReplica()
 	if err != nil {
 		return false, err
