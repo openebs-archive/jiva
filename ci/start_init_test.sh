@@ -79,8 +79,9 @@ collect_logs() {
 }
 
 cleanup() {
-	rm -rf /tmp/vol*
-	rm -rf /mnt/logs
+        echo "----------------------------Cleanup------------------------"
+	rm -rfv /tmp/vol*
+	rm -rfv /mnt/logs
 	docker stop $(docker ps -aq)
 	docker rm $(docker ps -aq)
 }
@@ -89,8 +90,8 @@ prepare_test_env() {
 	echo "-------------------Prepare test env------------------------"
 	cleanup
 
-	mkdir -p /tmp/vol1 /tmp/vol2 /tmp/vol3 /tmp/vol4
-	mkdir -p /mnt/store /mnt/store2
+	mkdir -pv /tmp/vol1 /tmp/vol2 /tmp/vol3 /tmp/vol4
+	mkdir -pv /mnt/store /mnt/store2
 
 	docker network create --subnet=172.18.0.0/16 stg-net
 	JI=$(docker images | grep openebs/jiva | awk '{print $1":"$2}' | awk 'NR == 2 {print}')
@@ -99,6 +100,7 @@ prepare_test_env() {
 }
 
 verify_replica_cnt() {
+        echo "-------------------Verify Replica count--------------------"
 	i=0
 	replica_cnt=""
 	while [ "$replica_cnt" != "$1" ]; do
@@ -156,6 +158,7 @@ verify_rw_status() {
 }
 
 verify_rw_rep_count() {
+        echo "---------------Verify RW Replica Status------------------"
        i=0
        count=""
        while [ "$count" != "$1" ]; do
@@ -194,6 +197,7 @@ get_rw_rep_count() {
    # and RO state of controller
 #and verifies whether they are in sync
 verify_controller_quorum() {
+        echo "--------------------Verify controller quorum-----------------"
 	i=0
 	cf=`expr $1 / 2`
 	cf=`expr $cf + 1`
@@ -241,6 +245,7 @@ verify_controller_quorum() {
 # This verifies the goroutine leaks which happens when a request is made to
 # replica_ip:9503.
 verify_go_routine_leak() {
+    echo "---------------------Verify goroutine leak-------------------------"
     i=0
     date
     no_of_goroutine=`curl http://$2:9502/debug/pprof/goroutine?debug=1 | grep goroutine | awk '{ print $4}'`
@@ -263,6 +268,7 @@ verify_go_routine_leak() {
 }
 
 verify_vol_status() {
+        echo "---------------------------Verify volume status--------------------------"
 	i=0
 	rw_status=""
 	while [ "$rw_status" != "$1" ]; do
@@ -313,6 +319,7 @@ verify_replica_mode() {
 #this fn considered as 'pass' if the result matches with the pass count.
 #this fn takes care of checking for two replicas, and thus, pass count is passed by caller
 verify_rep_state() {
+        echo "------------------------Verify Replica state--------------------------"
 	i=0
 	rep_state=""
 	while [ "$i" != 50 ]; do
@@ -362,6 +369,7 @@ verify_rep_state() {
 }
 
 verify_controller_rep_state() {
+        echo "--------------------Verify controller and replica state------------------"
 	i=0
 	rep_state=""
 	while [ "$i" != 50 ]; do
@@ -459,7 +467,7 @@ verify_delete_replica() {
 }
 
 test_two_replica_delete() {
-	echo "----------------Test_two_replica_delete--------------"
+	echo "-----------------------Test_two_replica_delete-----------------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
@@ -488,7 +496,7 @@ test_two_replica_delete() {
 }
 
 test_replication_factor() {
-	echo "----------------Test_replication_factor--------------"
+	echo "-------------------------Test_replication_factor---------------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	verify_replica_cnt "1" "Single replica count test"
@@ -516,7 +524,7 @@ test_replication_factor() {
 }
 
 test_single_replica_stop_start() {
-	echo "----------------Test_single_replica_stop_start--------------"
+	echo "----------------------Test_single_replica_stop_start-------------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	sleep 5
@@ -543,7 +551,7 @@ test_single_replica_stop_start() {
 # request for registeration to controller, controller should send 'start' signal
 # to other replica after verifying the replication factor.
 test_replica_ip_change() {
-	echo "----------------Test_replica_ip_change---------------"
+	echo "-------------------------Test_replica_ip_change------------------------"
 	debug_controller_id=$(start_debug_controller "$CONTROLLER_IP" "store1" "2" "DEBUG_TIMEOUT" "5")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2"
@@ -567,7 +575,7 @@ test_replica_ip_change() {
 }
 
 test_preload() {
-	echo "----------------Test_preload---------------"
+	echo "-----------------------------Test_preload-------------------------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
 	debug_replica_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1" "PRELOAD_TIMEOUT" "12")
         # Since this is first time for replica to connect
@@ -617,7 +625,7 @@ test_preload() {
 }
 
 test_controller_rpc_close() {
-	echo "----------------Test_controller_rpc_close---------------"
+	echo "------------------------Test_controller_rpc_close--------------------------"
 	debug_controller_id=$(start_debug_controller "$CONTROLLER_IP" "store1" "1" "RPC_PING_TIMEOUT" "45")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
         # Adding this sleep to ensure ping timeout
@@ -643,7 +651,7 @@ test_controller_rpc_close() {
 }
 
 test_replica_rpc_close() {
-	echo "----------------Test_replica_rpc_close---------------"
+	echo "-------------------------Test_replica_rpc_close----------------------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
 	debug_replica_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	sleep 5
@@ -731,7 +739,7 @@ test_bad_file_descriptor() {
 }
 
 test_two_replica_stop_start() {
-	echo "----------------Test_two_replica_stop_start---------------"
+	echo "------------------------Test_two_replica_stop_start------------------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
@@ -743,7 +751,7 @@ test_two_replica_stop_start() {
 
 	docker stop $replica1_id
 	verify_replica_cnt "1" "Two replica count test when one is stopped"
-	verify_vol_status "RO" "when there are 2 replicas and one is stopped"
+	verify_vol_status "RO" "When there are 2 replicas and one is stopped"
 	verify_controller_rep_state "$REPLICA_IP2" "RW" "Replica2 status after stopping replica1 in 2 replicas case"
 
 	docker start $replica1_id
@@ -827,6 +835,7 @@ run_ios_rand_write() {
 }
 
 run_ios() {
+        echo "---------------------------Run IO's-------------------------------"
 	login_to_volume "$CONTROLLER_IP:3260"
 	sleep 2
 	get_scsi_disk
@@ -936,7 +945,7 @@ test_three_replica_stop_start() {
 }
 
 test_ctrl_stop_start() {
-       echo "-----------------Test_three_replica_stop_start---------------"
+       echo "-----------------Test Controller stop/start---------------"
        orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
        replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
        replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
@@ -1058,6 +1067,7 @@ login_to_volume() {
 
 # Wait for iSCSI device node (scsi device) to be created
 get_scsi_disk() {
+        echo "-------------------------Get SCSI Disk---------------------------"
 	device_name=$(iscsiadm -m session -P 3 |grep -i "Attached scsi disk" | awk '{print $4}')
 	i=0
 	while [ -z $device_name ]; do
@@ -1071,6 +1081,7 @@ get_scsi_disk() {
 			continue;
 		fi
 	done
+        echo "SCSI disk:" $device_name
 }
 
 

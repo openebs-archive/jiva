@@ -2,6 +2,7 @@ package sync
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -349,7 +350,7 @@ Register:
 		return fmt.Errorf("failed to get transfer clients, error: %s", err.Error())
 	}
 
-	logrus.Infof("SetRebuilding %v", replicaAddress)
+	logrus.Infof("SetRebuilding to true in %v", replicaAddress)
 	if err := toClient.SetRebuilding(true); err != nil {
 		return fmt.Errorf("failed to set rebuilding: true, error: %s", err.Error())
 	}
@@ -360,13 +361,43 @@ Register:
 		return fmt.Errorf("failed to prepare rebuild, error: %s", err.Error())
 	}
 	inject.PanicAfterPrepareRebuild()
-	logrus.Infof("syncFiles from:%v to:%v", fromClient, toClient)
-	if err = t.syncFiles(fromClient, toClient, output.Disks); err != nil {
+
+	ok, err := t.isRevisionCountAndChainSame(fromClient, toClient)
+	if err != nil {
 		return err
+	}
+
+	if !ok {
+		logrus.Infof("syncFiles from:%v to:%v", fromClient, toClient)
+		if err = t.syncFiles(fromClient, toClient, output.Disks); err != nil {
+			return err
+		}
 	}
 
 	logrus.Infof("reloadAndVerify %v", replicaAddress)
 	return t.reloadAndVerify(replicaAddress, toClient)
+}
+
+func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.ReplicaClient) (bool, error) {
+	rwReplica, err := fromClient.GetReplica()
+	if err != nil {
+		return false, err
+	}
+
+	curReplica, err := toClient.GetReplica()
+	if err != nil {
+		return false, err
+	}
+
+	if rwReplica.RevisionCounter == curReplica.RevisionCounter {
+		// ignoring Chain[0] since it's head file and it is opened for writing the latest data.
+		if !reflect.DeepEqual(rwReplica.Chain[1:], curReplica.Chain[1:]) {
+			logrus.Warningf("Replica %v's chain not equal to RW replica %v's chain", toClient.GetAddress(), fromClient.GetAddress())
+			return false, nil
+		}
+		return true, nil
+	}
+	return false, nil
 }
 
 func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server) error {
