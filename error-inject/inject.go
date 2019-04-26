@@ -34,3 +34,11 @@ func AddPreloadTimeout() {
 	logrus.Infof("Add preload timeout of %vs for debug build", timeout)
 	time.Sleep(time.Duration(timeout) * time.Second)
 }
+
+func PanicAfterPrepareRebuild() {
+	ok := os.Getenv("PANIC_AFTER_PREPARE_REBUILD")
+	if ok == "TRUE" {
+		time.Sleep(2 * time.Second)
+		panic("panic replica after getting start signal")
+	}
+}

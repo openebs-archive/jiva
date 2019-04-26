@@ -433,6 +433,18 @@ func (s *Server) ReadAt(buf []byte, offset int64) (int, error) {
 	return i, err
 }
 
+// SetReplicaMode ...
+func (s *Server) SetReplicaMode(mode string) error {
+	s.Lock()
+	defer s.Unlock()
+
+	if s.r == nil {
+		logrus.Infof("s.r is nil during setReplicaMode")
+		return nil
+	}
+	return s.r.SetReplicaMode(mode)
+}
+
 func (s *Server) SetRevisionCounter(counter int64) error {
 	s.Lock()
 	defer s.Unlock()

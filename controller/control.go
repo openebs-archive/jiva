@@ -484,6 +484,10 @@ func (c *Controller) addReplicaNoLock(newBackend types.Backend, address string, 
 		}
 	}
 
+	if err := newBackend.SetReplicaMode(types.WO); err != nil {
+		return fmt.Errorf("Fail to set replica mode for %v: %v", address, err)
+	}
+
 	c.replicas = append(c.replicas, types.Replica{
 		Address: address,
 		Mode:    types.WO,
@@ -697,6 +701,7 @@ func (c *Controller) addReplicaDuringStartNoLock(address string) error {
 	}
 getCloneStatus:
 	if status, err1 = c.backend.GetCloneStatus(address); err1 != nil {
+		_ = c.RemoveReplicaNoLock(address)
 		return err1
 	}
 	if status == "" || status == "inProgress" {
@@ -704,8 +709,15 @@ getCloneStatus:
 		time.Sleep(2 * time.Second)
 		goto getCloneStatus
 	} else if status == "error" {
+		_ = c.RemoveReplicaNoLock(address)
 		return fmt.Errorf("Replica clone status returned error %s", address)
 	}
+
+	if err := c.backend.SetReplicaMode(address, types.RW); err != nil {
+		_ = c.RemoveReplicaNoLock(address)
+		return fmt.Errorf("Fail to set replica mode for %v: %v", address, err)
+	}
+
 	c.setReplicaModeNoLock(address, types.RW)
 	return nil
 }
@@ -819,7 +831,7 @@ func (c *Controller) WriteAt(b []byte, off int64) (int, error) {
 		if bErr, ok := err.(*BackendError); ok {
 			if len(bErr.Errors) > 0 {
 				for address := range bErr.Errors {
-					c.RemoveReplicaNoLock(address)
+					_ = c.RemoveReplicaNoLock(address)
 				}
 			}
 		}
@@ -846,7 +858,7 @@ func (c *Controller) Sync() (int, error) {
 		if bErr, ok := err.(*BackendError); ok {
 			if len(bErr.Errors) > 0 {
 				for address := range bErr.Errors {
-					c.RemoveReplicaNoLock(address)
+					_ = c.RemoveReplicaNoLock(address)
 				}
 			}
 		}
@@ -873,7 +885,7 @@ func (c *Controller) Unmap(offset int64, length int64) (int, error) {
 		if bErr, ok := err.(*BackendError); ok {
 			if len(bErr.Errors) > 0 {
 				for address := range bErr.Errors {
-					c.RemoveReplicaNoLock(address)
+					_ = c.RemoveReplicaNoLock(address)
 				}
 			}
 		}
@@ -908,7 +920,7 @@ func (c *Controller) ReadAt(b []byte, off int64) (int, error) {
 		if bErr, ok := err.(*BackendError); ok {
 			if len(bErr.Errors) > 0 {
 				for address := range bErr.Errors {
-					c.RemoveReplicaNoLock(address)
+					_ = c.RemoveReplicaNoLock(address)
 				}
 			}
 		}
@@ -1034,5 +1046,5 @@ func (c *Controller) monitoring(address string, backend types.Backend) {
 		c.setReplicaModeNoLock(address, types.ERR)
 	}
 	logrus.Infof("Monitoring stopped %v", address)
-	c.RemoveReplicaNoLock(address)
+	_ = c.RemoveReplicaNoLock(address)
 }

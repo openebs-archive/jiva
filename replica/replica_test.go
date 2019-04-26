@@ -33,6 +33,8 @@ func (s *TestSuite) TestCreate(c *C) {
 	r, err := New(9, 3, dir, nil, "Backend")
 	c.Assert(err, IsNil)
 	defer r.Close()
+	err = r.SetReplicaMode("RW")
+	c.Assert(err, IsNil)
 }
 
 func getNow() string {
@@ -49,6 +51,8 @@ func (s *TestSuite) TestSnapshot(c *C) {
 	r, err := New(9, 3, dir, nil, "Backend")
 	c.Assert(err, IsNil)
 	defer r.Close()
+	err = r.SetReplicaMode("RW")
+	c.Assert(err, IsNil)
 
 	createdTime0 := getNow()
 
@@ -130,6 +134,8 @@ func (s *TestSuite) TestRevert(c *C) {
 	r, err := New(9, 3, dir, nil, "Backend")
 	c.Assert(err, IsNil)
 	defer r.Close()
+	err = r.SetReplicaMode("RW")
+	c.Assert(err, IsNil)
 
 	createdTime0 := getNow()
 	err = r.Snapshot("000", true, createdTime0)
@@ -242,6 +248,8 @@ func (s *TestSuite) TestRemoveLeafNode(c *C) {
 	r, err := New(9, 3, dir, nil, "Backend")
 	c.Assert(err, IsNil)
 	defer r.Close()
+	err = r.SetReplicaMode("RW")
+	c.Assert(err, IsNil)
 
 	now := getNow()
 	err = r.Snapshot("000", true, now)
@@ -317,6 +325,8 @@ func (s *TestSuite) TestRemoveLast(c *C) {
 	r, err := New(9, 3, dir, nil, "Backend")
 	c.Assert(err, IsNil)
 	defer r.Close()
+	err = r.SetReplicaMode("RW")
+	c.Assert(err, IsNil)
 
 	now := getNow()
 	err = r.Snapshot("000", true, now)
@@ -363,6 +373,8 @@ func (s *TestSuite) TestRemoveMiddle(c *C) {
 	r, err := New(9, 3, dir, nil, "Backend")
 	c.Assert(err, IsNil)
 	defer r.Close()
+	err = r.SetReplicaMode("RW")
+	c.Assert(err, IsNil)
 
 	now := getNow()
 	err = r.Snapshot("000", true, now)
@@ -409,6 +421,8 @@ func (s *TestSuite) TestRemoveFirst(c *C) {
 	r, err := New(9, 3, dir, nil, "Backend")
 	c.Assert(err, IsNil)
 	defer r.Close()
+	err = r.SetReplicaMode("RW")
+	c.Assert(err, IsNil)
 
 	now := getNow()
 	err = r.Snapshot("000", true, now)
@@ -440,6 +454,8 @@ func (s *TestSuite) TestRemoveOutOfChain(c *C) {
 	r, err := New(9, 3, dir, nil, "Backend")
 	c.Assert(err, IsNil)
 	defer r.Close()
+	err = r.SetReplicaMode("RW")
+	c.Assert(err, IsNil)
 
 	now := getNow()
 	err = r.Snapshot("000", true, now)
@@ -516,6 +532,8 @@ func (s *TestSuite) TestPrepareRemove(c *C) {
 	r, err := New(9, 3, dir, nil, "Backend")
 	c.Assert(err, IsNil)
 	defer r.Close()
+	err = r.SetReplicaMode("RW")
+	c.Assert(err, IsNil)
 
 	now := getNow()
 	err = r.Snapshot("000", true, now)
@@ -645,6 +663,8 @@ func (s *TestSuite) TestRead(c *C) {
 	r, err := New(9*b, b, dir, nil, "Backend")
 	c.Assert(err, IsNil)
 	defer r.Close()
+	err = r.SetReplicaMode("RW")
+	c.Assert(err, IsNil)
 
 	buf := make([]byte, 3*b)
 	_, err = r.ReadAt(buf, 0)
@@ -660,6 +680,8 @@ func (s *TestSuite) TestWrite(c *C) {
 	r, err := New(9*b, b, dir, nil, "Backend")
 	c.Assert(err, IsNil)
 	defer r.Close()
+	err = r.SetReplicaMode("RW")
+	c.Assert(err, IsNil)
 
 	buf := make([]byte, 9*b)
 	fill(buf, 1)
@@ -682,6 +704,8 @@ func (s *TestSuite) TestSnapshotReadWrite(c *C) {
 	r, err := New(3*b, b, dir, nil, "Backend")
 	c.Assert(err, IsNil)
 	defer r.Close()
+	err = r.SetReplicaMode("RW")
+	c.Assert(err, IsNil)
 
 	buf := make([]byte, 3*b)
 	fill(buf, 3)
@@ -742,6 +766,8 @@ func (s *TestSuite) TestBackingFile(c *C) {
 	r, err := New(3*b, b, dir, backing, "Backend")
 	c.Assert(err, IsNil)
 	defer r.Close()
+	err = r.SetReplicaMode("RW")
+	c.Assert(err, IsNil)
 
 	chain, err := r.Chain()
 	c.Assert(err, IsNil)
@@ -775,6 +801,8 @@ func (s *TestSuite) partialWriteRead(c *C, totalLength, writeLength, writeOffset
 	r, err := New(totalLength, b, dir, nil, "Backend")
 	c.Assert(err, IsNil)
 	defer r.Close()
+	err = r.SetReplicaMode("RW")
+	c.Assert(err, IsNil)
 
 	_, err = r.WriteAt(buf, 0)
 	c.Assert(err, IsNil)
@@ -823,6 +851,8 @@ func (s *TestSuite) testPartialRead(c *C, totalLength int64, readBuf []byte, off
 	r, err := New(totalLength, b, dir, nil, "Backend")
 	c.Assert(err, IsNil)
 	defer r.Close()
+	err = r.SetReplicaMode("RW")
+	c.Assert(err, IsNil)
 
 	for i := int64(0); i < totalLength; i += b {
 		buf := make([]byte, totalLength-i)

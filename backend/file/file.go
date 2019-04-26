@@ -55,6 +55,11 @@ func (f *Wrapper) GetVolUsage() (types.VolUsage, error) {
 	return types.VolUsage{}, nil
 }
 
+// SetReplicaMode ...
+func (f *Wrapper) SetReplicaMode(mode types.Mode) error {
+	return nil
+}
+
 func (f *Wrapper) SetRevisionCounter(counter int64) error {
 	return nil
 }

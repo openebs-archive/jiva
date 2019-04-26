@@ -428,6 +428,21 @@ func (r *replicator) RemainSnapshots() (int, error) {
 	return ret, nil
 }
 
+func (r *replicator) SetReplicaMode(address string, mode types.Mode) error {
+	backend, ok := r.backends[address]
+	if !ok {
+		return fmt.Errorf("Cannot find backend %v", address)
+	}
+
+	if err := backend.backend.SetReplicaMode(mode); err != nil {
+		return err
+	}
+
+	logrus.Infof("Set backend %s replica mode to %v", address, mode)
+
+	return nil
+}
+
 func (r *replicator) SetRevisionCounter(address string, counter int64) error {
 	backend, ok := r.backends[address]
 	if !ok {
