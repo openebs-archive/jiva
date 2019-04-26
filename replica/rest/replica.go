@@ -291,6 +291,7 @@ func (s *Server) StartReplica(rw http.ResponseWriter, req *http.Request) error {
 	return s.doOp(req, s.s.Start(action.Value))
 }
 
+// SetReplicaMode ...
 func (s *Server) SetReplicaMode(rw http.ResponseWriter, req *http.Request) error {
 	var mode ReplicaMode
 	apiContext := api.GetApiContext(req)
