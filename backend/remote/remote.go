@@ -194,6 +194,7 @@ func (r *Remote) GetVolUsage() (types.VolUsage, error) {
 	return volUsage, err
 }
 
+// SetReplicaMode ...
 func (r *Remote) SetReplicaMode(mode types.Mode) error {
 	var m string
 	logrus.Infof("Set replica mode of %s to : %v", r.Name, mode)
