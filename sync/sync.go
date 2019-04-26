@@ -341,28 +341,33 @@ Register:
 	logrus.Infof("Adding replica %s in WO mode", replicaAddress)
 	_, err = t.client.CreateReplica(replicaAddress)
 	if err != nil {
+		types.IsRebuilding = false
 		return err
 	}
 
 	logrus.Infof("getTransferClients %v", replicaAddress)
 	fromClient, toClient, err := t.getTransferClients(replicaAddress)
 	if err != nil {
+		types.IsRebuilding = false
 		return fmt.Errorf("failed to get transfer clients, error: %s", err.Error())
 	}
 
 	logrus.Infof("SetRebuilding %v", replicaAddress)
 	if err := toClient.SetRebuilding(true); err != nil {
+		types.IsRebuilding = false
 		return fmt.Errorf("failed to set rebuilding: true, error: %s", err.Error())
 	}
 
 	logrus.Infof("PrepareRebuild %v", replicaAddress)
 	output, err := t.client.PrepareRebuild(rest.EncodeID(replicaAddress))
 	if err != nil {
+		types.IsRebuilding = false
 		return fmt.Errorf("failed to prepare rebuild, error: %s", err.Error())
 	}
 	inject.PanicAfterPrepareRebuild()
 	logrus.Infof("syncFiles from:%v to:%v", fromClient, toClient)
 	if err = t.syncFiles(fromClient, toClient, output.Disks); err != nil {
+		types.IsRebuilding = false
 		return err
 	}
 
@@ -395,16 +400,19 @@ func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server
 func (t *Task) reloadAndVerify(address string, repClient *replicaClient.ReplicaClient) error {
 	_, err := repClient.ReloadReplica()
 	if err != nil {
+		types.IsRebuilding = false
 		logrus.Errorf("Error in reloadreplica %s", address)
 		return err
 	}
 
 	if err := t.client.VerifyRebuildReplica(rest.EncodeID(address)); err != nil {
+		types.IsRebuilding = false
 		logrus.Errorf("Error in verifyRebuildReplica %s", address)
 		return err
 	}
 
 	if err = repClient.SetRebuilding(false); err != nil {
+		types.IsRebuilding = false
 		logrus.Errorf("Error in setRebuilding %s", address)
 	}
 	return err

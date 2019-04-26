@@ -243,6 +243,7 @@ func sendToCreateHole(f types.DiffDisk, offset int64, len int64) {
 
 // shouldCreateHoles returns bool which is used to as prerequisit for
 // punching holes.
+// TODO: Visit this function again in case of optimization while preload call.
 func shouldCreateHoles() bool {
 	if types.IsReloadOperation || types.IsMasterReplica {
 		return true
@@ -253,6 +254,7 @@ func shouldCreateHoles() bool {
 // preload creates a mapping of block number to fileIndx (d.location).
 // This is done with the help of extent list fetched from filesystem.
 // Extents list in each file is traversed and the location table is updated
+// TODO: Visit this function again in case of optimization while preload call.
 func preload(d *diffDisk) error {
 	var file types.DiffDisk
 	var length int64
