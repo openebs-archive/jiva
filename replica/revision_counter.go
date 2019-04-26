@@ -2,6 +2,7 @@ package replica
 
 import (
 	"fmt"
+	"github.com/openebs/jiva/types"
 	"io"
 	"os"
 	"strconv"
@@ -67,7 +68,7 @@ func (r *Replica) initRevisionCounter() error {
 			logrus.Errorf("failed to open revision counter file")
 			return err
 		}
-		if err := r.writeRevisionCounter(0); err != nil {
+		if err := r.writeRevisionCounter(1); err != nil {
 			logrus.Errorf("failed to update revision counter")
 			return err
 		}
@@ -104,6 +105,12 @@ func (r *Replica) GetRevisionCounter() int64 {
 }
 
 func (r *Replica) SetRevisionCounter(counter int64) error {
+	r.Lock()
+	if r.mode != types.RW {
+		r.Unlock()
+		return fmt.Errorf("setting revisioncounter during %v mode is invalid", r.mode)
+	}
+	r.Unlock()
 	r.revisionLock.Lock()
 	defer r.revisionLock.Unlock()
 
