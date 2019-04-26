@@ -101,6 +101,7 @@ type PrepareRemoveDiskOutput struct {
 	Operations []replica.PrepareRemoveAction `json:"operations"`
 }
 
+// ReplicaMode ...
 type ReplicaMode struct {
 	client.Resource
 	Mode string `json:"mode"`

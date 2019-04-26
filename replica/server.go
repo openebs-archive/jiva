@@ -433,6 +433,7 @@ func (s *Server) ReadAt(buf []byte, offset int64) (int, error) {
 	return i, err
 }
 
+// SetReplicaMode ...
 func (s *Server) SetReplicaMode(mode string) error {
 	s.Lock()
 	defer s.Unlock()
