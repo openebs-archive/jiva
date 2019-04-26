@@ -14,7 +14,6 @@ import (
 )
 
 func (s *Server) ListReplicas(rw http.ResponseWriter, req *http.Request) error {
-	logrus.Infof("List Replicas")
 	apiContext := api.GetApiContext(req)
 	resp := client.GenericCollection{}
 	resp.Data = append(resp.Data, s.Replica(apiContext))
@@ -31,7 +30,6 @@ func (s *Server) Replica(apiContext *api.ApiContext) *Replica {
 }
 
 func (s *Server) GetReplica(rw http.ResponseWriter, req *http.Request) error {
-	logrus.Infof("GetReplica")
 	apiContext := api.GetApiContext(req)
 	r := s.Replica(apiContext)
 	if mux.Vars(req)["id"] == r.Id {
@@ -46,7 +44,6 @@ func (s *Server) GetReplica(rw http.ResponseWriter, req *http.Request) error {
 }
 
 func (s *Server) GetReplicaStats(apiContext *api.ApiContext) *types.Stats {
-	logrus.Infof("Get Replica Stats")
 	s.s.RLock()
 	defer s.s.RUnlock()
 	return s.s.Stats()
@@ -59,7 +56,6 @@ func (s *Server) GetUsage(apiContext *api.ApiContext) (*types.VolUsage, error) {
 }
 
 func (s *Server) GetStats(rw http.ResponseWriter, req *http.Request) error {
-	logrus.Infof("GetStats")
 	var stats *types.Stats
 	apiContext := api.GetApiContext(req)
 	stats = s.GetReplicaStats(apiContext)
