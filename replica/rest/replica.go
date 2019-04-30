@@ -14,7 +14,6 @@ import (
 )
 
 func (s *Server) ListReplicas(rw http.ResponseWriter, req *http.Request) error {
-	logrus.Infof("List Replicas")
 	apiContext := api.GetApiContext(req)
 	resp := client.GenericCollection{}
 	resp.Data = append(resp.Data, s.Replica(apiContext))
@@ -31,7 +30,6 @@ func (s *Server) Replica(apiContext *api.ApiContext) *Replica {
 }
 
 func (s *Server) GetReplica(rw http.ResponseWriter, req *http.Request) error {
-	logrus.Infof("GetReplica")
 	apiContext := api.GetApiContext(req)
 	r := s.Replica(apiContext)
 	if mux.Vars(req)["id"] == r.Id {
@@ -46,21 +44,18 @@ func (s *Server) GetReplica(rw http.ResponseWriter, req *http.Request) error {
 }
 
 func (s *Server) GetReplicaStats(apiContext *api.ApiContext) *types.Stats {
-	logrus.Infof("Get Replica Stats")
 	s.s.RLock()
 	defer s.s.RUnlock()
 	return s.s.Stats()
 }
 
 func (s *Server) GetUsage(apiContext *api.ApiContext) (*types.VolUsage, error) {
-	logrus.Infof("GetUsage")
 	s.s.RLock()
 	defer s.s.RUnlock()
 	return s.s.GetUsage()
 }
 
 func (s *Server) GetStats(rw http.ResponseWriter, req *http.Request) error {
-	logrus.Infof("GetStats")
 	var stats *types.Stats
 	apiContext := api.GetApiContext(req)
 	stats = s.GetReplicaStats(apiContext)
@@ -80,7 +75,6 @@ func (s *Server) GetStats(rw http.ResponseWriter, req *http.Request) error {
 }
 
 func (s *Server) GetVolUsage(rw http.ResponseWriter, req *http.Request) error {
-	logrus.Infof("Get Volume Usage")
 	apiContext := api.GetApiContext(req)
 	usage, _ := s.GetUsage(apiContext)
 
@@ -213,7 +207,7 @@ func (s *Server) SnapshotReplica(rw http.ResponseWriter, req *http.Request) erro
 	var input SnapshotInput
 	apiContext := api.GetApiContext(req)
 	if err := apiContext.Read(&input); err != nil && err != io.EOF {
-		logrus.Errorf("Err %v for reading in snapshotReplica %v", err)
+		logrus.Errorf("Err %v for reading in snapshotReplica", err)
 		return err
 	}
 
@@ -234,7 +228,7 @@ func (s *Server) RevertReplica(rw http.ResponseWriter, req *http.Request) error 
 	var input RevertInput
 	apiContext := api.GetApiContext(req)
 	if err := apiContext.Read(&input); err != nil && err != io.EOF {
-		logrus.Errorf("Err %v for reading in revertReplica %v", err)
+		logrus.Errorf("Err %v for reading in revertReplica", err)
 		return err
 	}
 
@@ -289,6 +283,18 @@ func (s *Server) StartReplica(rw http.ResponseWriter, req *http.Request) error {
 	}
 	logrus.Infof("StartReplica with value %v", action.Value)
 	return s.doOp(req, s.s.Start(action.Value))
+}
+
+// SetReplicaMode ...
+func (s *Server) SetReplicaMode(rw http.ResponseWriter, req *http.Request) error {
+	var mode ReplicaMode
+	apiContext := api.GetApiContext(req)
+	if err := apiContext.Read(&mode); err != nil && err != io.EOF {
+		logrus.Errorf("Err %v during read in setReplicaMode", err)
+		return err
+	}
+	logrus.Infof("SetReplicaMode to %v", mode.Mode)
+	return s.doOp(req, s.s.SetReplicaMode(mode.Mode))
 }
 
 func (s *Server) SetRevisionCounter(rw http.ResponseWriter, req *http.Request) error {

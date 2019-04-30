@@ -132,10 +132,12 @@ func (s *Server) Reload() error {
 		return nil
 	}
 
+	types.ShouldPunchHoles = true
 	logrus.Infof("Reloading volume")
 	newReplica, err := s.r.Reload()
 	if err != nil {
 		logrus.Errorf("error in Reload")
+		types.ShouldPunchHoles = false
 		return err
 	}
 
@@ -376,6 +378,15 @@ func (s *Server) Close(signalMonitor bool) error {
 		return nil
 	}
 
+	types.DrainOps = types.DrainStart
+	HoleCreatorChan <- Hole{}
+	for {
+		if types.DrainOps == types.DrainDone {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
 	if err := s.r.Close(); err != nil {
 		s.Unlock()
 		return err
@@ -431,6 +442,18 @@ func (s *Server) ReadAt(buf []byte, offset int64) (int, error) {
 	}
 	i, err := s.r.ReadAt(buf, offset)
 	return i, err
+}
+
+// SetReplicaMode ...
+func (s *Server) SetReplicaMode(mode string) error {
+	s.Lock()
+	defer s.Unlock()
+
+	if s.r == nil {
+		logrus.Infof("s.r is nil during setReplicaMode")
+		return nil
+	}
+	return s.r.SetReplicaMode(mode)
 }
 
 func (s *Server) SetRevisionCounter(counter int64) error {

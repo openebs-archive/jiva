@@ -130,6 +130,7 @@ func startReplica(c *cli.Context) error {
 	dir := c.Args()[0]
 	replicaType := c.String("type")
 	s := replica.NewServer(dir, 512, replicaType)
+	go replica.CreateHoles()
 
 	address := c.String("listen")
 	frontendIP := c.String("frontendIP")
@@ -182,8 +183,9 @@ func startReplica(c *cli.Context) error {
 		server := rest.NewServer(s)
 		router := http.Handler(rest.NewRouter(server))
 		router = util.FilteredLoggingHandler(map[string]struct{}{
-			"/ping":          {},
-			"/v1/replicas/1": {},
+			"/ping":                   {},
+			"/v1/replicas/1":          {},
+			"/v1/replicas/1/volusage": {},
 		}, os.Stdout, router)
 		logrus.Infof("Listening on control %s", controlAddress)
 		controlResp <- http.ListenAndServe(controlAddress, router)
@@ -227,7 +229,6 @@ func startReplica(c *cli.Context) error {
 		logrus.Infof("Waiting for s.Replica() to be non nil")
 		time.Sleep(2 * time.Second)
 	}
-	go replica.CreateHoles()
 	if replicaType == "clone" && snapName != "" {
 		logrus.Infof("Starting clone process\n")
 		status := s.Replica().GetCloneStatus()

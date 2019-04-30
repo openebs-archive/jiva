@@ -6,12 +6,23 @@ import (
 )
 
 const (
-	WO  = Mode("WO")
-	RW  = Mode("RW")
-	ERR = Mode("ERR")
+	WO     = Mode("WO")
+	RW     = Mode("RW")
+	ERR    = Mode("ERR")
+	INIT   = Mode("INIT")
+	CLOSED = Mode("CLOSED")
 
 	StateUp   = State("Up")
 	StateDown = State("Down")
+)
+
+const (
+	// DrainStart flag is used to notify CreateHoles goroutine
+	// for draining the data in HoleCreatorChan
+	DrainStart HoleChannelOps = iota + 1
+	// DrainDone flag is used to notify the s.Close that data
+	// from HoleCreatorChan has been flushed
+	DrainDone
 )
 
 type ReaderWriterAt interface {
@@ -33,6 +44,20 @@ type DiffDisk interface {
 
 type MonitorChannel chan error
 
+// HoleChannelOps is the operation that has to be performed
+// on HoleCreatorChan such as DrainStart, DrainDone for draining
+// the chan and notify the caller if drain is done.
+type HoleChannelOps int
+
+// DrainOps is flag used for various operations on HoleCreatorChan
+var DrainOps HoleChannelOps
+
+var (
+	// ShouldPunchHoles is a flag used to verify if
+	// we should punch holes.
+	ShouldPunchHoles bool
+)
+
 type Backend interface {
 	IOs
 	io.Closer
@@ -44,6 +69,7 @@ type Backend interface {
 	GetRevisionCounter() (int64, error)
 	GetCloneStatus() (string, error)
 	GetVolUsage() (VolUsage, error)
+	SetReplicaMode(mode Mode) error
 	SetRevisionCounter(counter int64) error
 	SetRebuilding(rebuilding bool) error
 	GetMonitorChannel() MonitorChannel

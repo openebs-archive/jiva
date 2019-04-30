@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/types"
 	"github.com/rancher/sparse-tools/sparse"
 	"github.com/yasker/backupstore"
@@ -188,6 +189,18 @@ type Hole struct {
 
 var HoleCreatorChan = make(chan Hole, 1000000)
 
+// drainHoleCreatorChan is called if replica is closed, to drain
+// all the data for punching hole in the HoleCreatorChan.
+func drainHoleCreatorChan() {
+	for {
+		select {
+		case <-HoleCreatorChan:
+		default:
+			return
+		}
+	}
+}
+
 //CreateHoles removes the offsets from corresponding sparse files
 func CreateHoles() error {
 	var (
@@ -196,6 +209,12 @@ func CreateHoles() error {
 	retryCount := 0
 	for {
 		hole := <-HoleCreatorChan
+		inject.AddPunchHoleTimeout()
+		if types.DrainOps == types.DrainStart {
+			drainHoleCreatorChan()
+			types.DrainOps = types.DrainDone
+			continue
+		}
 		fd = hole.f.Fd()
 	retry:
 		if err := syscall.Fallocate(int(fd),
@@ -222,18 +241,26 @@ func sendToCreateHole(f types.DiffDisk, offset int64, len int64) {
 	HoleCreatorChan <- hole
 }
 
-//Preload creates a mapping of block number to fileIndx (d.location).
-//This is done with the help of extent list fetched from filesystem.
-//Extents list in each file is traversed and the location table is updated
+func shouldCreateHoles() bool {
+	if types.ShouldPunchHoles {
+		return true
+	}
+	return false
+}
+
+// preload creates a mapping of block number to fileIndx (d.location).
+// This is done with the help of extent list fetched from filesystem.
+// Extents list in each file is traversed and the location table is updated
+// TODO: Visit this function again in case of optimization while preload call.
 func preload(d *diffDisk) error {
 	var file types.DiffDisk
 	var length int64
 	var lOffset int64
 	var fileIndx byte
-	//userCreatedSnapIndx represents the index of the latest User Created
-	//snapshot traversed till this point. This value is used instead of
-	//d.SnapIndx because this will also aid in removing duplicate blocks
-	//in auto-created snapshots between 2 user created snapshots
+	// userCreatedSnapIndx represents the index of the latest User Created
+	// snapshot traversed till this point. This value is used instead of
+	// d.SnapIndx because this will also aid in removing duplicate blocks
+	// in auto-created snapshots between 2 user created snapshots
 	var userCreatedSnapIndx byte
 	for i, f := range d.files {
 		if i == 0 {
@@ -251,13 +278,13 @@ func preload(d *diffDisk) error {
 		generator := newGenerator(d, f)
 		for offset := range generator.Generate() {
 			if d.location[offset] != 0 {
-				//We are looking for continuous blocks over here.
-				//If the file of the next block is changed, we punch a hole
-				//for the previous unpunched blocks, and reset the file and
-				//fileIndx pointed to by this block
+				// We are looking for continuous blocks over here.
+				// If the file of the next block is changed, we punch a hole
+				// for the previous unpunched blocks, and reset the file and
+				// fileIndx pointed to by this block
 				if d.files[d.location[offset]] != file ||
 					offset != lOffset+length {
-					if file != nil && fileIndx > userCreatedSnapIndx {
+					if file != nil && fileIndx > userCreatedSnapIndx && shouldCreateHoles() {
 						sendToCreateHole(file, lOffset*d.sectorSize, length*d.sectorSize)
 					}
 					file = d.files[d.location[offset]]
@@ -265,17 +292,17 @@ func preload(d *diffDisk) error {
 					length = 1
 					lOffset = offset
 				} else {
-					//If this is the last block in the loop, hole for this
-					//block will be punched outside the loop
+					// If this is the last block in the loop, hole for this
+					// block will be punched outside the loop
 					length++
 				}
 			}
 			d.location[offset] = byte(i)
 			d.UsedBlocks++
 		}
-		//This will take care of the case when the last call in the above loop
-		//enters else case
-		if file != nil && fileIndx > userCreatedSnapIndx {
+		// This will take care of the case when the last call in the above loop
+		// enters else case
+		if file != nil && fileIndx > userCreatedSnapIndx && shouldCreateHoles() {
 			sendToCreateHole(file, lOffset*d.sectorSize, length*d.sectorSize)
 		}
 		file = nil
