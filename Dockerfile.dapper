@@ -1,8 +1,8 @@
-FROM openebs/jiva:base-xenial-20180417
+# FROM openebs/jiva:base-xenial-20180417
 # FROM ubuntu:16.04
-# FROM arm=armhf/ubuntu:16.04
+FROM armhf/ubuntu:16.04
 
-ARG DAPPER_HOST_ARCH=amd64
+ARG DAPPER_HOST_ARCH=arm64
 ENV HOST_ARCH=${DAPPER_HOST_ARCH} ARCH=${DAPPER_HOST_ARCH}
 
 # Setup environment
@@ -26,7 +26,7 @@ RUN apt-get update -o Acquire::CompressionTypes::Order::=gz && apt-get update &&
 RUN rm -f /bin/sh && ln -s /bin/bash /bin/sh
 
 # Install Go & tools
-ENV GOLANG_ARCH_amd64=amd64 GOLANG_ARCH_arm=armv6l GOLANG_ARCH=GOLANG_ARCH_${ARCH} \
+ENV GOLANG_ARCH_amd64=amd64 GOLANG_ARCH_arm=arm64 GOLANG_ARCH=GOLANG_ARCH_${ARCH} \
     GOPATH=/go PATH=/go/bin:/usr/local/go/bin:${PATH} SHELL=/bin/bash
 RUN wget -O - https://storage.googleapis.com/golang/go1.10.3.linux-${!GOLANG_ARCH}.tar.gz | tar -xzf - -C /usr/local && \
     go get github.com/rancher/trash && go get -u golang.org/x/lint/golint && go get github.com/prometheus/client_golang/prometheus/promhttp
