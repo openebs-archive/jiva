@@ -519,6 +519,7 @@ func (c *Controller) rmReplicaFromRegisteredReplicas(address string) {
 	logrus.Infof("Remove replica %s from register replica map", address)
 	delete(c.RegisteredReplicas, address)
 	c.StartSignalled = false
+	c.MaxRevReplica = ""
 }
 
 func (c *Controller) RemoveReplicaNoLock(address string) error {
