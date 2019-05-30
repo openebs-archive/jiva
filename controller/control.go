@@ -515,6 +515,12 @@ func (c *Controller) hasReplica(address string) bool {
 	return false
 }
 
+func (c *Controller) rmReplicaFromRegisteredReplicas(address string) {
+	logrus.Infof("Remove replica %s from register replica map", address)
+	delete(c.RegisteredReplicas, address)
+	c.StartSignalled = false
+}
+
 func (c *Controller) RemoveReplicaNoLock(address string) error {
 	var foundregrep int
 
@@ -672,16 +678,19 @@ func (c *Controller) addReplicaDuringStartNoLock(address string) error {
 	)
 	newBackend, err := c.factory.Create(address)
 	if err != nil {
+		c.rmReplicaFromRegisteredReplicas(address)
 		return err
 	}
 
 	newSize, err := newBackend.Size()
 	if err != nil {
+		c.rmReplicaFromRegisteredReplicas(address)
 		return err
 	}
 
 	newSectorSize, err := newBackend.SectorSize()
 	if err != nil {
+		c.rmReplicaFromRegisteredReplicas(address)
 		return err
 	}
 
@@ -691,12 +700,15 @@ func (c *Controller) addReplicaDuringStartNoLock(address string) error {
 	}
 
 	if c.size != newSize {
+		c.rmReplicaFromRegisteredReplicas(address)
 		return fmt.Errorf("Backend sizes do not match %d != %d", c.size, newSize)
 	} else if c.sectorSize != newSectorSize {
+		c.rmReplicaFromRegisteredReplicas(address)
 		return fmt.Errorf("Backend sizes do not match %d != %d", c.sectorSize, newSectorSize)
 	}
 
 	if err := c.addReplicaNoLock(newBackend, address, false); err != nil {
+		c.rmReplicaFromRegisteredReplicas(address)
 		return err
 	}
 getCloneStatus:
