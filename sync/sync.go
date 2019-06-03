@@ -345,7 +345,8 @@ Register:
 	logrus.Infof("Adding replica %s in WO mode", replicaAddress)
 	_, err = t.client.CreateReplica(replicaAddress)
 	if err != nil {
-		logrus.Errorf("Failed to create replica, error: %s", err.Error())
+		logrus.Errorf("Failed to create replica, error: %s, will retry", err.Error())
+		time.Sleep(5 * time.Second)
 		// cases for above failure:
 		// - controller is not reachable
 		// - replica is already added (remove replica in progress)

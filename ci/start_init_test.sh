@@ -1159,7 +1159,7 @@ create_snapshot() {
 }
 
 test_duplicate_snapshot_failure() {
-	echo "--------------create_and_verify_snapshot-------------"
+	echo "--------------Test duplicate snapshot Failure-------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
@@ -1736,6 +1736,8 @@ test_duplicate_data_delete() {
 prepare_test_env
 #test_restart_during_prepare_rebuild
 #test_bad_file_descriptor
+test_duplicate_data_delete
+exit
 test_preload
 test_replica_rpc_close
 test_controller_rpc_close
