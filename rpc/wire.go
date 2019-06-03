@@ -113,6 +113,16 @@ func (w *Wire) Read() (*Message, error) {
 	return &msg, nil
 }
 
+// ReadMessage read the response from the client
+func (w *Wire) ReadMessage() (Message, error) {
+	var msg Message
+	if err := binary.Read(w.reader, binary.LittleEndian, &msg.MagicVersion); err != nil {
+		logrus.Errorf("Read msg.Version failed, Error: %v", err)
+		return Message{}, err
+	}
+	return msg, nil
+}
+
 func (w *Wire) CloseRead() error {
 	if conn, ok := w.conn.(*net.TCPConn); ok {
 		logrus.Info("Closing read on RPC connection")

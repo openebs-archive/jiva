@@ -300,6 +300,10 @@ func (t *Task) AddReplica(replicaAddress string, s *replica.Server) error {
 		return fmt.Errorf("failed to create temp server, error: %s", err.Error())
 	}
 Register:
+	// replica might be in WO state and opened files but failed to
+	// get added to controller since rebuild is happening on other replicas
+	// please read the comments below for more info.
+	s.Close()
 	logrus.Infof("Get Volume info from controller")
 	volume, err := t.client.GetVolume()
 	if err != nil {
@@ -319,7 +323,7 @@ Register:
 		}
 		select {
 		case <-ticker.C:
-			logrus.Infof("TimedOut waiting for response from controller")
+			logrus.Info("Timed out waiting for response from controller, will retry")
 			goto Register
 		case action = <-replica.ActionChannel:
 		}
@@ -341,7 +345,15 @@ Register:
 	logrus.Infof("Adding replica %s in WO mode", replicaAddress)
 	_, err = t.client.CreateReplica(replicaAddress)
 	if err != nil {
-		return err
+		logrus.Errorf("Failed to create replica, error: %s", err.Error())
+		// cases for above failure:
+		// - controller is not reachable
+		// - replica is already added (remove replica in progress)
+		// - error while creating snapshot, to start fresh
+		// - replica might be in errored state
+		// - other replica might be in WO mode, and
+		// we can only have one WO replica at a time
+		goto Register
 	}
 
 	logrus.Infof("getTransferClients %v", replicaAddress)
@@ -400,6 +412,9 @@ func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.R
 	return false, nil
 }
 
+// checkAndResetFailedRebuild set the rebuilding to false if
+// it is true.This is required since volume.meta files
+// may not be updated with it's correct rebuilding state.
 func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server) error {
 
 	state, info := server.Status()
@@ -409,15 +424,12 @@ func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server
 			logrus.Errorf("Error during open in checkAndResetFailedRebuild")
 			return err
 		}
-
 		if err := server.SetRebuilding(false); err != nil {
 			logrus.Errorf("Error during setRebuilding in checkAndResetFailedRebuild")
 			return err
 		}
-
-		return server.Close(false)
+		return server.Close()
 	}
-
 	return nil
 }
 

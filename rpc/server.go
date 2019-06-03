@@ -1,6 +1,8 @@
 package rpc
 
 import (
+	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -13,6 +15,11 @@ import (
 )
 
 type operation func(*Message)
+
+var (
+	errInvalidReq = errors.New("Received invalid req")
+)
+
 type Server struct {
 	wire        *Wire
 	responses   chan *Message
@@ -44,21 +51,18 @@ func (s *Server) Handle() error {
 		err    error
 		ticker = time.NewTicker(5 * time.Second)
 	)
-	defer func() {
-		select {
-		case s.monitorChan <- struct{}{}:
-		default:
-		}
-	}()
 	ret := make(chan error, 1)
 	go s.readWrite(ret)
 	for {
 		select {
 		case err = <-ret:
 			if err != nil {
-				if err := s.Stop(); err != nil {
-					logrus.Error("Failed to stop rpc server, error: ", err)
-					return err
+				if err == errInvalidReq {
+					logrus.Warningf("Failed to serve client: %v, rejecting request, err: %v", s.wire.conn.RemoteAddr(), err)
+					// ignore error, connection may be closed from the other side.
+					_ = s.Stop() // close connection with the invalid client
+					// return nil since, no need to close files
+					return nil
 				}
 				return err
 			}
@@ -68,12 +72,9 @@ func (s *Server) Handle() error {
 				// opening and preload is going on.
 				break
 			}
-			if time.Since(s.pingRecvd) >= opPingTimeout*2 {
-				// Close the connection as Ping is not recieved
-				// since long time after replica is opened.
-				if err := s.Stop(); err != nil {
-					return err
-				}
+			since := time.Since(s.pingRecvd)
+			if since >= opPingTimeout*2 {
+				return fmt.Errorf("Couldn't received ping since: %v", since)
 			}
 		}
 	}
@@ -120,6 +121,18 @@ func (s *Server) readWrite(ret chan<- error) {
 			break
 		} else if err != nil {
 			logrus.Errorf("Failed to read: %v", err)
+			// check if client is valid, since MagicVersion will always
+			// be a constant for valid clients such as jiva controller.
+			// This is done to ignore the requests from invalid clients
+			// such as Prometheus which by default scraps from all the open
+			// ports.
+			msg, errRead := s.wire.ReadMessage()
+			if errRead == nil {
+				if msg.MagicVersion != MagicVersion {
+					ret <- errInvalidReq
+					break
+				}
+			}
 			ret <- err
 			break
 		}
@@ -139,6 +152,7 @@ func (s *Server) readWrite(ret chan<- error) {
 				case TypeUpdate:
 					go s.handleUpdate(msg)
 			*/
+			break
 		}
 
 		if err := s.write(msg); err != nil {

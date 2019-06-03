@@ -54,8 +54,15 @@ func (s *Server) ListenAndServe() error {
 
 		go func(conn net.Conn) {
 			server := rpc.NewServer(conn, s.s)
-			server.SetMonitorChannel(s.s.MonitorChannel)
-			server.Handle()
+			if err := server.Handle(); err != nil {
+				// ignore err for below operations,as connection may be
+				// closed from the other side and also files may have
+				// been closed already or not initialized yet.
+				_ = server.Stop() // shutdown fd and conn
+				_ = s.s.Close()   // close all the open files before fataling
+				logrus.Fatalf("Failed to handle connection, err: %v, shutdown replica...", err)
+			}
+
 		}(conn)
 	}
 }

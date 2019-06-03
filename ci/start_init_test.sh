@@ -406,14 +406,14 @@ start_controller() {
 
 # start_replica CONTROLLER_IP REPLICA_IP folder_name
 start_replica() {
-	replica_id=$(docker run -d --net stg-net --ip "$2" -P --expose 9502-9504 -v /tmp/"$3":/"$3" $JI \
+	replica_id=$(docker run --restart unless-stopped -d --net stg-net --ip "$2" -P --expose 9502-9504 -v /tmp/"$3":/"$3" $JI \
 		launch replica --frontendIP "$1" --listen "$2":9502 --size 2g /"$3")
 	echo "$replica_id"
 }
 
 # start_replica CONTROLLER_IP REPLICA_IP folder_name
 start_debug_replica() {
-	replica_id=$(docker run -d --net stg-net --ip "$2" -P --expose 9502-9504 -v /tmp/"$3":/"$3" $JI_DEBUG \
+	replica_id=$(docker run --restart unless-stopped -d --net stg-net --ip "$2" -P --expose 9502-9504 -v /tmp/"$3":/"$3" $JI_DEBUG \
 	env $4=$5  $6=$7 launch replica --frontendIP "$1" --listen "$2":9502 --size 2g /"$3")
 	echo "$replica_id"
 }
@@ -675,8 +675,14 @@ verify_bad_file_descriptor_error() {
 	# Replica will be closed upon controller disconnection
 	run_ios_rand_write "1"
 	docker stop $orig_controller_id
-	sleep 1
+
+	verify_container_dead $replica1_id "controller restart in verify_bad_file_descriptor_error test"
+	verify_container_dead $replica2_id "controller restart in verify_bad_file_descriptor_error test"
+
+	sleep 5
 	docker start $orig_controller_id
+	docker start $replica1_id
+	docker start $replica2_id
 	verify_replica_cnt "2" "Two replica count test when controller is stopped in test_bad_file_descriptor"
 	verify_vol_status "RW" "When there are 2 replicas and controller is stopped in test_bad_file_descriptor"
 
@@ -1728,8 +1734,8 @@ test_duplicate_data_delete() {
 
 
 prepare_test_env
-test_restart_during_prepare_rebuild
-test_bad_file_descriptor
+#test_restart_during_prepare_rebuild
+#test_bad_file_descriptor
 test_preload
 test_replica_rpc_close
 test_controller_rpc_close

@@ -266,7 +266,7 @@ func (s *Server) UpdateCloneInfo(rw http.ResponseWriter, req *http.Request) erro
 
 func (s *Server) CloseReplica(rw http.ResponseWriter, req *http.Request) error {
 	logrus.Infof("CloseReplica")
-	return s.doOp(req, s.s.Close(true))
+	return s.doOp(req, s.s.Close())
 }
 
 func (s *Server) DeleteReplica(rw http.ResponseWriter, req *http.Request) error {
