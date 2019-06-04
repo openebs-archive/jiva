@@ -74,7 +74,7 @@ func (s *Server) Handle() error {
 			}
 			since := time.Since(s.pingRecvd)
 			if since >= opPingTimeout*2 {
-				return fmt.Errorf("Couldn't received ping since: %v", since)
+				return fmt.Errorf("Didn't received ping since: %v", since)
 			}
 		}
 	}
@@ -126,12 +126,9 @@ func (s *Server) readWrite(ret chan<- error) {
 			// This is done to ignore the requests from invalid clients
 			// such as Prometheus which by default scraps from all the open
 			// ports.
-			msg, errRead := s.wire.ReadMessage()
-			if errRead == nil {
-				if msg.MagicVersion != MagicVersion {
-					ret <- errInvalidReq
-					break
-				}
+			if msg.MagicVersion != MagicVersion {
+				ret <- errInvalidReq
+				break
 			}
 			ret <- err
 			break

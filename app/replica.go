@@ -96,6 +96,7 @@ checkagain:
 		time.Sleep(5 * time.Second)
 		goto checkagain
 	} else if state == "ERR" {
+		retryCount++
 		logrus.Infof("Got replica state: %v", state)
 		// replica may be in errored state marked by controller and
 		// not yet removed. The cause of ERR state would be following:

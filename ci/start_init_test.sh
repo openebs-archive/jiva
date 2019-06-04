@@ -1734,10 +1734,9 @@ test_duplicate_data_delete() {
 
 
 prepare_test_env
-#test_restart_during_prepare_rebuild
+test_two_replica_stop_start
 #test_bad_file_descriptor
 test_duplicate_data_delete
-exit
 test_preload
 test_replica_rpc_close
 test_controller_rpc_close
@@ -1750,6 +1749,7 @@ test_three_replica_stop_start
 test_ctrl_stop_start
 test_replica_reregistration
 test_replica_controller_continuous_stop_start
+test_restart_during_prepare_rebuild
 test_volume_resize
 run_data_integrity_test_with_fs_creation
 test_clone_feature
