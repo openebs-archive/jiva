@@ -303,7 +303,7 @@ Register:
 	// replica might be in WO state and opened files but failed to
 	// get added to controller since rebuild is happening on other replicas
 	// please read the comments below for more info.
-	s.Close()
+	_ = s.Close()
 	logrus.Infof("Get Volume info from controller")
 	volume, err := t.client.GetVolume()
 	if err != nil {
