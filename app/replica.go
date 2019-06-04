@@ -105,6 +105,10 @@ checkagain:
 		time.Sleep(5 * time.Second)
 		goto checkagain
 	} else {
+		// Replica might be in rebuilding state, closing will change it to
+		// closed state, then it can be registered, else register replica
+		// will fail.
+		_ = s.Close()
 		// this is just to be sure that replica is not attached to
 		// controller. Assumption is replica might be in RO, RW or in
 		// "" state and not removed from controller.

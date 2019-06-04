@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+#set -x
 PS4='${LINENO}: '
 CONTROLLER_IP="172.18.0.2"
 REPLICA_IP1="172.18.0.3"
@@ -122,7 +122,7 @@ verify_container_dead() {
 	replica_id=`echo $1 | cut -b 1-12`
 	echo $replica_id
 	while [ $i -lt 100 ]; do
-		cnt=`docker ps -a | grep $replica_id | grep -w Exited | wc -l`
+		cnt=`docker ps -a | grep $replica_id | grep -w Restarting | wc -l`
 		if [ $cnt -eq 1 ]; then
 			return
 		fi
@@ -252,7 +252,7 @@ verify_go_routine_leak() {
     passed=0
     req_cnt=0
     while [ "$i" != 30 ]; do
-            curl http://$2:9503 &
+            curl -m 5 http://$2:9503 &
             i=`expr $i + 1`
             sleep 2
     done
@@ -292,6 +292,7 @@ verify_vol_status() {
 
 verify_replica_mode() {
 	i=0
+        passed=0
 	while [ "$i" != 50 ]; do
 		date
 		rep_mode=`curl http://$3:9502/v1/replicas | jq '.data[0].replicamode' | tr -d '"'`
@@ -530,7 +531,6 @@ test_single_replica_stop_start() {
 	sleep 5
 
 	verify_replica_cnt "1" "Single replica count test"
-
 	docker stop $replica1_id
 	sleep 5
 
@@ -1342,9 +1342,9 @@ test_upgrade() {
 }
 
 test_upgrades() {
-       test_upgrade "openebs/jiva:0.7.0" "replica-controller"
-       test_upgrade "openebs/jiva:0.8.0" "replica-controller"
        test_upgrade "openebs/jiva:0.8.0" "controller-replica"
+       test_upgrade "openebs/jiva:0.8.2" "controller-replica"
+       test_upgrade "openebs/jiva:0.9.0" "replica-controller"
 }
 
 di_test_on_raw_disk() {
@@ -1547,6 +1547,8 @@ test_restart_during_prepare_rebuild() {
 	verify_replica_mode 1 "replica mode in test with restart during prepare rebuild" "$REPLICA_IP1" "RW"
 	replica2_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2" "PANIC_AFTER_PREPARE_REBUILD" "TRUE")
 	verify_container_dead $replica2_id "restart during prepare rebuild"
+	docker stop $replica2_id
+        replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	rev_counter1=`cat /tmp/vol1/revision.counter`
 	rev_counter2=`cat /tmp/vol2/revision.counter`
 	if [ $rev_counter1 -ne $rev_counter2 ]; then
@@ -1734,7 +1736,13 @@ test_duplicate_data_delete() {
 
 
 prepare_test_env
+test_single_replica_stop_start
+test_restart_during_prepare_rebuild
 test_two_replica_stop_start
+test_three_replica_stop_start
+test_ctrl_stop_start
+test_replica_controller_continuous_stop_start
+test_restart_during_prepare_rebuild
 #test_bad_file_descriptor
 test_duplicate_data_delete
 test_preload
@@ -1744,18 +1752,12 @@ test_single_replica_stop_start
 test_replication_factor
 #test_two_replica_delete
 test_replica_ip_change
-test_two_replica_stop_start
-test_three_replica_stop_start
-test_ctrl_stop_start
 test_replica_reregistration
-test_replica_controller_continuous_stop_start
-test_restart_during_prepare_rebuild
 test_volume_resize
 run_data_integrity_test_with_fs_creation
 test_clone_feature
 test_duplicate_snapshot_failure
 #test_extent_support_file_system
 test_upgrades
-test_duplicate_data_delete
 run_vdbench_test_on_volume
 run_libiscsi_test_suite

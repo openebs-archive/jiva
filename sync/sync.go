@@ -300,10 +300,6 @@ func (t *Task) AddReplica(replicaAddress string, s *replica.Server) error {
 		return fmt.Errorf("failed to create temp server, error: %s", err.Error())
 	}
 Register:
-	// replica might be in WO state and opened files but failed to
-	// get added to controller since rebuild is happening on other replicas
-	// please read the comments below for more info.
-	_ = s.Close()
 	logrus.Infof("Get Volume info from controller")
 	volume, err := t.client.GetVolume()
 	if err != nil {
@@ -345,8 +341,7 @@ Register:
 	logrus.Infof("Adding replica %s in WO mode", replicaAddress)
 	_, err = t.client.CreateReplica(replicaAddress)
 	if err != nil {
-		logrus.Errorf("Failed to create replica, error: %s, will retry", err.Error())
-		time.Sleep(5 * time.Second)
+		logrus.Errorf("Failed to create replica, error: %v", err)
 		// cases for above failure:
 		// - controller is not reachable
 		// - replica is already added (remove replica in progress)
@@ -354,7 +349,9 @@ Register:
 		// - replica might be in errored state
 		// - other replica might be in WO mode, and
 		// we can only have one WO replica at a time
-		goto Register
+		// Adding sleep so that, it doesn't get restart very frequently
+		time.Sleep(5 * time.Second)
+		return err
 	}
 
 	logrus.Infof("getTransferClients %v", replicaAddress)

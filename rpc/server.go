@@ -58,11 +58,7 @@ func (s *Server) Handle() error {
 		case err = <-ret:
 			if err != nil {
 				if err == errInvalidReq {
-					logrus.Warningf("Failed to serve client: %v, rejecting request, err: %v", s.wire.conn.RemoteAddr(), err)
-					// ignore error, connection may be closed from the other side.
-					_ = s.Stop() // close connection with the invalid client
-					// return nil since, no need to close files
-					return nil
+					logrus.Warningf("Failed to serve client: %v, rejecting request", s.wire.conn.RemoteAddr())
 				}
 				return err
 			}
