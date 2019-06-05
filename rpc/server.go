@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -15,10 +14,6 @@ import (
 )
 
 type operation func(*Message)
-
-var (
-	errInvalidReq = errors.New("Received invalid req")
-)
 
 type Server struct {
 	wire        *Wire
@@ -57,9 +52,6 @@ func (s *Server) Handle() error {
 		select {
 		case err = <-ret:
 			if err != nil {
-				if err == errInvalidReq {
-					logrus.Warningf("Failed to serve client: %v, rejecting request", s.wire.conn.RemoteAddr())
-				}
 				return err
 			}
 		case <-ticker.C:
@@ -122,9 +114,10 @@ func (s *Server) readWrite(ret chan<- error) {
 			// This is done to ignore the requests from invalid clients
 			// such as Prometheus which by default scraps from all the open
 			// ports.
-			if msg.MagicVersion != MagicVersion {
-				ret <- errInvalidReq
-				break
+			if msg != nil {
+				if msg.MagicVersion != MagicVersion {
+					logrus.Warningf("Failed to serve client: %v, rejecting request, invalid client", s.wire.conn.RemoteAddr())
+				}
 			}
 			ret <- err
 			break
