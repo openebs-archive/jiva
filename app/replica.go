@@ -84,22 +84,39 @@ func CheckReplicaState(frontendIP string, replicaIP string) (string, error) {
 }
 
 func AutoConfigureReplica(s *replica.Server, frontendIP string, address string, replicaType string) {
+	retryCount := 10
 checkagain:
+	retryCount--
 	state, err := CheckReplicaState(frontendIP, address)
-	logrus.Infof("Replicastate: %v err:%v", state, err)
-	if err == nil && (state == "" || state == "ERR") {
-		s.Close(false)
-	} else {
+	if err != nil {
+		logrus.Warningf("Failed to check replica state, err: %v, will retry (%v retry left)", err, retryCount)
+		if retryCount == 0 {
+			logrus.Fatalf("Retry count exceeded, Shutting down...")
+		}
 		time.Sleep(5 * time.Second)
 		goto checkagain
-	}
-	AutoRmReplica(frontendIP, address)
-	AutoAddReplica(s, frontendIP, address, replicaType)
-	logrus.Infof("Waiting on MonitorChannel")
-	select {
-	case <-s.MonitorChannel:
-		logrus.Infof("Restart AutoConfigure Process")
+	} else if state == "ERR" {
+		retryCount++
+		logrus.Infof("Got replica state: %v", state)
+		// replica may be in errored state marked by controller and
+		// not yet removed. The cause of ERR state would be following:
+		// - I/O error while R/W operations
+		// - Failed to revert snapshot
+		time.Sleep(5 * time.Second)
 		goto checkagain
+	} else {
+		// Replica might be in rebuilding state, closing will change it to
+		// closed state, then it can be registered, else register replica
+		// will fail.
+		_ = s.Close()
+		// this is just to be sure that replica is not attached to
+		// controller. Assumption is replica might be in RO, RW or in
+		// "" state and not removed from controller.
+		AutoRmReplica(frontendIP, address)
+		if err := AutoAddReplica(s, frontendIP, address, replicaType); err != nil {
+			s.Close()
+			logrus.Fatalf("Failed to add replica to controller, err: %v, Shutting down...", err)
+		}
 	}
 }
 
@@ -225,6 +242,7 @@ func startReplica(c *cli.Context) error {
 		}
 		go AutoConfigureReplica(s, frontendIP, "tcp://"+address, replicaType)
 	}
+
 	for s.Replica() == nil {
 		logrus.Infof("Waiting for s.Replica() to be non nil")
 		time.Sleep(2 * time.Second)

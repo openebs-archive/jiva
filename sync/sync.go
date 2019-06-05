@@ -319,7 +319,7 @@ Register:
 		}
 		select {
 		case <-ticker.C:
-			logrus.Infof("TimedOut waiting for response from controller")
+			logrus.Info("Timed out waiting for response from controller, will retry")
 			goto Register
 		case action = <-replica.ActionChannel:
 		}
@@ -341,6 +341,16 @@ Register:
 	logrus.Infof("Adding replica %s in WO mode", replicaAddress)
 	_, err = t.client.CreateReplica(replicaAddress)
 	if err != nil {
+		logrus.Errorf("Failed to create replica, error: %v", err)
+		// cases for above failure:
+		// - controller is not reachable
+		// - replica is already added (remove replica in progress)
+		// - error while creating snapshot, to start fresh
+		// - replica might be in errored state
+		// - other replica might be in WO mode, and
+		// we can only have one WO replica at a time
+		// Adding sleep so that, it doesn't get restart very frequently
+		time.Sleep(5 * time.Second)
 		return err
 	}
 
@@ -400,6 +410,9 @@ func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.R
 	return false, nil
 }
 
+// checkAndResetFailedRebuild set the rebuilding to false if
+// it is true.This is required since volume.meta files
+// may not be updated with it's correct rebuilding state.
 func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server) error {
 
 	state, info := server.Status()
@@ -409,15 +422,12 @@ func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server
 			logrus.Errorf("Error during open in checkAndResetFailedRebuild")
 			return err
 		}
-
 		if err := server.SetRebuilding(false); err != nil {
 			logrus.Errorf("Error during setRebuilding in checkAndResetFailedRebuild")
 			return err
 		}
-
-		return server.Close(false)
+		return server.Close()
 	}
-
 	return nil
 }
 
