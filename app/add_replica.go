@@ -2,7 +2,6 @@ package app
 
 import (
 	"errors"
-	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
@@ -36,18 +35,10 @@ func AutoAddReplica(s *replica.Server, frontendIP string, replica string, replic
 	var err error
 	url := "http://" + frontendIP + ":9501"
 	task := sync.NewTask(url)
-	for {
-		if replicaType == "quorum" {
-			err = task.AddQuorumReplica(replica, s)
-		} else {
-			err = task.AddReplica(replica, s)
-		}
-		if err != nil {
-			logrus.Errorf("Error adding replica, err: %v, will retry", err)
-			time.Sleep(2 * time.Second)
-			s.Close(false)
-			continue
-		}
-		return err
+	if replicaType == "quorum" {
+		err = task.AddQuorumReplica(replica, s)
+	} else {
+		err = task.AddReplica(replica, s)
 	}
+	return err
 }

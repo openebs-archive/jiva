@@ -368,13 +368,15 @@ func (s *Server) DeleteAll() error {
 	return err
 }
 
-func (s *Server) Close(signalMonitor bool) error {
+// Close drain the data from HoleCreatorChan and close
+// all the associated files with the replica instance.
+func (s *Server) Close() error {
 	logrus.Infof("Closing replica")
 	s.Lock()
 
+	defer s.Unlock()
 	if s.r == nil {
 		logrus.Infof("Skip closing replica, s.r not set")
-		s.Unlock()
 		return nil
 	}
 
@@ -388,16 +390,10 @@ func (s *Server) Close(signalMonitor bool) error {
 	}
 
 	if err := s.r.Close(); err != nil {
-		s.Unlock()
 		return err
 	}
 
 	s.r = nil
-	s.Unlock()
-	if signalMonitor {
-		logrus.Infof("Signal MonitorChannel")
-		s.MonitorChannel <- struct{}{}
-	}
 	return nil
 }
 
