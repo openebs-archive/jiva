@@ -833,8 +833,8 @@ func (c *Controller) WriteAt(b []byte, off int64) (int, error) {
 		time.Sleep(1 * time.Second)
 		return 0, err
 	}
-	defer c.Unlock()
 	if off < 0 || off+int64(len(b)) > c.size {
+		c.Unlock()
 		err := fmt.Errorf("EOF: Write of %v bytes at offset %v is beyond volume size %v", len(b), off, c.size)
 		return 0, err
 	}
@@ -849,10 +849,13 @@ func (c *Controller) WriteAt(b []byte, off int64) (int, error) {
 			}
 		}
 		if n == len(b) && errh == nil {
+			c.Unlock()
 			return n, nil
 		}
+		c.Unlock()
 		return n, errh
 	}
+	c.Unlock()
 	return n, err
 }
 
@@ -912,17 +915,19 @@ func (c *Controller) Unmap(offset int64, length int64) (int, error) {
 
 func (c *Controller) ReadAt(b []byte, off int64) (int, error) {
 	c.Lock()
-	defer c.Unlock()
 	if off < 0 || off+int64(len(b)) > c.size {
+		c.Unlock()
 		err := fmt.Errorf("EOF: Read of %v bytes at offset %v is beyond volume size %v", len(b), off, c.size)
 		return 0, err
 	}
 	if len(c.replicas) == 0 {
+		c.Unlock()
 		return 0, fmt.Errorf("No backends available")
 	}
 	if len(c.replicas) == 1 {
 		r := c.replicas[0]
 		if r.Mode == "WO" {
+			c.Unlock()
 			return 0, fmt.Errorf("only WO replica available")
 		}
 	}
@@ -937,8 +942,10 @@ func (c *Controller) ReadAt(b []byte, off int64) (int, error) {
 				}
 			}
 		}
+		c.Unlock()
 		return n, errh
 	}
+	c.Unlock()
 	return n, err
 }
 

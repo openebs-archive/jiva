@@ -125,9 +125,9 @@ func (s *Server) Open() error {
 
 func (s *Server) Reload() error {
 	s.Lock()
-	defer s.Unlock()
 
 	if s.r == nil {
+		s.Unlock()
 		logrus.Infof("returning as s.r is nil in reloading volume")
 		return nil
 	}
@@ -136,6 +136,7 @@ func (s *Server) Reload() error {
 	logrus.Infof("Reloading volume")
 	newReplica, err := s.r.Reload()
 	if err != nil {
+		s.Unlock()
 		logrus.Errorf("error in Reload")
 		types.ShouldPunchHoles = false
 		return err
@@ -144,6 +145,7 @@ func (s *Server) Reload() error {
 	oldReplica := s.r
 	s.r = newReplica
 	oldReplica.Close()
+	s.Unlock()
 	return nil
 }
 
@@ -399,44 +401,48 @@ func (s *Server) Close() error {
 
 func (s *Server) Sync() (int, error) {
 	s.RLock()
-	defer s.RUnlock()
 
 	if s.r == nil {
+		s.RUnlock()
 		return -1, fmt.Errorf("Volume no longer exist")
 	}
 	n, err := s.r.Sync()
+	s.RUnlock()
 	return n, err
 }
 func (s *Server) Unmap(offset int64, length int64) (int, error) {
 	s.RLock()
-	defer s.RUnlock()
 
 	if s.r == nil {
+		s.RUnlock()
 		return -1, fmt.Errorf("Volume no longer exist")
 	}
 	n, err := s.r.Unmap(offset, length)
+	s.RUnlock()
 	return n, err
 }
 
 func (s *Server) WriteAt(buf []byte, offset int64) (int, error) {
 	s.RLock()
-	defer s.RUnlock()
 
 	if s.r == nil {
+		s.RUnlock()
 		return 0, fmt.Errorf("Volume no longer exist")
 	}
 	i, err := s.r.WriteAt(buf, offset)
+	s.RUnlock()
 	return i, err
 }
 
 func (s *Server) ReadAt(buf []byte, offset int64) (int, error) {
 	s.RLock()
-	defer s.RUnlock()
 
 	if s.r == nil {
+		s.RUnlock()
 		return 0, fmt.Errorf("Volume no longer exist")
 	}
 	i, err := s.r.ReadAt(buf, offset)
+	s.RUnlock()
 	return i, err
 }
 
