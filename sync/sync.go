@@ -2,6 +2,8 @@ package sync
 
 import (
 	"fmt"
+	"os"
+	"path"
 	"reflect"
 	"strings"
 	"time"
@@ -21,6 +23,7 @@ var (
 
 type Task struct {
 	client *client.ControllerClient
+	server *replica.Server
 }
 
 func NewTask(controller string) *Task {
@@ -449,6 +452,16 @@ func (t *Task) reloadAndVerify(address string, repClient *replicaClient.ReplicaC
 	return err
 }
 
+func (t *Task) renameDiskFiles(fileNames ...string) error {
+	dir := replica.Dir
+	for _, n := range fileNames {
+		if err := os.Rename(path.Join(dir, n+".tmp"), path.Join(dir, n)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (t *Task) syncFiles(fromClient *replicaClient.ReplicaClient, toClient *replicaClient.ReplicaClient, disks []string) error {
 	for i := range disks {
 		//We are syncing from the oldest snapshots to newer ones
@@ -456,11 +469,17 @@ func (t *Task) syncFiles(fromClient *replicaClient.ReplicaClient, toClient *repl
 		if strings.Contains(disk, "volume-head") {
 			return fmt.Errorf("Disk list shouldn't contain volume-head")
 		}
-		if err := t.syncFile(disk, "", fromClient, toClient); err != nil {
+
+		if err := t.syncFile(disk, disk+".tmp", fromClient, toClient); err != nil {
 			return err
 		}
 
-		if err := t.syncFile(disk+".meta", "", fromClient, toClient); err != nil {
+		diskMeta := disk + ".meta"
+		if err := t.syncFile(diskMeta, diskMeta+".tmp", fromClient, toClient); err != nil {
+			return err
+		}
+
+		if err := t.renameDiskFiles(disk, diskMeta); err != nil {
 			return err
 		}
 
