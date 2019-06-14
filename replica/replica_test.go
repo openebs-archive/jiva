@@ -296,6 +296,9 @@ func (s *TestSuite) TestRemoveLeafNode(c *C) {
 	c.Assert(r.diskChildrenMap["volume-snap-001.img"]["volume-snap-002.img"], Equals, true)
 	c.Assert(r.diskChildrenMap["volume-snap-002.img"], IsNil)
 
+	// Assign empty function as HoleCreatorChan is not initialized
+	// Since this is just an UT only individual function is tested.
+	r.holeDrainer = func() {}
 	err = r.RemoveDiffDisk("volume-snap-002.img")
 	c.Assert(err, IsNil)
 
@@ -306,6 +309,7 @@ func (s *TestSuite) TestRemoveLeafNode(c *C) {
 
 	c.Assert(r.diskChildrenMap["volume-snap-001.img"], IsNil)
 
+	r.holeDrainer = func() {}
 	err = r.RemoveDiffDisk("volume-snap-001.img")
 	c.Assert(err, IsNil)
 
@@ -346,6 +350,7 @@ func (s *TestSuite) TestRemoveLast(c *C) {
 	c.Assert(r.activeDiskData[1].Name, Equals, "volume-snap-000.img")
 	c.Assert(r.activeDiskData[1].Parent, Equals, "")
 
+	r.holeDrainer = func() {}
 	err = r.RemoveDiffDisk("volume-snap-000.img")
 	c.Assert(err, IsNil)
 	c.Assert(len(r.activeDiskData), Equals, 3)
@@ -394,22 +399,24 @@ func (s *TestSuite) TestRemoveMiddle(c *C) {
 	c.Assert(r.activeDiskData[1].Name, Equals, "volume-snap-000.img")
 	c.Assert(r.activeDiskData[1].Parent, Equals, "")
 
+	r.holeDrainer = func() {}
 	err = r.RemoveDiffDisk("volume-snap-001.img")
-	c.Assert(err, IsNil)
-	c.Assert(len(r.activeDiskData), Equals, 3)
-	c.Assert(len(r.volume.files), Equals, 3)
+	c.Assert(err, NotNil)
+	c.Assert(len(r.activeDiskData), Equals, 4)
+	c.Assert(len(r.volume.files), Equals, 4)
 	c.Assert(r.info.Head, Equals, "volume-head-002.img")
-	c.Assert(r.activeDiskData[2].Name, Equals, "volume-head-002.img")
+	c.Assert(r.activeDiskData[3].Name, Equals, "volume-head-002.img")
+	c.Assert(r.activeDiskData[3].Parent, Equals, "volume-snap-001.img")
+	c.Assert(r.activeDiskData[2].Name, Equals, "volume-snap-001.img")
 	c.Assert(r.activeDiskData[2].Parent, Equals, "volume-snap-000.img")
 	c.Assert(r.activeDiskData[1].Name, Equals, "volume-snap-000.img")
 	c.Assert(r.activeDiskData[1].Parent, Equals, "")
 
-	c.Assert(len(r.diskData), Equals, 2)
+	c.Assert(len(r.diskData), Equals, 3)
 	c.Assert(r.diskData["volume-snap-000.img"].Parent, Equals, "")
-	c.Assert(r.diskData["volume-head-002.img"].Parent, Equals, "volume-snap-000.img")
+	c.Assert(r.diskData["volume-head-002.img"].Parent, Equals, "volume-snap-001.img")
 
 	c.Assert(len(r.diskChildrenMap["volume-snap-000.img"]), Equals, 1)
-	c.Assert(r.diskChildrenMap["volume-snap-000.img"]["volume-head-002.img"], Equals, true)
 	c.Assert(r.diskChildrenMap["volume-head-002.img"], IsNil)
 }
 
@@ -442,6 +449,7 @@ func (s *TestSuite) TestRemoveFirst(c *C) {
 	c.Assert(r.activeDiskData[1].Name, Equals, "volume-snap-000.img")
 	c.Assert(r.activeDiskData[1].Parent, Equals, "")
 
+	r.holeDrainer = func() {}
 	err = r.RemoveDiffDisk("volume-head-002.img")
 	c.Assert(err, NotNil)
 }
@@ -503,6 +511,7 @@ func (s *TestSuite) TestRemoveOutOfChain(c *C) {
 	c.Assert(r.diskChildrenMap["volume-snap-001.img"]["volume-snap-002.img"], Equals, true)
 	c.Assert(r.diskChildrenMap["volume-snap-002.img"], IsNil)
 
+	r.holeDrainer = func() {}
 	err = r.RemoveDiffDisk("volume-snap-001.img")
 	c.Assert(err, IsNil)
 	c.Assert(len(r.activeDiskData), Equals, 3)

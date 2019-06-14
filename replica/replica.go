@@ -47,11 +47,19 @@ type Replica struct {
 	ReplicaStartTime time.Time
 	ReplicaType      string
 	info             Info
-	diskData         map[string]*disk
-	diskChildrenMap  map[string]map[string]bool
-	activeDiskData   []*disk
-	readOnly         bool
-	mode             types.Mode
+	// diskData is mapping of disk (i., Head or snapshot files)
+	// with their parent, name and other info.
+	// For exp: H->S3->S2->S1->S0
+	// diskData[S3] = {Name: S3, Parent: S2}
+	diskData map[string]*disk
+	// diskChildrenMap is mapping of disks with the respective
+	// childrens if exists.
+	diskChildrenMap map[string]map[string]bool
+	// list of active snapshots with last index as head file
+	// and len(activeDiskData) - 1 as latest snapshot.
+	activeDiskData []*disk
+	readOnly       bool
+	mode           types.Mode
 
 	revisionLock  sync.Mutex
 	revisionCache int64
@@ -64,6 +72,8 @@ type Replica struct {
 	cloneStatus   string
 	CloneSnapName string
 	Clone         bool
+	// used for draining the HoleCreatorChan also useful for mocking
+	holeDrainer func()
 }
 
 type Info struct {
@@ -169,6 +179,11 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 		diskData:        make(map[string]*disk),
 		diskChildrenMap: map[string]map[string]bool{},
 		mode:            types.INIT,
+		holeDrainer: func() {
+			// this is just initializing function,
+			// actual excution will be done by r.holeDrainer()
+			holeDrainer()
+		},
 	}
 	r.info.Size = size
 	r.info.SectorSize = sectorSize
@@ -354,17 +369,16 @@ func (r *Replica) findDisk(name string) int {
 func (r *Replica) RemoveDiffDisk(name string) error {
 	r.Lock()
 	defer r.Unlock()
-	types.DrainOps = types.DrainStart
-	HoleCreatorChan <- Hole{}
-	for {
-		if types.DrainOps == types.DrainDone {
-			break
-		}
-		time.Sleep(1 * time.Second)
-	}
-
+	// Empty the data in HoleCreatorChan send for punching
+	// holes (fallocate), since it may be punching holes in
+	// the file that is going to be deleted.
+	r.holeDrainer()
 	if name == r.info.Head {
 		return fmt.Errorf("Can not delete the active differencing disk")
+	}
+
+	if r.info.Parent == name {
+		return fmt.Errorf("Can't delete latest snapshot: %s", name)
 	}
 
 	if err := r.removeDiskNode(name); err != nil {
@@ -458,6 +472,12 @@ func (r *Replica) removeDiskNode(name string) error {
 	return nil
 }
 
+// PrepareRemoveDisk mark and prepare the list of the disks that
+// is going to be deleted.
+// NOTE: We don't delete latest snapshot because the data
+// needs to be merged into Head file where IO's are being
+// precessed that means we need to block IO's for some
+// time till this get precessed.
 func (r *Replica) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) {
 	r.Lock()
 	defer r.Unlock()
