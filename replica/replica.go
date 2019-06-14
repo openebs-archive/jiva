@@ -354,6 +354,14 @@ func (r *Replica) findDisk(name string) int {
 func (r *Replica) RemoveDiffDisk(name string) error {
 	r.Lock()
 	defer r.Unlock()
+	types.DrainOps = types.DrainStart
+	HoleCreatorChan <- Hole{}
+	for {
+		if types.DrainOps == types.DrainDone {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
 
 	if name == r.info.Head {
 		return fmt.Errorf("Can not delete the active differencing disk")
@@ -469,6 +477,9 @@ func (r *Replica) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) 
 		return nil, fmt.Errorf("Can not delete the active differencing disk")
 	}
 
+	if r.info.Parent == name {
+		return nil, fmt.Errorf("Can't delete latest snapshot: %s", name)
+	}
 	logrus.Infof("Mark disk %v as removed", disk)
 	if err := r.markDiskAsRemoved(disk); err != nil {
 		return nil, fmt.Errorf("Fail to mark disk %v as removed: %v", disk, err)

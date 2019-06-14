@@ -41,17 +41,20 @@ func (d *diffDisk) RemoveIndex(index int) error {
 
 	//TODO Decide if d.location should be preloaded again over here
 	for i := 0; i < len(d.location); i++ {
-		if d.location[i] >= byte(index) {
+		if d.location[i] > byte(index) && d.location[i] != byte(1) {
 			// set back to unknown
-			d.location[i] = 0
+			d.location[i]--
 		}
 	}
 
 	d.files = append(d.files[:index], d.files[index+1:]...)
-	d.UserCreatedSnap = append(d.UserCreatedSnap[:index], d.UserCreatedSnap[index+1:]...)
-	for i, userCreated := range d.UserCreatedSnap {
-		if userCreated {
-			d.SnapIndx = i
+	// only update latest snapshot index if deleting user created snapshot
+	if d.UserCreatedSnap[index] {
+		d.UserCreatedSnap = append(d.UserCreatedSnap[:index], d.UserCreatedSnap[index+1:]...)
+		for i, userCreated := range d.UserCreatedSnap {
+			if userCreated {
+				d.SnapIndx = i
+			}
 		}
 	}
 
