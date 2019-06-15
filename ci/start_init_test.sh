@@ -428,7 +428,7 @@ start_debug_controller() {
 
 # start_cloned_replica CONTROLLER_IP  CLONED_CONTROLLER_IP CLONED_REPLICA_IP folder_name
 start_cloned_replica() {
-	cloned_replica_id=$(docker run -d --net stg-net --ip "$3" -P --expose 9502-9504 -v /tmp/"$4":/"$4" $JI \
+	cloned_replica_id=$(docker run --restart unless-stopped -d --net stg-net --ip "$3" -P --expose 9502-9504 -v /tmp/"$4":/"$4" $JI \
 		launch replica --type clone --snapName snap3 --cloneIP "$1" --frontendIP "$2" --listen "$3":9502 --size 2g /"$4")
 	echo "$cloned_replica_id"
 }
