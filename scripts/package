@@ -13,6 +13,7 @@ if [ ! -x ../bin/longhorn ]; then
 fi
 
 cp ../bin/longhorn* .
+cp ../bin/longhorn jivactl
 #cp /usr/src/tgt/pkg/tgt_*.deb .
 docker build -t ${REPO}/jiva:${TAG} .
 echo Built ${REPO}/jiva:${TAG}
