@@ -380,14 +380,9 @@ func (s *Server) Close() error {
 		return nil
 	}
 
-	types.DrainOps = types.DrainStart
-	HoleCreatorChan <- Hole{}
-	for {
-		if types.DrainOps == types.DrainDone {
-			break
-		}
-		time.Sleep(1 * time.Second)
-	}
+	// r.holeDrainer is initialized at construct
+	// function in replica.go
+	s.r.holeDrainer()
 
 	if err := s.r.Close(); err != nil {
 		return err

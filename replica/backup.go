@@ -226,6 +226,9 @@ func CreateHoles() error {
 			types.DrainOps = types.DrainDone
 			continue
 		}
+		if (Hole{}) == hole {
+			continue
+		}
 		fd = hole.f.Fd()
 	retry:
 		if err := syscall.Fallocate(int(fd),

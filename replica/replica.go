@@ -451,6 +451,7 @@ func (r *Replica) removeDiskNode(name string) error {
 	var child string
 	for child = range children {
 	}
+
 	r.updateChildDisk(name, child)
 	if err := r.updateParentDisk(child, name); err != nil {
 		return err
@@ -497,9 +498,10 @@ func (r *Replica) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) 
 		return nil, fmt.Errorf("Can not delete the active differencing disk")
 	}
 
-	if r.info.Parent == name {
-		return nil, fmt.Errorf("Can't delete latest snapshot: %s", name)
+	if r.info.Parent == disk {
+		return nil, fmt.Errorf("Can't delete latest snapshot: %s", disk)
 	}
+
 	logrus.Infof("Mark disk %v as removed", disk)
 	if err := r.markDiskAsRemoved(disk); err != nil {
 		return nil, fmt.Errorf("Fail to mark disk %v as removed: %v", disk, err)
@@ -507,14 +509,14 @@ func (r *Replica) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) 
 
 	targetDisks := []string{}
 	if data.Parent != "" {
-		parentData, exists := r.diskData[data.Parent]
+		// check if metadata of parent exists for the snapshot
+		// going to be deleted.
+		_, exists := r.diskData[data.Parent]
 		if !exists {
 			return nil, fmt.Errorf("Can not find snapshot %v's parent %v", disk, data.Parent)
 		}
-		if parentData.Removed {
-			targetDisks = append(targetDisks, parentData.Name)
-		}
 	}
+
 	targetDisks = append(targetDisks, disk)
 	actions, err := r.processPrepareRemoveDisks(targetDisks)
 	if err != nil {
@@ -579,7 +581,7 @@ func (r *Replica) DisplayChain() ([]string, error) {
 
 	cur := r.info.Head
 	for cur != "" {
-		disk, ok := r.diskData[cur]
+		_, ok := r.diskData[cur]
 		if !ok {
 			cur1 := r.info.Head
 			for cur1 != "" {
@@ -591,9 +593,7 @@ func (r *Replica) DisplayChain() ([]string, error) {
 			}
 			return nil, fmt.Errorf("Failed to find metadata for %s in DisplayChain", cur)
 		}
-		if !disk.Removed {
-			result = append(result, cur)
-		}
+		result = append(result, cur)
 		cur = r.diskData[cur].Parent
 	}
 
@@ -938,7 +938,6 @@ func (r *Replica) openLiveChain() error {
 	}
 
 	for i := len(chain) - 1; i >= 0; i-- {
-
 		parent := chain[i]
 		f, err := r.openFile(parent, 0)
 		if err != nil {
