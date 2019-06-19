@@ -17,13 +17,19 @@ type fileType struct {
 
 type diffDisk struct {
 	rmLock sync.Mutex
-	// mapping of sector to index in the files array. a value of 0 is special meaning
-	// we don't know the location yet.
+	// mapping of sector to index in the files array. a value of 0
+	// is special meaning we don't know the location yet.
 	location          []byte
 	UsedLogicalBlocks int64
 	UsedBlocks        int64
-	// list of files in child, parent, grandparent, etc order.
-	// index 0 is nil and index 1 is the active write layer
+	// list of files in grandparent, parent, child order
+	// For exp: H->S4->S3->S2->S1->S0
+	// H is active file, and S4 is latest snapshot and is
+	// parent of H. H has no child, S0 has no parent.
+	// So files = {nil, S0, S1, S2, S3, S4, H}
+	// index 0 is nil and index 1 is base snapshot and last index
+	// is the active write layer.
+	// First index is nil for doing comparisons.
 	files []types.DiffDisk
 	// list representing file index marked true/false for
 	// userCreated/Auto-Created accordingly. It should always be updated
@@ -34,6 +40,22 @@ type diffDisk struct {
 	sectorSize int64
 }
 
+// RemoveIndex remove the index from list the files
+// and update the location of offsets in respective
+// new files where it is merged before deletion of
+// the snapshot.
+//
+// Let's consider this case: H->S4->US3->S2->S1->S0
+// Update d.location and latest user created snapshot
+// index if S2 is deleted, US3 will take position of S2
+// So resultant chain is H->S4->US3->S1->S0
+//
+// You can notice here as position of S0 and S1 is still
+// the same but we shifting the positions of the childrens.
+// NOTE: UserCreatedSnap contains the truth value of
+// whether snapshot is UserCreated or not in increasing
+// order of index. i.e, last index will have the truthy
+// value of latest snapshot
 func (d *diffDisk) RemoveIndex(index int) error {
 	if err := d.files[index].Close(); err != nil {
 		return err
@@ -41,9 +63,8 @@ func (d *diffDisk) RemoveIndex(index int) error {
 
 	//TODO Decide if d.location should be preloaded again over here
 	for i := 0; i < len(d.location); i++ {
-		if d.location[i] >= byte(index) {
-			// set back to unknown
-			d.location[i] = 0
+		if d.location[i] > byte(index) && d.location[i] != byte(1) {
+			d.location[i]--
 		}
 	}
 
