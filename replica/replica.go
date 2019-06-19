@@ -47,11 +47,19 @@ type Replica struct {
 	ReplicaStartTime time.Time
 	ReplicaType      string
 	info             Info
-	diskData         map[string]*disk
-	diskChildrenMap  map[string]map[string]bool
-	activeDiskData   []*disk
-	readOnly         bool
-	mode             types.Mode
+	// diskData is mapping of disk (i., Head or snapshot files)
+	// with their parent, name and other info.
+	// For exp: H->S3->S2->S1->S0
+	// diskData[S3] = {Name: S3, Parent: S2}
+	diskData map[string]*disk
+	// diskChildrenMap is mapping of disks with the respective
+	// childrens if exists.
+	diskChildrenMap map[string]map[string]bool
+	// list of active snapshots with last index as head file
+	// and len(activeDiskData) - 1 as latest snapshot.
+	activeDiskData []*disk
+	readOnly       bool
+	mode           types.Mode
 
 	revisionLock  sync.Mutex
 	revisionCache int64
@@ -64,6 +72,8 @@ type Replica struct {
 	cloneStatus   string
 	CloneSnapName string
 	Clone         bool
+	// used for draining the HoleCreatorChan also useful for mocking
+	holeDrainer func()
 }
 
 type Info struct {
@@ -169,6 +179,11 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 		diskData:        make(map[string]*disk),
 		diskChildrenMap: map[string]map[string]bool{},
 		mode:            types.INIT,
+		holeDrainer: func() {
+			// this is just initializing function,
+			// actual excution will be done by r.holeDrainer()
+			holeDrainer()
+		},
 	}
 	r.info.Size = size
 	r.info.SectorSize = sectorSize
@@ -354,9 +369,16 @@ func (r *Replica) findDisk(name string) int {
 func (r *Replica) RemoveDiffDisk(name string) error {
 	r.Lock()
 	defer r.Unlock()
-
+	// Empty the data in HoleCreatorChan send for punching
+	// holes (fallocate), since it may be punching holes in
+	// the file that is going to be deleted.
+	r.holeDrainer()
 	if name == r.info.Head {
 		return fmt.Errorf("Can not delete the active differencing disk")
+	}
+
+	if r.info.Parent == name {
+		return fmt.Errorf("Can't delete latest snapshot: %s", name)
 	}
 
 	if err := r.removeDiskNode(name); err != nil {
@@ -429,6 +451,7 @@ func (r *Replica) removeDiskNode(name string) error {
 	var child string
 	for child = range children {
 	}
+
 	r.updateChildDisk(name, child)
 	if err := r.updateParentDisk(child, name); err != nil {
 		return err
@@ -450,6 +473,12 @@ func (r *Replica) removeDiskNode(name string) error {
 	return nil
 }
 
+// PrepareRemoveDisk mark and prepare the list of the disks that
+// is going to be deleted.
+// NOTE: We don't delete latest snapshot because the data
+// needs to be merged into Head file where IO's are being
+// precessed that means we need to block IO's for some
+// time till this get precessed.
 func (r *Replica) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) {
 	r.Lock()
 	defer r.Unlock()
@@ -469,6 +498,10 @@ func (r *Replica) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) 
 		return nil, fmt.Errorf("Can not delete the active differencing disk")
 	}
 
+	if r.info.Parent == disk {
+		return nil, fmt.Errorf("Can't delete latest snapshot: %s", disk)
+	}
+
 	logrus.Infof("Mark disk %v as removed", disk)
 	if err := r.markDiskAsRemoved(disk); err != nil {
 		return nil, fmt.Errorf("Fail to mark disk %v as removed: %v", disk, err)
@@ -476,14 +509,14 @@ func (r *Replica) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) 
 
 	targetDisks := []string{}
 	if data.Parent != "" {
-		parentData, exists := r.diskData[data.Parent]
+		// check if metadata of parent exists for the snapshot
+		// going to be deleted.
+		_, exists := r.diskData[data.Parent]
 		if !exists {
 			return nil, fmt.Errorf("Can not find snapshot %v's parent %v", disk, data.Parent)
 		}
-		if parentData.Removed {
-			targetDisks = append(targetDisks, parentData.Name)
-		}
 	}
+
 	targetDisks = append(targetDisks, disk)
 	actions, err := r.processPrepareRemoveDisks(targetDisks)
 	if err != nil {
@@ -548,7 +581,7 @@ func (r *Replica) DisplayChain() ([]string, error) {
 
 	cur := r.info.Head
 	for cur != "" {
-		disk, ok := r.diskData[cur]
+		_, ok := r.diskData[cur]
 		if !ok {
 			cur1 := r.info.Head
 			for cur1 != "" {
@@ -560,9 +593,7 @@ func (r *Replica) DisplayChain() ([]string, error) {
 			}
 			return nil, fmt.Errorf("Failed to find metadata for %s in DisplayChain", cur)
 		}
-		if !disk.Removed {
-			result = append(result, cur)
-		}
+		result = append(result, cur)
 		cur = r.diskData[cur].Parent
 	}
 
@@ -907,7 +938,6 @@ func (r *Replica) openLiveChain() error {
 	}
 
 	for i := len(chain) - 1; i >= 0; i-- {
-
 		parent := chain[i]
 		f, err := r.openFile(parent, 0)
 		if err != nil {

@@ -189,6 +189,17 @@ type Hole struct {
 
 var HoleCreatorChan = make(chan Hole, 1000000)
 
+func holeDrainer() {
+	types.DrainOps = types.DrainStart
+	HoleCreatorChan <- Hole{}
+	for {
+		if types.DrainOps == types.DrainDone {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+}
+
 // drainHoleCreatorChan is called if replica is closed, to drain
 // all the data for punching hole in the HoleCreatorChan.
 func drainHoleCreatorChan() {
@@ -213,6 +224,9 @@ func CreateHoles() error {
 		if types.DrainOps == types.DrainStart {
 			drainHoleCreatorChan()
 			types.DrainOps = types.DrainDone
+			continue
+		}
+		if (Hole{}) == hole {
 			continue
 		}
 		fd = hole.f.Fd()
