@@ -17,18 +17,43 @@ import (
 
 const VolumeHeadName = "volume-head"
 
+var validSubCommands = map[string]bool{"ls": true, "rm": true, "info": true}
+
+func isValidSubCommand(c *cli.Context) bool {
+	args := c.Args()
+	if len(args) < 1 {
+		return true
+	}
+	ok, _ := validSubCommands[args[0]]
+	if ok {
+		return true
+	}
+	return false
+}
+
+func listSubCommands() []string {
+	var cmds []string
+	for k := range validSubCommands {
+		cmds = append(cmds, k)
+	}
+	return cmds
+}
+
 func SnapshotCmd() cli.Command {
 	return cli.Command{
 		Name:      "snapshots",
 		ShortName: "snapshot",
 		Subcommands: []cli.Command{
-			SnapshotCreateCmd(),
-			SnapshotRevertCmd(),
+			//			SnapshotCreateCmd(),
+			//		SnapshotRevertCmd(),
 			SnapshotLsCmd(),
 			SnapshotRmCmd(),
 			SnapshotInfoCmd(),
 		},
 		Action: func(c *cli.Context) {
+			if !isValidSubCommand(c) {
+				logrus.Fatalf("Error running snapshot command, invalid sub command: %v, supported sub commands are: %v", c.Args(), listSubCommands())
+			}
 			if err := lsSnapshot(c); err != nil {
 				logrus.Fatalf("Error running snapshot command: %v", err)
 			}
@@ -127,13 +152,15 @@ func rmSnapshot(c *cli.Context) error {
 	var lastErr error
 	url := c.GlobalString("url")
 	task := sync.NewTask(url)
-
+	if len(c.Args()) < 1 {
+		return fmt.Errorf("snapshot name is empty")
+	}
 	for _, name := range c.Args() {
 		if err := task.DeleteSnapshot(name); err == nil {
-			fmt.Printf("deleted %s\n", name)
+			fmt.Printf("deleted snapshot: %s\n", name)
 		} else {
 			lastErr = err
-			fmt.Fprintf(os.Stderr, "Failed to delete %s: %v\n", name, err)
+			fmt.Fprintf(os.Stderr, "Failed to delete snapshot: %s, error: %v\n", name, err)
 		}
 	}
 
