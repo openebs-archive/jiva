@@ -1,5 +1,5 @@
 #!/bin/bash
-#set -x
+set -x
 PS4='${LINENO}: '
 CONTROLLER_IP="172.18.0.2"
 REPLICA_IP1="172.18.0.3"
@@ -1469,7 +1469,8 @@ create_auto_generated_snapshot() {
 
 create_manual_snapshot() {
 	snaplist_initial=`ls /tmp/vol1 | grep .img | grep -v meta | grep  -v head`
-	docker exec $orig_controller_id longhorn snapshot create $1
+	id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
+	create_snapshot $id $1 "Snapshot: $1 created successfully"
 	snaplist_final=`ls /tmp/vol1 | grep .img | grep -v meta | grep  -v head`
 	snaps[$snapIndx]=`echo ${snaplist_initial[@]} ${snaplist_final[@]} | tr ' ' '\n' | sort | uniq -u`
 	let snapIndx=snapIndx+1
@@ -1736,6 +1737,7 @@ test_duplicate_data_delete() {
 
 
 prepare_test_env
+test_duplicate_data_delete
 test_single_replica_stop_start
 test_restart_during_prepare_rebuild
 test_two_replica_stop_start
@@ -1744,7 +1746,6 @@ test_ctrl_stop_start
 test_replica_controller_continuous_stop_start
 test_restart_during_prepare_rebuild
 #test_bad_file_descriptor
-test_duplicate_data_delete
 test_preload
 test_replica_rpc_close
 test_controller_rpc_close
