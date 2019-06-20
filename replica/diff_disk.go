@@ -133,7 +133,7 @@ func (d *diffDisk) readModifyWrite(buf []byte, offset int64) (int, error) {
 }
 
 func (d *diffDisk) Sync() (int, error) {
-	target := byte(len(d.files) - 1)
+	target := len(d.files) - 1
 	fd := d.files[target].Fd()
 	err := syscall.Fsync(int(fd))
 	if err != nil {

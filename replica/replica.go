@@ -809,7 +809,12 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 		return fmt.Errorf("Can not create disk on read-only replica")
 	}
 
-	if len(r.activeDiskData)+1 > maximumChainLength {
+	maxChainLen := maximumChainLength
+	if types.MaxChainLength != 0 {
+		maxChainLen = types.MaxChainLength
+	}
+
+	if len(r.activeDiskData)+1 > maxChainLen {
 		return fmt.Errorf("Too many active disks: %v", len(r.activeDiskData)+1)
 	}
 
@@ -1182,8 +1187,11 @@ func (r *Replica) ListDisks() map[string]DiskInfo {
 func (r *Replica) GetRemainSnapshotCounts() int {
 	r.RLock()
 	defer r.RUnlock()
-
-	return maximumChainLength - len(r.activeDiskData)
+	maxChainLen := maximumChainLength
+	if types.MaxChainLength != 0 {
+		maxChainLen = types.MaxChainLength
+	}
+	return maxChainLen - len(r.activeDiskData)
 }
 
 func (r *Replica) GetCloneStatus() string {
