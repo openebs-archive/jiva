@@ -51,6 +51,7 @@ type HoleChannelOps int
 
 // DrainOps is flag used for various operations on HoleCreatorChan
 var DrainOps HoleChannelOps
+var MaxChainLength int
 
 var (
 	// ShouldPunchHoles is a flag used to verify if
