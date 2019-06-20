@@ -357,7 +357,7 @@ func (c *Controller) Snapshot(name string) (string, error) {
 	if remain, err := c.backend.RemainSnapshots(); err != nil {
 		return "", err
 	} else if remain <= 0 {
-		return "", fmt.Errorf("Too many snapshots created")
+		return "", fmt.Errorf("Too many snapshots created, remaining snapshots are: %v", remain)
 	}
 
 	replica, err := c.getRWReplica()
@@ -470,7 +470,7 @@ func (c *Controller) addReplicaNoLock(newBackend types.Backend, address string, 
 		if remain, err = c.backend.RemainSnapshots(); err != nil {
 			return err
 		} else if remain <= 0 {
-			return fmt.Errorf("Too many %v snapshots created", remain)
+			return fmt.Errorf("Too many snapshots created, remaining snapshots are: %v ", remain)
 		}
 
 		if err = c.backend.Snapshot(uuid, false, created); err != nil {
