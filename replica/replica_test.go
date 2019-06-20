@@ -646,6 +646,16 @@ func byteEquals(c *C, expected, obtained []byte) {
 	}
 }
 
+func byteEqualsLocation(c *C, expected, obtained []uint16) {
+	c.Assert(len(expected), Equals, len(obtained))
+
+	for i := range expected {
+		l := fmt.Sprintf("%d=%x", i, expected[i])
+		r := fmt.Sprintf("%d=%x", i, obtained[i])
+		c.Assert(r, Equals, l)
+	}
+}
+
 func md5Equals(c *C, expected, obtained []byte) {
 	c.Assert(len(expected), Equals, len(obtained))
 
@@ -741,7 +751,7 @@ func (s *TestSuite) TestSnapshotReadWrite(c *C) {
 	c.Logf("%v", r.volume.location)
 	c.Assert(err, IsNil)
 	byteEquals(c, readBuf, buf)
-	byteEquals(c, r.volume.location, []byte{3, 2, 1})
+	byteEqualsLocation(c, r.volume.location, []uint16{3, 2, 1})
 
 	r, err = r.Reload()
 	c.Assert(err, IsNil)
@@ -749,7 +759,7 @@ func (s *TestSuite) TestSnapshotReadWrite(c *C) {
 	_, err = r.ReadAt(readBuf, 0)
 	c.Assert(err, IsNil)
 	byteEquals(c, readBuf, buf)
-	byteEquals(c, r.volume.location, []byte{3, 2, 1})
+	byteEqualsLocation(c, r.volume.location, []uint16{3, 2, 1})
 }
 
 func (s *TestSuite) TestBackingFile(c *C) {
