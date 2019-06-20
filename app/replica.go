@@ -149,7 +149,7 @@ func startReplica(c *cli.Context) error {
 
 	types.MaxChainLength, _ = strconv.Atoi(os.Getenv("MAX_CHAIN_LENGTH"))
 	if types.MaxChainLength == 0 {
-		logrus.Infof("MAX_CHAIN_LENGTH env not set, default value is 250")
+		logrus.Infof("MAX_CHAIN_LENGTH env not set, default value is 512")
 	} else {
 		logrus.Infof("MAX_CHAIN_LENGTH: %v", types.MaxChainLength)
 	}
