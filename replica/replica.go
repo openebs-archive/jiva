@@ -33,7 +33,7 @@ const (
 	diskPrefix         = "volume-snap-"
 	diskSuffix         = ".img"
 	diskName           = diskPrefix + "%s" + diskSuffix
-	maximumChainLength = 300
+	maximumChainLength = 512
 )
 
 var (
@@ -208,7 +208,7 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 	if size%defaultSectorSize != 0 {
 		locationSize++
 	}
-	r.volume.location = make([]int, locationSize)
+	r.volume.location = make([]uint16, locationSize)
 	r.volume.files = []types.DiffDisk{nil}
 	r.volume.UserCreatedSnap = []bool{false}
 
@@ -329,7 +329,7 @@ func (r *Replica) Resize(obj interface{}) error {
 			return err
 		}
 	}
-	byteArray := make([]int, (sizeInBytes-r.info.Size)/4096)
+	byteArray := make([]uint16, (sizeInBytes-r.info.Size)/4096)
 	r.volume.location = append(r.volume.location, byteArray...)
 	r.info.Size = sizeInBytes
 	return r.encodeToFile(&r.info, volumeMetaData)

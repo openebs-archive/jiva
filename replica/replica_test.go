@@ -646,7 +646,7 @@ func byteEquals(c *C, expected, obtained []byte) {
 	}
 }
 
-func byteEqualsLocation(c *C, expected, obtained []int) {
+func byteEqualsLocation(c *C, expected, obtained []uint16) {
 	c.Assert(len(expected), Equals, len(obtained))
 
 	for i := range expected {
@@ -751,7 +751,7 @@ func (s *TestSuite) TestSnapshotReadWrite(c *C) {
 	c.Logf("%v", r.volume.location)
 	c.Assert(err, IsNil)
 	byteEquals(c, readBuf, buf)
-	byteEqualsLocation(c, r.volume.location, []int{3, 2, 1})
+	byteEqualsLocation(c, r.volume.location, []uint16{3, 2, 1})
 
 	r, err = r.Reload()
 	c.Assert(err, IsNil)
@@ -759,7 +759,7 @@ func (s *TestSuite) TestSnapshotReadWrite(c *C) {
 	_, err = r.ReadAt(readBuf, 0)
 	c.Assert(err, IsNil)
 	byteEquals(c, readBuf, buf)
-	byteEqualsLocation(c, r.volume.location, []int{3, 2, 1})
+	byteEqualsLocation(c, r.volume.location, []uint16{3, 2, 1})
 }
 
 func (s *TestSuite) TestBackingFile(c *C) {

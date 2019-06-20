@@ -145,7 +145,7 @@ func (rb *Backup) CompareSnapshot(id, compareID, volumeID string) (*backupstore.
 	}
 
 	for i, val := range rb.replica.volume.location {
-		if val <= from && val > to {
+		if val <= uint16(from) && val > uint16(to) {
 			offset := int64(i) * rb.replica.volume.sectorSize
 			// align
 			offset -= (offset % snapBlockSize)
@@ -270,12 +270,12 @@ func preload(d *diffDisk) error {
 	var file types.DiffDisk
 	var length int64
 	var lOffset int64
-	var fileIndx int
+	var fileIndx uint16
 	// userCreatedSnapIndx represents the index of the latest User Created
 	// snapshot traversed till this point. This value is used instead of
 	// d.SnapIndx because this will also aid in removing duplicate blocks
 	// in auto-created snapshots between 2 user created snapshots
-	var userCreatedSnapIndx int
+	var userCreatedSnapIndx uint16
 	for i, f := range d.files {
 		if i == 0 {
 			continue
@@ -287,7 +287,7 @@ func preload(d *diffDisk) error {
 			}
 		}
 		if d.UserCreatedSnap[i] {
-			userCreatedSnapIndx = i
+			userCreatedSnapIndx = uint16(i)
 		}
 		generator := newGenerator(d, f)
 		for offset := range generator.Generate() {
@@ -311,7 +311,7 @@ func preload(d *diffDisk) error {
 					length++
 				}
 			}
-			d.location[offset] = i
+			d.location[offset] = uint16(i)
 			d.UsedBlocks++
 		}
 		// This will take care of the case when the last call in the above loop
