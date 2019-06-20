@@ -19,7 +19,7 @@ type diffDisk struct {
 	rmLock sync.Mutex
 	// mapping of sector to index in the files array. a value of 0
 	// is special meaning we don't know the location yet.
-	location          []byte
+	location          []int
 	UsedLogicalBlocks int64
 	UsedBlocks        int64
 	// list of files in grandparent, parent, child order
@@ -63,7 +63,7 @@ func (d *diffDisk) RemoveIndex(index int) error {
 
 	//TODO Decide if d.location should be preloaded again over here
 	for i := 0; i < len(d.location); i++ {
-		if d.location[i] > byte(index) && d.location[i] != byte(1) {
+		if d.location[i] > index && d.location[i] != 1 {
 			d.location[i]--
 		}
 	}
@@ -165,13 +165,13 @@ func (d *diffDisk) fullWriteAt(buf []byte, offset int64) (int, error) {
 		length   int64
 		lOffset  int64
 		file     types.DiffDisk
-		fileIndx byte
+		fileIndx int
 	)
 	if int64(len(buf))%d.sectorSize != 0 || offset%d.sectorSize != 0 {
 		return 0, fmt.Errorf("Write len(%d), offset %d not a multiple of %d", len(buf), offset, d.sectorSize)
 	}
 
-	target := byte(len(d.files) - 1)
+	target := len(d.files) - 1
 	startSector := offset / d.sectorSize
 	sectors := int64(len(buf)) / d.sectorSize
 
@@ -314,17 +314,17 @@ func (d *diffDisk) fullReadAt(buf []byte, offset int64) (int, error) {
 	return count, nil
 }
 
-func (d *diffDisk) read(target byte, buf []byte, offset int64, startSector int64, sectors int64) (int, error) {
+func (d *diffDisk) read(target int, buf []byte, offset int64, startSector int64, sectors int64) (int, error) {
 	bufStart := startSector * d.sectorSize
 	bufEnd := sectors * d.sectorSize
 	newBuf := buf[bufStart : bufStart+bufEnd]
 	return d.files[target].ReadAt(newBuf, offset+bufStart)
 }
 
-func (d *diffDisk) lookup(sector int64) (byte, error) {
+func (d *diffDisk) lookup(sector int64) (int, error) {
 	if sector >= int64(len(d.location)) {
 		// We know the IO will result in EOF
-		return byte(len(d.files) - 1), nil
+		return len(d.files) - 1, nil
 	}
 
 	// small optimization
@@ -338,20 +338,20 @@ func (d *diffDisk) lookup(sector int64) (byte, error) {
 			if i == 1 {
 				// This is important that for index 1 we don't check Fiemap because it may be a base image file
 				// Also the result has to be 1
-				d.location[sector] = byte(i)
-				return byte(i), nil
+				d.location[sector] = i
+				return i, nil
 			}
 
 			e, err := fibmap.Fiemap(d.files[i].Fd(), uint64(sector*d.sectorSize), uint64(d.sectorSize), 1)
 			if err != 0 {
-				return byte(0), err
+				return 0, err
 			}
 			if len(e) > 0 {
-				d.location[sector] = byte(i)
-				return byte(i), nil
+				d.location[sector] = i
+				return i, nil
 			}
 		}
-		return byte(len(d.files) - 1), nil
+		return len(d.files) - 1, nil
 	}
 	return target, nil
 }

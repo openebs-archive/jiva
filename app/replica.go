@@ -7,9 +7,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/openebs/jiva/types"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
@@ -142,6 +145,13 @@ func startReplica(c *cli.Context) error {
 
 	if c.NArg() != 1 {
 		return errors.New("directory name is required")
+	}
+
+	types.MaxChainLength, _ = strconv.Atoi(os.Getenv("MAX_CHAIN_LENGTH"))
+	if types.MaxChainLength == 0 {
+		logrus.Infof("MAX_CHAIN_LENGTH env not set, default value is 250")
+	} else {
+		logrus.Infof("MAX_CHAIN_LENGTH: %v", types.MaxChainLength)
 	}
 
 	dir := c.Args()[0]

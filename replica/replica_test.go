@@ -636,7 +636,7 @@ func (s *TestSuite) TestPrepareRemove(c *C) {
 	c.Assert(r.activeDiskData[4].Removed, Equals, true)
 }
 
-func byteEquals(c *C, expected, obtained []byte) {
+func byteEquals(c *C, expected, obtained []int) {
 	c.Assert(len(expected), Equals, len(obtained))
 
 	for i := range expected {
@@ -741,7 +741,7 @@ func (s *TestSuite) TestSnapshotReadWrite(c *C) {
 	c.Logf("%v", r.volume.location)
 	c.Assert(err, IsNil)
 	byteEquals(c, readBuf, buf)
-	byteEquals(c, r.volume.location, []byte{3, 2, 1})
+	byteEquals(c, r.volume.location, []int{3, 2, 1})
 
 	r, err = r.Reload()
 	c.Assert(err, IsNil)
@@ -749,7 +749,7 @@ func (s *TestSuite) TestSnapshotReadWrite(c *C) {
 	_, err = r.ReadAt(readBuf, 0)
 	c.Assert(err, IsNil)
 	byteEquals(c, readBuf, buf)
-	byteEquals(c, r.volume.location, []byte{3, 2, 1})
+	byteEquals(c, r.volume.location, []int{3, 2, 1})
 }
 
 func (s *TestSuite) TestBackingFile(c *C) {
