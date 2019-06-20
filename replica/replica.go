@@ -33,7 +33,7 @@ const (
 	diskPrefix         = "volume-snap-"
 	diskSuffix         = ".img"
 	diskName           = diskPrefix + "%s" + diskSuffix
-	maximumChainLength = 250
+	maximumChainLength = 300
 )
 
 var (
