@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+#set -x
 PS4='${LINENO}: '
 CONTROLLER_IP="172.18.0.2"
 REPLICA_IP1="172.18.0.3"
@@ -1104,13 +1104,13 @@ test_data_integrity() {
 		mount /dev/$device_name /mnt/store
 
 		dd if=/dev/urandom of=file1 bs=4k count=10000
-        hash1=$(md5sum file1 | awk '{print $1}')
+                hash1=$(md5sum file1 | awk '{print $1}')
 		cp file1 /mnt/store
 		umount /mnt/store
 		logout_of_volume
-	    login_to_volume "$CONTROLLER_IP:3260"
-	    get_scsi_disk
-	    sleep 5
+	        login_to_volume "$CONTROLLER_IP:3260"
+	        get_scsi_disk
+	        sleep 5
 		mount /dev/$device_name /mnt/store
 
 		hash2=$(md5sum /mnt/store/file1 | awk '{print $1}')
@@ -1735,8 +1735,125 @@ test_duplicate_data_delete() {
 	cleanup
 }
 
+run_dd() {
+	dd if=/dev/urandom of=$1 bs=4k count=100000 seek=$2
+        sync
+        hash1=""
+        hash1=$(md5sum $1 | awk '{print $1}')
+        echo "$hash1"
+}
+
+copy_files_into_mnt_dir() {
+	echo "------------------Copy files into mnt dir------------------"
+	login_to_volume "$CONTROLLER_IP:3260"
+	sleep 5
+	get_scsi_disk
+	if [ "$device_name"!="" ]; then
+		mkfs.ext2 -F /dev/$device_name
+
+		mount /dev/$device_name /mnt/store
+
+		cp $1 /mnt/store
+                cp $2 /mnt/store
+
+		cd /mnt/store; sync; sleep 5; sync; sleep 5; cd ~;
+		blockdev --flushbufs /dev/$device_name
+		hdparm -F /dev/$device_name
+		umount /mnt/store
+		logout_of_volume
+		sleep 5
+	else
+		echo "Unable to detect iSCSI device, login failed"; collect_logs_and_exit
+	fi
+}
+
+delete_snapshots() {
+	echo "---------------------delete snapshots----------------------"
+        snaps=""
+        i=3
+        snaps=$(docker exec -it "$orig_controller_id" jivactl snapshot ls)
+        lines=$(echo "$snaps" | wc -w)
+        while [ "$i" -lt "$lines" ]
+        do
+                snaps=$(docker exec "$orig_controller_id" jivactl snapshot ls)
+                snap=$(echo $snaps | awk '{print $3}')
+                docker exec -it "$orig_controller_id" jivactl snapshot rm $snap
+                i=$((i + 1))
+        done
+}
+
+mount_and_verify_hash() {
+	echo "--------------------Mount and verify hash------------------"
+       	login_to_volume "$CONTROLLER_IP:3260"
+	sleep 5
+	get_scsi_disk
+	if [ "$device_name" != "" ]; then
+		mount /dev/$device_name /mnt/store
+		hash1=$(md5sum /mnt/store/$2 | awk '{print $1}')
+		hash2=$(md5sum /mnt/store/$4 | awk '{print $1}')
+		if [ "$1" == "$hash1" ] && [ "$3" == "$hash2" ]; then echo "DI Test: PASSED"
+		else
+			echo "Mount and verify hash Test: FAILED"; collect_logs_and_exit
+		fi
+		umount /mnt/store
+		logout_of_volume
+		sleep 5
+	else
+		echo "Unable to detect iSCSI device, login failed"; collect_logs_and_exit
+	fi
+}
+
+test_delete_snapshot() {
+	echo "--------------------Test_delete_snapshot------------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+
+        verify_replica_cnt "3" "Three replica count test"
+        device_name=""
+        file1="f1"
+        file2="f2"
+        hash_file1=""
+        hash_file2=""
+        hash_file1=$(run_dd "$file1" "0")
+        hash_file2=$(run_dd "$file2" "100000")
+	copy_files_into_mnt_dir "$file1" "$file2" &
+        sudo docker stop $replica3_id
+        sudo docker start $replica3_id
+
+        sleep 2
+        sudo docker stop $replica3_id
+        sudo docker start $replica3_id
+
+        sleep 2
+        sudo docker stop $replica3_id
+        sudo docker start $replica3_id
+
+        sleep 2
+        sudo docker stop $replica3_id
+        sudo docker start $replica3_id
+        wait
+
+        verify_replica_cnt "3" "Three replica count test"
+        verify_rw_rep_count "3"
+
+        delete_snapshots
+
+        mount_and_verify_hash "$hash_file1" "$file1" "$hash_file2" "$file2"
+
+        rm -vrf file*
+
+        cleanup
+
+	#Cleanup is not being performed here because this data will be used
+	#to test snapshot feature in the next test.
+	# value of hash1 will be used for clone.
+}
+
 
 prepare_test_env
+test_delete_snapshot
 test_duplicate_data_delete
 test_single_replica_stop_start
 test_restart_during_prepare_rebuild
