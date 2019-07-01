@@ -61,9 +61,9 @@ func (d *diffDisk) RemoveIndex(index int) error {
 		return err
 	}
 
-	//TODO Decide if d.location should be preloaded again over here
 	for i := 0; i < len(d.location); i++ {
-		if d.location[i] > uint16(index) && d.location[i] != uint16(1) {
+		if d.location[i] > uint16(index) {
+			// move index by one
 			d.location[i]--
 		}
 	}
