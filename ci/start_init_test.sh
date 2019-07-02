@@ -105,7 +105,7 @@ verify_replica_cnt() {
 	replica_cnt=""
 	while [ "$replica_cnt" != "$1" ]; do
 		date
-		replica_cnt=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
+		replica_cnt=`curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
 		i=`expr $i + 1`
 		if [ "$i" == 100 ]; then
 			echo $2 " -- failed"
@@ -141,7 +141,7 @@ verify_rw_status() {
 	i=0
 	rw_status=""
 	while [ "$rw_status" != "$1" ]; do
-		ro_status=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
+		ro_status=`curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
 		if [ "$ro_status" == "true" ]; then
 			rw_status="RO"
 		elif [ "$ro_status" == "false" ]; then
@@ -177,10 +177,10 @@ verify_rw_rep_count() {
 get_rw_rep_count() {
 	rep_index=0
 	rw_count=0
-	rep_cnt=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
+	rep_cnt=`curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
 	replica_cnt=`expr $rep_cnt`
 	while [ $rep_index -lt $replica_cnt ]; do
-		mode=`curl http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].mode' | tr -d '"'`
+		mode=`curl -s http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].mode' | tr -d '"'`
 		if [ "$mode" == "RW" ]; then
 			rw_count=`expr $rw_count + 1`
 		fi
@@ -252,7 +252,7 @@ verify_go_routine_leak() {
     passed=0
     req_cnt=0
     while [ "$i" != 30 ]; do
-            curl -m 5 http://$2:9503 &
+            curl -m 5 -s http://$2:9503 &
             i=`expr $i + 1`
             sleep 2
     done
@@ -273,7 +273,7 @@ verify_vol_status() {
 	rw_status=""
 	while [ "$rw_status" != "$1" ]; do
 		date
-		ro_status=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
+		ro_status=`curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
 		if [ "$ro_status" == "true" ]; then
 			rw_status="RO"
 		elif [ "$ro_status" == "false" ]; then
@@ -295,7 +295,7 @@ verify_replica_mode() {
         passed=0
 	while [ "$i" != 50 ]; do
 		date
-		rep_mode=`curl http://$3:9502/v1/replicas | jq '.data[0].replicamode' | tr -d '"'`
+		rep_mode=`curl -s http://$3:9502/v1/replicas | jq '.data[0].replicamode' | tr -d '"'`
 		if [ "$rep_mode" == "$4" ]; then
 			passed=`expr $passed + 1`
 		fi
@@ -325,16 +325,16 @@ verify_rep_state() {
 	rep_state=""
 	while [ "$i" != 50 ]; do
 		date
-		rep_cnt=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
+		rep_cnt=`curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
 		replica_cnt=`expr $rep_cnt`
 		passed=0
 		#if [ "$replica_cnt" == 0 ]; then
-			rep_state=`curl http://$3:9502/v1/replicas | jq '.data[0].state' | tr -d '"'`
+			rep_state=`curl -s http://$3:9502/v1/replicas | jq '.data[0].state' | tr -d '"'`
 			if [ "$rep_state" == "closed" ]; then
 				passed=`expr $passed + 1`
 			fi
 			if [ "$5" != "" ]; then
-				rep_state=`curl http://$5:9502/v1/replicas | jq '.data[0].state' | tr -d '"'`
+				rep_state=`curl -s http://$5:9502/v1/replicas | jq '.data[0].state' | tr -d '"'`
 				if [ "$rep_state" == "closed" ]; then
 					passed=`expr $passed + 1`
 				fi
@@ -342,8 +342,8 @@ verify_rep_state() {
 		#fi
 		rep_index=0
 		while [ $rep_index -lt $replica_cnt ]; do
-			address=`curl http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].address' | tr -d '"'`
-			mode=`curl http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].mode' | tr -d '"'`
+			address=`curl -s http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].address' | tr -d '"'`
+			mode=`curl -s http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].mode' | tr -d '"'`
 
 			if [ $address == "tcp://"$3":9502" ]; then
 				if [ "$mode" == "$4" ]; then
@@ -375,12 +375,12 @@ verify_controller_rep_state() {
 	rep_state=""
 	while [ "$i" != 50 ]; do
 		date
-		rep_cnt=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
+		rep_cnt=`curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
 		replica_cnt=`expr $rep_cnt`
 		rep_index=0
 		while [ $rep_index -lt $replica_cnt ]; do
-			address=`curl http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].address' | tr -d '"'`
-			mode=`curl http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].mode' | tr -d '"'`
+			address=`curl -s http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].address' | tr -d '"'`
+			mode=`curl -s http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].mode' | tr -d '"'`
 
 			if [ $address == "tcp://"$1":9502" ]; then
 				if [ "$mode" == "$2" ]; then
@@ -435,7 +435,7 @@ start_cloned_replica() {
 
 # get_replica_count CONTROLLER_IP
 get_replica_count() {
-	replicaCount=`curl http://"$1":9501/v1/volumes | jq '.data[0].replicaCount'`
+	replicaCount=`curl -s http://"$1":9501/v1/volumes | jq '.data[0].replicaCount'`
 	echo "$replicaCount"
 }
 
@@ -1214,7 +1214,7 @@ verify_clone_status() {
 	clonestatus=""
 	while [ "$clonestatus" != "$1" ]; do
 		sleep 5
-		clonestatus=`curl http://$CLONED_REPLICA_IP:9502/v1/replicas/1 | jq '.clonestatus' | tr -d '"'`
+		clonestatus=`curl -s http://$CLONED_REPLICA_IP:9502/v1/replicas/1 | jq '.clonestatus' | tr -d '"'`
 		i=`expr $i + 1`
 		if [ $i -eq 20 ]; then
 			echo "1"
@@ -1754,7 +1754,9 @@ copy_files_into_mnt_dir() {
 		mount /dev/$device_name /mnt/store
 
 		cp $1 /mnt/store
-                cp $2 /mnt/store
+                if [ "$2" != "" ]; then
+                        cp $2 /mnt/store
+                fi
 
 		cd /mnt/store; sync; sleep 5; sync; sleep 5; cd ~;
 		blockdev --flushbufs /dev/$device_name
@@ -1790,11 +1792,19 @@ mount_and_verify_hash() {
 	if [ "$device_name" != "" ]; then
 		mount /dev/$device_name /mnt/store
 		hash1=$(md5sum /mnt/store/$2 | awk '{print $1}')
-		hash2=$(md5sum /mnt/store/$4 | awk '{print $1}')
-		if [ "$1" == "$hash1" ] && [ "$3" == "$hash2" ]; then echo "DI Test: PASSED"
-		else
-			echo "Mount and verify hash Test: FAILED"; collect_logs_and_exit
-		fi
+                if [ "$3" != "" ] && [ "$4" != "" ]; then
+                        hash2=$(md5sum /mnt/store/$4 | awk '{print $1}')
+                        if [ "$1" == "$hash1" ] && [ "$3" == "$hash2" ]; then echo "DI Test: PASSED"
+                        else
+                                echo "Mount and verify hash Test: FAILED"; collect_logs_and_exit
+                        fi
+                else
+                        if [ "$1" == "$hash1" ]; then echo "DI Test: PASSED"
+                        else
+                                echo "Mount and verify hash Test: FAILED"; collect_logs_and_exit
+                        fi
+                fi
+
 		umount /mnt/store
 		logout_of_volume
 		sleep 5
@@ -1814,8 +1824,10 @@ test_delete_snapshot() {
         device_name=""
         file1="f1"
         file2="f2"
+        file3="f3"
         hash_file1=""
         hash_file2=""
+        hash_file3=""
         hash_file1=$(run_dd "$file1" "0")
         hash_file2=$(run_dd "$file2" "100000")
 	copy_files_into_mnt_dir "$file1" "$file2" &
@@ -1842,7 +1854,23 @@ test_delete_snapshot() {
 
         mount_and_verify_hash "$hash_file1" "$file1" "$hash_file2" "$file2"
 
-        rm -vrf file*
+        hash_file3=$(run_dd "$file3" "0")
+        copy_files_into_mnt_dir "$file3" &
+        sudo docker stop $replica3_id
+        sudo docker start $replica3_id
+
+        sleep 2
+        sudo docker stop $replica3_id
+        sudo docker start $replica3_id
+        wait
+
+        verify_replica_cnt "3" "Three replica count test"
+        verify_rw_rep_count "3"
+
+        delete_snapshots
+        mount_and_verify_hash "$hash_file3" "$file3"
+
+        rm -vrf "$file1" "$file2" "$file3"
 
         cleanup
 
