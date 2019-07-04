@@ -427,23 +427,27 @@ func (r *Replica) ReplaceDisk(target, source string) error {
 	}
 
 	if err := r.rmDisk(source); err != nil {
+		logrus.Fatalf("Failed to remove disk: %v, err: %v", source, err)
 		return err
 	}
 
 	// find the updated index of target
 	index := r.findDisk(target)
 	if index <= 0 {
+		logrus.Fatalf("Failed to find index of target: %v", target)
 		return nil
 	}
 
 	// Close the removed file
 	if err := r.volume.files[index].Close(); err != nil {
+		logrus.Fatalf("Failed to close old instance of target: %v, err: %v", target, err)
 		return err
 	}
 
 	// Open for R/W
 	newFile, err := r.openFile(r.activeDiskData[index].Name, 0)
 	if err != nil {
+		logrus.Fatalf("Failed to open new instance of target: %v, err: %v", target, err)
 		return err
 	}
 
@@ -477,15 +481,18 @@ func (r *Replica) removeDiskNode(name string) error {
 
 	r.updateChildDisk(name, child)
 	if err := r.updateParentDisk(child, name); err != nil {
+		logrus.Fatalf("Failed to update parent disk: %v with child: %v", name, child)
 		return err
 	}
 	delete(r.diskData, name)
 
 	index := r.findDisk(name)
 	if index <= 0 {
+		logrus.Fatalf("Failed to find disk: %v after updating parent", name)
 		return nil
 	}
 	if err := r.volume.RemoveIndex(index); err != nil {
+		logrus.Fatalf("Failed to remove index for disk: %v, err: %v", name, err)
 		return err
 	}
 
