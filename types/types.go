@@ -108,8 +108,9 @@ type Mode string
 type State string
 
 type Replica struct {
-	Address string `json:"Address"`
-	Mode    Mode   `json:"Mode"`
+	Address                string `json:"Address"`
+	Mode                   Mode   `json:"Mode"`
+	SnapDeletionInProgress bool   `json:"snapDeletionInProgress"`
 }
 
 type RegReplica struct {

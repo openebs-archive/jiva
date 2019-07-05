@@ -20,10 +20,12 @@ type DeleteReplicaOutput struct {
 	client.Resource
 	DeletedReplicas
 }
+
 type Replica struct {
 	client.Resource
-	Address string `json:"address"`
-	Mode    string `json:"mode"`
+	Address                string `json:"address"`
+	Mode                   string `json:"mode"`
+	SnapDeletionInProgress bool   `json:"snapDeletionInProgress"`
 }
 
 type Volume struct {
@@ -141,19 +143,21 @@ func NewVolume(context *api.ApiContext, name string, readOnly bool, replicas int
 		v.Actions["shutdown"] = context.UrlBuilder.ActionLink(v.Resource, "shutdown")
 		v.Actions["snapshot"] = context.UrlBuilder.ActionLink(v.Resource, "snapshot")
 		v.Actions["revert"] = context.UrlBuilder.ActionLink(v.Resource, "revert")
+		v.Actions["deleteSnapshot"] = context.UrlBuilder.ActionLink(v.Resource, "deleteSnapshot")
 	}
 	return v
 }
 
-func NewReplica(context *api.ApiContext, address string, mode types.Mode) *Replica {
+func NewReplica(context *api.ApiContext, rep types.Replica) *Replica {
 	r := &Replica{
 		Resource: client.Resource{
-			Id:      EncodeID(address),
+			Id:      EncodeID(rep.Address),
 			Type:    "replica",
 			Actions: map[string]string{},
 		},
-		Address: address,
-		Mode:    string(mode),
+		Address:                rep.Address,
+		Mode:                   string(rep.Mode),
+		SnapDeletionInProgress: rep.SnapDeletionInProgress,
 	}
 	r.Actions["preparerebuild"] = context.UrlBuilder.ActionLink(r.Resource, "preparerebuild")
 	r.Actions["verifyrebuild"] = context.UrlBuilder.ActionLink(r.Resource, "verifyrebuild")
@@ -179,8 +183,8 @@ func NewSchema() *client.Schemas {
 	schemas.AddType("apiVersion", client.Resource{})
 	schemas.AddType("schema", client.Schema{})
 	schemas.AddType("startInput", StartInput{})
-	schemas.AddType("snapshotOutput", SnapshotOutput{})
 	schemas.AddType("snapshotInput", SnapshotInput{})
+	schemas.AddType("snapshotOutput", SnapshotOutput{})
 	schemas.AddType("revertInput", RevertInput{})
 	schemas.AddType("journalInput", JournalInput{})
 	schemas.AddType("prepareRebuildOutput", PrepareRebuildOutput{})
@@ -224,7 +228,11 @@ func NewSchema() *client.Schemas {
 			Input:  "snapshotInput",
 			Output: "snapshotOutput",
 		},
+		"deleteSnapshot": {
+			Input: "snapshotInput",
+		},
 	}
+
 	deleteReplica := schemas.AddType("delete", DeleteReplicaOutput{})
 	deleteReplica.ResourceMethods = []string{"POST"}
 	timeout := schemas.AddType("timeout", Timeout{})
@@ -234,7 +242,8 @@ func NewSchema() *client.Schemas {
 }
 
 type Server struct {
-	c *controller.Controller
+	c                      *controller.Controller
+	snapDeletionInProgress bool
 }
 
 func NewServer(c *controller.Controller) *Server {

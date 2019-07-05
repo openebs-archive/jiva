@@ -30,54 +30,7 @@ func NewTask(controller string) *Task {
 }
 
 func (t *Task) DeleteSnapshot(snapshot string) error {
-	var err error
-
-	replicas, err := t.client.ListReplicas()
-	if err != nil {
-		return err
-	}
-
-	for _, r := range replicas {
-		if ok, err := t.isRebuilding(&r); err != nil {
-			return err
-		} else if ok {
-			return fmt.Errorf("Can not remove a snapshot because %s is rebuilding", r.Address)
-		}
-	}
-
-	ops := make(map[string][]replica.PrepareRemoveAction)
-	for _, replica := range replicas {
-		ops[replica.Address], err = t.prepareRemoveSnapshot(&replica, snapshot)
-		if err != nil {
-			return err
-		}
-	}
-
-	for _, replica := range replicas {
-		if err := t.processRemoveSnapshot(&replica, snapshot, ops[replica.Address]); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (t *Task) rmDisk(replicaInController *rest.Replica, disk string) error {
-	repClient, err := replicaClient.NewReplicaClient(replicaInController.Address)
-	if err != nil {
-		return err
-	}
-
-	return repClient.RemoveDisk(disk)
-}
-
-func (t *Task) replaceDisk(replicaInController *rest.Replica, target, source string) error {
-	repClient, err := replicaClient.NewReplicaClient(replicaInController.Address)
-	if err != nil {
-		return err
-	}
-
-	return repClient.ReplaceDisk(target, source)
+	return t.client.DeleteSnapshot(snapshot)
 }
 
 func getNameAndIndex(chain []string, snapshot string) (string, int) {
@@ -106,63 +59,6 @@ func (t *Task) isRebuilding(replicaInController *rest.Replica) (bool, error) {
 	}
 
 	return replica.Rebuilding, nil
-}
-
-func (t *Task) prepareRemoveSnapshot(replicaInController *rest.Replica, snapshot string) ([]replica.PrepareRemoveAction, error) {
-	if replicaInController.Mode != "RW" {
-		return nil, fmt.Errorf("Can only removed snapshot from replica in mode RW, got %s", replicaInController.Mode)
-	}
-
-	repClient, err := replicaClient.NewReplicaClient(replicaInController.Address)
-	if err != nil {
-		return nil, err
-	}
-
-	output, err := repClient.PrepareRemoveDisk(snapshot)
-	if err != nil {
-		return nil, err
-	}
-
-	return output.Operations, nil
-}
-
-func (t *Task) processRemoveSnapshot(replicaInController *rest.Replica, snapshot string, ops []replica.PrepareRemoveAction) error {
-	if len(ops) == 0 {
-		return nil
-	}
-
-	if replicaInController.Mode != "RW" {
-		return fmt.Errorf("Can only removed snapshot from replica in mode RW, got %s", replicaInController.Mode)
-	}
-
-	repClient, err := replicaClient.NewReplicaClient(replicaInController.Address)
-	if err != nil {
-		return err
-	}
-
-	for _, op := range ops {
-		switch op.Action {
-		case replica.OpRemove:
-			logrus.Infof("Removing %s on %s", op.Source, replicaInController.Address)
-			if err := t.rmDisk(replicaInController, op.Source); err != nil {
-				return err
-			}
-		case replica.OpCoalesce:
-			logrus.Infof("Coalescing %v to %v on %v", op.Target, op.Source, replicaInController.Address)
-			if err = repClient.Coalesce(op.Target, op.Source); err != nil {
-				logrus.Errorf("Failed to coalesce %s on %s: %v", snapshot, replicaInController.Address, err)
-				return err
-			}
-		case replica.OpReplace:
-			logrus.Infof("Replace %v with %v on %v", op.Target, op.Source, replicaInController.Address)
-			if err = t.replaceDisk(replicaInController, op.Target, op.Source); err != nil {
-				logrus.Errorf("Failed to replace %v with %v on %v", op.Target, op.Source, replicaInController.Address)
-				return err
-			}
-		}
-	}
-
-	return nil
 }
 
 func find(list []string, item string) int {
@@ -493,7 +389,7 @@ func (t *Task) syncFile(from, to string, fromClient *replicaClient.ReplicaClient
 func (t *Task) getTransferClients(address string) (*replicaClient.ReplicaClient, *replicaClient.ReplicaClient, error) {
 	from, err := t.getFromReplica()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("Failed to get source replica for rebuild, err: %v", err)
 	}
 	logrus.Infof("Using replica %s as the source for rebuild ", from.Address)
 
@@ -520,6 +416,17 @@ func (t *Task) getFromReplica() (rest.Replica, error) {
 	replicas, err := t.client.ListReplicas()
 	if err != nil {
 		return rest.Replica{}, err
+	}
+
+	// We will not start rebuilding if snapshot deletion
+	// is in progress. Since it is sequential, we don't know
+	// when it will be completed. Choosing any other replica
+	// will also is not fruitful because that may be scheduled
+	// next for snapshot deletion.
+	for _, r := range replicas {
+		if r.SnapDeletionInProgress {
+			return rest.Replica{}, fmt.Errorf("Snapshot deletion is in progress in %v", r.Address)
+		}
 	}
 
 	for _, r := range replicas {

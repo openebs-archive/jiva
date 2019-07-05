@@ -369,10 +369,10 @@ func (r *Replica) findDisk(name string) int {
 func (r *Replica) RemoveDiffDisk(name string) error {
 	r.Lock()
 	defer r.Unlock()
-	// Empty the data in HoleCreatorChan send for punching
-	// holes (fallocate), since it may be punching holes in
-	// the file that is going to be deleted.
-	r.holeDrainer()
+
+	if r.mode != types.RW {
+		return fmt.Errorf("Can not delete snapshot, replica mode: %v", r.mode)
+	}
 	if name == r.info.Head {
 		return fmt.Errorf("Can not delete the active differencing disk")
 	}
@@ -380,6 +380,11 @@ func (r *Replica) RemoveDiffDisk(name string) error {
 	if r.info.Parent == name {
 		return fmt.Errorf("Can't delete latest snapshot: %s", name)
 	}
+
+	// Empty the data in HoleCreatorChan send for punching
+	// holes (fallocate), since it may be punching holes in
+	// the file that is going to be deleted.
+	r.holeDrainer()
 
 	if err := r.removeDiskNode(name); err != nil {
 		return err
@@ -414,9 +419,18 @@ func (r *Replica) ReplaceDisk(target, source string) error {
 	r.Lock()
 	defer r.Unlock()
 
+	if r.mode != types.RW {
+		return fmt.Errorf("Can not delete snapshot, replica mode: %v", r.mode)
+	}
+
 	if target == r.info.Head {
 		return fmt.Errorf("Can not replace the active differencing disk")
 	}
+
+	// Empty the data in HoleCreatorChan send for punching
+	// holes (fallocate), since it may be punching holes in
+	// the file that is going to be deleted.
+	r.holeDrainer()
 
 	if err := r.hardlinkDisk(target, source); err != nil {
 		return err
@@ -630,7 +644,10 @@ func (r *Replica) DisplayChain() ([]string, error) {
 			}
 			return nil, fmt.Errorf("Failed to find metadata for %s in DisplayChain", cur)
 		}
+
+		//		if !disk.Removed {
 		result = append(result, cur)
+		//		}
 		cur = r.diskData[cur].Parent
 	}
 

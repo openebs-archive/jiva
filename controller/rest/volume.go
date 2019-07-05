@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
@@ -199,5 +200,46 @@ func (s *Server) getVolume(context *api.ApiContext, id string) *Volume {
 			return v
 		}
 	}
+	return nil
+}
+
+// DeleteSnapshot ...
+func (s *Server) DeleteSnapshot(rw http.ResponseWriter, req *http.Request) error {
+	s.c.Lock()
+	if s.snapDeletionInProgress {
+		s.c.Unlock()
+		return fmt.Errorf("A Snapshot is already being deleted")
+	}
+
+	apiContext := api.GetApiContext(req)
+	var input SnapshotInput
+	if err := apiContext.Read(&input); err != nil {
+		return err
+	}
+	s.snapDeletionInProgress = true
+	replicas := s.c.ListReplicas()
+	rf := s.c.ReplicationFactor
+	s.c.Unlock()
+	defer func() {
+		s.c.Lock()
+		s.snapDeletionInProgress = false
+		s.c.Unlock()
+	}()
+
+	logrus.Infof("Delete snapshot: %s", input.Name)
+	s.c.SnapshotName = input.Name
+	err := s.c.DeleteSnapshot(rf, replicas)
+	if err != nil {
+		return err
+	}
+
+	msg := fmt.Sprintf("Snapshot: %s deleted successfully", input.Name)
+	apiContext.Write(&SnapshotOutput{
+		client.Resource{
+			Id:   input.Name,
+			Type: "snapshotOutput",
+		},
+		msg,
+	})
 	return nil
 }

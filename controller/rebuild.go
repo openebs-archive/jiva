@@ -32,10 +32,17 @@ func (c *Controller) getCurrentAndRWReplica(address string) (*types.Replica, *ty
 	for i := range c.replicas {
 		if c.replicas[i].Address == address {
 			current = &c.replicas[i]
-		} else if c.replicas[i].Mode == types.RW {
-			rwReplica = &c.replicas[i]
+			break
 		}
 	}
+
+	for i := range c.replicas {
+		if c.replicas[i].Mode == types.RW && !c.replicas[i].SnapDeletionInProgress {
+			rwReplica = &c.replicas[i]
+			break
+		}
+	}
+
 	if current == nil {
 		return nil, nil, fmt.Errorf("Cannot find replica %v", address)
 	}
@@ -102,10 +109,6 @@ func (c *Controller) VerifyRebuildReplica(address string) error {
 	}
 	logrus.Debugf("WO replica %v's chain verified, update mode to RW", address)
 	c.setReplicaModeNoLock(address, types.RW)
-	if len(c.replicas) > c.replicaCount {
-		logrus.Errorf("prev: replicacount %d len(replica) %d", c.replicaCount, len(c.replicas))
-		c.replicaCount = len(c.replicas)
-	}
 	if len(c.quorumReplicas) > c.quorumReplicaCount {
 		c.quorumReplicaCount = len(c.quorumReplicas)
 	}
