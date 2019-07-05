@@ -433,8 +433,11 @@ func (r *Replica) ReplaceDisk(target, source string) error {
 
 	// find the updated index of target
 	index := r.findDisk(target)
+	// This case is valid if revert has happened
+	// For exp: H->S3->S2->S1->S0, and revert to S1
+	// so resulting chain will be NH->S1->S0 and after
+	// reload S3 will no longer will be in chain
 	if index <= 0 {
-		logrus.Fatalf("Failed to find index of target: %v", target)
 		return nil
 	}
 
@@ -487,8 +490,11 @@ func (r *Replica) removeDiskNode(name string) error {
 	delete(r.diskData, name)
 
 	index := r.findDisk(name)
+	// This case is valid if revert has happened
+	// For exp: H->S3->S2->S1->S0, and revert to S1
+	// so resulting chain will be NH->S1->S0 and after
+	// reload S3 will no longer will be in chain
 	if index <= 0 {
-		logrus.Fatalf("Failed to find disk: %v after updating parent", name)
 		return nil
 	}
 	if err := r.volume.RemoveIndex(index); err != nil {
