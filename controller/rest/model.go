@@ -119,6 +119,7 @@ type RegReplica struct {
 	UpTime   time.Duration `json:"UpTime"`
 }
 
+// NewVolume ...
 func NewVolume(context *api.ApiContext, name string, readOnly bool, replicas int) *Volume {
 	var ReadOnly string
 	if readOnly {
@@ -148,6 +149,7 @@ func NewVolume(context *api.ApiContext, name string, readOnly bool, replicas int
 	return v
 }
 
+// NewReplica ...
 func NewReplica(context *api.ApiContext, rep types.Replica) *Replica {
 	r := &Replica{
 		Resource: client.Resource{
