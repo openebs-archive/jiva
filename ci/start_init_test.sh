@@ -1830,7 +1830,8 @@ test_delete_snapshot() {
         hash_file3=""
         hash_file1=$(run_dd "$file1" "0")
         hash_file2=$(run_dd "$file2" "100000")
-	copy_files_into_mnt_dir "$file1" "$file2" &
+        copy_files_into_mnt_dir "$file1" "$file2" &
+        sleep 2
         sudo docker stop $replica3_id
         sudo docker start $replica3_id
 
@@ -1854,6 +1855,7 @@ test_delete_snapshot() {
 
         mount_and_verify_hash "$hash_file1" "$file1" "$hash_file2" "$file2"
 
+        # overwriting on the same blocks and verify data consistency
         hash_file3=$(run_dd "$file3" "0")
         copy_files_into_mnt_dir "$file3" &
         sudo docker stop $replica3_id
@@ -1869,14 +1871,9 @@ test_delete_snapshot() {
 
         delete_snapshots
         mount_and_verify_hash "$hash_file3" "$file3"
-
         rm -vrf "$file1" "$file2" "$file3"
 
         cleanup
-
-	#Cleanup is not being performed here because this data will be used
-	#to test snapshot feature in the next test.
-	# value of hash1 will be used for clone.
 }
 
 
