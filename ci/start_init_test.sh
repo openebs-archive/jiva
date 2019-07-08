@@ -164,7 +164,7 @@ verify_rw_rep_count() {
        while [ "$count" != "$1" ]; do
                count=`get_rw_rep_count`
                i=`expr $i + 1`
-               if [ "$i" == 50 ]; then
+               if [ "$i" == 100 ]; then
 		       echo "verify_rw_rep_count -- failed"
 		       collect_logs_and_exit
                fi
@@ -1769,6 +1769,30 @@ copy_files_into_mnt_dir() {
 	fi
 }
 
+verify_delete_snapshot_failure() {
+	echo "-------------Verify delete snapshots failure---------------"
+        declare -a errors=("Failed to coalesce" "Can not remove a snapshot because tcp://"$1":9502 is rebuilding" "A Snapshot is already being deleted" "Can not remove a snapshot because, RF: 3, replica count: 2")
+        i=""
+        cnt=0
+        snap=""
+        snap_ls="docker exec "$orig_controller_id" jivactl snapshot ls"
+        snap=$(eval $snap_ls | tail -1)
+        cmd="docker exec "$orig_controller_id" jivactl snapshot rm "$snap""
+        msg=$(eval $cmd 2>&1)
+        for i in "${errors[@]}"
+        do
+                if [[ "$msg" == *"$i"* ]]; then
+                        cnt=$((cnt + 1))
+                        echo "Verify delete snapshot failure" -- "passed"
+                        return
+                fi
+        done
+        if [ "$cnt" == "0" ]; then
+                echo "Verify delete snapshot failure" -- "failed"
+        fi
+
+}
+
 delete_snapshots() {
 	echo "---------------------delete snapshots----------------------"
         snaps=""
@@ -1813,6 +1837,44 @@ mount_and_verify_hash() {
 	fi
 }
 
+start_stop_replica() {
+	echo "----------------------Start stop replica---------------------"
+        i=0
+        while [ "$i" -lt "$1" ];
+        do
+                sleep 2
+                sudo docker stop $2
+                sudo docker start $2
+                i=$((i + 1))
+        done
+}
+
+verify_replica_restart_while_snap_deletion() {
+	echo "--------Verify replica restart while snap deletion--------"
+        copy_files_into_mnt_dir "$1" "$3" &
+        start_stop_replica "4" "$replica3_id"
+        verify_replica_cnt "3" "Three replica count test"
+        wait
+        sleep 1
+        start_stop_replica "1" "$replica3_id" &
+        sleep 1
+        verify_delete_snapshot_failure "$REPLICA_IP3"
+        verify_replica_cnt "3" "Three replica count test"
+        wait
+
+        sudo docker stop "$replica3_id"
+        verify_delete_snapshot_failure "$REPLICA_IP3"
+        sleep 2
+        sudo docker start "$replica3_id"
+
+        verify_replica_cnt "3" "Three replica count test"
+        verify_rw_rep_count "3"
+        verify_delete_snapshot_failure "$REPLICA_IP3" &
+        sleep 2
+        sudo docker stop "$replica3_id"
+        wait
+}
+
 test_delete_snapshot() {
 	echo "--------------------Test_delete_snapshot------------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
@@ -1831,21 +1893,8 @@ test_delete_snapshot() {
         hash_file1=$(run_dd "$file1" "0")
         hash_file2=$(run_dd "$file2" "100000")
         copy_files_into_mnt_dir "$file1" "$file2" &
-        sleep 2
-        sudo docker stop $replica3_id
-        sudo docker start $replica3_id
 
-        sleep 2
-        sudo docker stop $replica3_id
-        sudo docker start $replica3_id
-
-        sleep 2
-        sudo docker stop $replica3_id
-        sudo docker start $replica3_id
-
-        sleep 2
-        sudo docker stop $replica3_id
-        sudo docker start $replica3_id
+        start_stop_replica "4" "$replica3_id"
         wait
 
         verify_replica_cnt "3" "Three replica count test"
@@ -1858,12 +1907,8 @@ test_delete_snapshot() {
         # overwriting on the same blocks and verify data consistency
         hash_file3=$(run_dd "$file3" "0")
         copy_files_into_mnt_dir "$file3" &
-        sudo docker stop $replica3_id
-        sudo docker start $replica3_id
 
-        sleep 2
-        sudo docker stop $replica3_id
-        sudo docker start $replica3_id
+        start_stop_replica "2" "$replica3_id"
         wait
 
         verify_replica_cnt "3" "Three replica count test"
@@ -1871,6 +1916,8 @@ test_delete_snapshot() {
 
         delete_snapshots
         mount_and_verify_hash "$hash_file3" "$file3"
+        verify_replica_restart_while_snap_deletion "$file2" "$hash_file2" "$file3" "$hash_file3"
+
         rm -vrf "$file1" "$file2" "$file3"
 
         cleanup
