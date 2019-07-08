@@ -55,8 +55,8 @@ type Replica struct {
 	// diskChildrenMap is mapping of disks with the respective
 	// childrens if exists.
 	diskChildrenMap map[string]map[string]bool
-	// list of active snapshots with last index as head file
-	// and len(activeDiskData) - 1 as latest snapshot.
+	// list of active snapshots and head at the last index
+	// len(activeDiskData) - 2 as latest snapshot.
 	activeDiskData []*disk
 	readOnly       bool
 	mode           types.Mode
@@ -406,6 +406,10 @@ func (r *Replica) hardlinkDisk(target, source string) error {
 	return nil
 }
 
+// ReplaceDisk replace the source with target snapshot
+// and remove and close both source and target and open
+// new instance of file for R/W and update the file index
+// with new reference.
 func (r *Replica) ReplaceDisk(target, source string) error {
 	r.Lock()
 	defer r.Unlock()
@@ -423,9 +427,35 @@ func (r *Replica) ReplaceDisk(target, source string) error {
 	}
 
 	if err := r.rmDisk(source); err != nil {
+		logrus.Fatalf("Failed to remove disk: %v, err: %v", source, err)
 		return err
 	}
 
+	// find the updated index of target
+	index := r.findDisk(target)
+	// This case is valid if revert has happened
+	// For exp: H->S3->S2->S1->S0, and revert to S1
+	// so resulting chain will be NH->S1->S0 and after
+	// reload S3 will no longer will be in chain
+	if index <= 0 {
+		return nil
+	}
+
+	// Close the removed file
+	if err := r.volume.files[index].Close(); err != nil {
+		logrus.Fatalf("Failed to close old instance of target: %v, err: %v", target, err)
+		return err
+	}
+
+	// Open for R/W
+	newFile, err := r.openFile(r.activeDiskData[index].Name, 0)
+	if err != nil {
+		logrus.Fatalf("Failed to open new instance of target: %v, err: %v", target, err)
+		return err
+	}
+
+	// update index with the newFile
+	r.volume.files[index] = newFile
 	logrus.Infof("Done replacing %v with %v", target, source)
 
 	return nil
@@ -454,22 +484,29 @@ func (r *Replica) removeDiskNode(name string) error {
 
 	r.updateChildDisk(name, child)
 	if err := r.updateParentDisk(child, name); err != nil {
+		logrus.Fatalf("Failed to update parent disk: %v with child: %v", name, child)
 		return err
 	}
 	delete(r.diskData, name)
 
 	index := r.findDisk(name)
+	// This case is valid if revert has happened
+	// For exp: H->S3->S2->S1->S0, and revert to S1
+	// so resulting chain will be NH->S1->S0 and after
+	// reload S3 will no longer will be in chain
 	if index <= 0 {
 		return nil
 	}
 	if err := r.volume.RemoveIndex(index); err != nil {
+		logrus.Fatalf("Failed to remove index for disk: %v, err: %v", name, err)
 		return err
 	}
+
 	if len(r.activeDiskData)-2 == index {
 		r.info.Parent = r.diskData[r.info.Head].Parent
 	}
-	r.activeDiskData = append(r.activeDiskData[:index], r.activeDiskData[index+1:]...)
 
+	r.activeDiskData = append(r.activeDiskData[:index], r.activeDiskData[index+1:]...)
 	return nil
 }
 
