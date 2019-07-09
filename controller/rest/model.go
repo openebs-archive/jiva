@@ -23,9 +23,8 @@ type DeleteReplicaOutput struct {
 
 type Replica struct {
 	client.Resource
-	Address                string `json:"address"`
-	Mode                   string `json:"mode"`
-	SnapDeletionInProgress bool   `json:"snapDeletionInProgress"`
+	Address string `json:"address"`
+	Mode    string `json:"mode"`
 }
 
 type Volume struct {
@@ -157,9 +156,8 @@ func NewReplica(context *api.ApiContext, rep types.Replica) *Replica {
 			Type:    "replica",
 			Actions: map[string]string{},
 		},
-		Address:                rep.Address,
-		Mode:                   string(rep.Mode),
-		SnapDeletionInProgress: rep.SnapDeletionInProgress,
+		Address: rep.Address,
+		Mode:    string(rep.Mode),
 	}
 	r.Actions["preparerebuild"] = context.UrlBuilder.ActionLink(r.Resource, "preparerebuild")
 	r.Actions["verifyrebuild"] = context.UrlBuilder.ActionLink(r.Resource, "verifyrebuild")
@@ -244,8 +242,7 @@ func NewSchema() *client.Schemas {
 }
 
 type Server struct {
-	c                      *controller.Controller
-	snapDeletionInProgress bool
+	c *controller.Controller
 }
 
 func NewServer(c *controller.Controller) *Server {

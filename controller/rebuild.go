@@ -37,7 +37,7 @@ func (c *Controller) getCurrentAndRWReplica(address string) (*types.Replica, *ty
 	}
 
 	for i := range c.replicas {
-		if c.replicas[i].Mode == types.RW && !c.replicas[i].SnapDeletionInProgress {
+		if c.replicas[i].Mode == types.RW {
 			rwReplica = &c.replicas[i]
 			break
 		}

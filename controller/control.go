@@ -35,6 +35,7 @@ type Controller struct {
 	StartSignalled           bool
 	ReadOnly                 bool
 	SnapshotName             string
+	IsSnapDeletionInProgress bool
 }
 
 func max(x int, y int) int {
@@ -127,6 +128,11 @@ func (c *Controller) canAdd(address string) (bool, error) {
 		logrus.Warningf("can have only one WO replica at a time, found WO replica: %s", woReplica)
 		return false, fmt.Errorf("can only have one WO replica at a time, found WO Replica: %s",
 			woReplica)
+	}
+
+	if c.IsSnapDeletionInProgress {
+		logrus.Warningf("snapshot deletion is in progress")
+		return false, fmt.Errorf("snapshot deletion is in progress")
 	}
 	return true, nil
 }
@@ -601,18 +607,6 @@ func (c *Controller) ListReplicas() []types.Replica {
 	return c.replicas
 }
 
-// SetSnapDeletionStatus ...
-func (c *Controller) SetSnapDeletionStatus(inProgress bool, addr string) {
-	c.Lock()
-	for i, rep := range c.replicas {
-		address := rep.Address
-		if addr == address {
-			c.replicas[i].SnapDeletionInProgress = inProgress
-		}
-	}
-	c.Unlock()
-}
-
 func (c *Controller) ListQuorumReplicas() []types.Replica {
 	c.Lock()
 	defer c.Unlock()
@@ -1079,21 +1073,27 @@ func (c *Controller) monitoring(address string, backend types.Backend) {
 	_ = c.RemoveReplicaNoLock(address)
 }
 
+func (c *Controller) IsReplicaRW(replicaInController *types.Replica) error {
+	repClient, err := replicaClient.NewReplicaClient(replicaInController.Address)
+	if err != nil {
+		return err
+	}
+
+	replica, err := repClient.GetReplica()
+	if err != nil {
+		return err
+	}
+
+	if replica.ReplicaMode != "RW" {
+		return fmt.Errorf("Replica %s mode is %s", replicaInController.Address, replica.ReplicaMode)
+	}
+
+	return nil
+}
+
 // DeleteSnapshot ...
 func (c *Controller) DeleteSnapshot(rf int, replicas []types.Replica) error {
 	var err error
-	if rf != len(replicas) {
-		return fmt.Errorf("Can not remove a snapshot because, RF: %v, replica count: %v", c.ReplicationFactor, len(replicas))
-	}
-
-	for _, rep := range replicas {
-		r := rep // pin it
-		if ok, err := c.isRebuilding(&r); err != nil {
-			return err
-		} else if ok {
-			return fmt.Errorf("Can not remove a snapshot because %s is rebuilding", r.Address)
-		}
-	}
 
 	ops := make(map[string][]replica.PrepareRemoveAction)
 	for _, r := range replicas {
@@ -1106,16 +1106,12 @@ func (c *Controller) DeleteSnapshot(rf int, replicas []types.Replica) error {
 
 	for _, rep := range replicas {
 		replica := rep // pin it
-		c.SetSnapDeletionStatus(true, replica.Address)
 		if err := c.processRemoveSnapshot(&replica, c.SnapshotName, ops[replica.Address]); err != nil {
-			c.SetSnapDeletionStatus(false, replica.Address)
 			return err
 		}
-		c.SetSnapDeletionStatus(false, replica.Address)
 	}
 
 	return nil
-
 }
 
 func (c *Controller) rmDisk(replicaInController *types.Replica, disk string) error {
@@ -1136,25 +1132,7 @@ func (c *Controller) replaceDisk(replicaInController *types.Replica, target, sou
 	return repClient.ReplaceDisk(target, source)
 }
 
-func (c *Controller) isRebuilding(replicaInController *types.Replica) (bool, error) {
-	repClient, err := replicaClient.NewReplicaClient(replicaInController.Address)
-	if err != nil {
-		return false, err
-	}
-
-	replica, err := repClient.GetReplica()
-	if err != nil {
-		return false, err
-	}
-
-	return replica.Rebuilding, nil
-}
-
 func (c *Controller) prepareRemoveSnapshot(replicaInController *types.Replica, snapshot string) ([]replica.PrepareRemoveAction, error) {
-	if replicaInController.Mode != "RW" {
-		return nil, fmt.Errorf("Can only removed snapshot from replica in mode RW, got %s", replicaInController.Mode)
-	}
-
 	repClient, err := replicaClient.NewReplicaClient(replicaInController.Address)
 	if err != nil {
 		return nil, err
@@ -1171,10 +1149,6 @@ func (c *Controller) prepareRemoveSnapshot(replicaInController *types.Replica, s
 func (c *Controller) processRemoveSnapshot(replicaInController *types.Replica, snapshot string, ops []replica.PrepareRemoveAction) error {
 	if len(ops) == 0 {
 		return nil
-	}
-
-	if replicaInController.Mode != "RW" {
-		return fmt.Errorf("Can only remove snapshot from replica in mode RW, got %s in %s", replicaInController.Mode, replicaInController.Address)
 	}
 
 	repClient, err := replicaClient.NewReplicaClient(replicaInController.Address)

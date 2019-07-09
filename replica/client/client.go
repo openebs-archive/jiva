@@ -150,6 +150,9 @@ func (c *ReplicaClient) RemoveDisk(disk string) error {
 		logrus.Errorf("getReplica in removeDisk failed")
 		return err
 	}
+	if r.ReplicaMode != "RW" {
+		return fmt.Errorf("Replica %s mode is %s", c.address, r.ReplicaMode)
+	}
 
 	return c.post(r.Actions["removedisk"], &rest.RemoveDiskInput{
 		Name: disk,
@@ -160,6 +163,9 @@ func (c *ReplicaClient) ReplaceDisk(target, source string) error {
 	r, err := c.GetReplica()
 	if err != nil {
 		return err
+	}
+	if r.ReplicaMode != "RW" {
+		return fmt.Errorf("Replica %s mode is %s", c.address, r.ReplicaMode)
 	}
 
 	return c.post(r.Actions["replacedisk"], &rest.ReplaceDiskInput{
@@ -175,6 +181,9 @@ func (c *ReplicaClient) PrepareRemoveDisk(disk string) (rest.PrepareRemoveDiskOu
 		return output, err
 	}
 
+	if r.ReplicaMode != "RW" {
+		return output, fmt.Errorf("Replica %s mode is %s", c.address, r.ReplicaMode)
+	}
 	err = c.post(r.Actions["prepareremovedisk"], &rest.PrepareRemoveDiskInput{
 		Name: disk,
 	}, &output)

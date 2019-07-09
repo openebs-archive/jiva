@@ -534,6 +534,10 @@ func (r *Replica) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) 
 	r.Lock()
 	defer r.Unlock()
 
+	if r.mode != types.RW {
+		return nil, fmt.Errorf("Can not prepare remove disk, replica mode: %v", r.mode)
+	}
+
 	disk := name
 
 	data, exists := r.diskData[disk]

@@ -418,17 +418,6 @@ func (t *Task) getFromReplica() (rest.Replica, error) {
 		return rest.Replica{}, err
 	}
 
-	// We will not start rebuilding if snapshot deletion
-	// is in progress. Since it is sequential, we don't know
-	// when it will be completed. Choosing any other replica
-	// will also is not fruitful because that may be scheduled
-	// next for snapshot deletion.
-	for _, r := range replicas {
-		if r.SnapDeletionInProgress {
-			return rest.Replica{}, fmt.Errorf("Snapshot deletion is in progress in %v", r.Address)
-		}
-	}
-
 	for _, r := range replicas {
 		if r.Mode == "RW" {
 			return r, nil
