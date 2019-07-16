@@ -104,7 +104,6 @@ verify_replica_cnt() {
 	i=0
 	replica_cnt=""
 	while [ "$replica_cnt" != "$1" ]; do
-		date
 		replica_cnt=`curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
 		i=`expr $i + 1`
 		if [ "$i" == 100 ]; then
@@ -164,13 +163,13 @@ verify_rw_rep_count() {
        while [ "$count" != "$1" ]; do
                count=`get_rw_rep_count`
                i=`expr $i + 1`
-               if [ "$i" == 50 ]; then
+               if [ "$i" == 100 ]; then
 		       echo "verify_rw_rep_count -- failed"
 		       collect_logs_and_exit
                fi
                sleep 2
        done
-       echo "0"
+       echo "Verify RW Replica status test -- passed"
 }
 
 #returns number of replicas connected to controller in RW mode
@@ -247,7 +246,6 @@ verify_controller_quorum() {
 verify_go_routine_leak() {
     echo "---------------------Verify goroutine leak-------------------------"
     i=0
-    date
     no_of_goroutine=`curl http://$2:9502/debug/pprof/goroutine?debug=1 | grep goroutine | awk '{ print $4}'`
     passed=0
     req_cnt=0
@@ -272,7 +270,6 @@ verify_vol_status() {
 	i=0
 	rw_status=""
 	while [ "$rw_status" != "$1" ]; do
-		date
 		ro_status=`curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
 		if [ "$ro_status" == "true" ]; then
 			rw_status="RO"
@@ -957,19 +954,13 @@ test_ctrl_stop_start() {
        replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
        replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
 
-       if [ $(verify_rw_rep_count "3") != 0 ]; then
-               echo "test_ctrl_stop_start() Verify_rw_rep_count failed"
-               collect_logs_and_exit
-       fi
+       verify_rw_rep_count "3"
 
        docker stop $orig_controller_id
        docker start $orig_controller_id
 
-       if [ $(verify_rw_rep_count "3") != 0 ]; then
-               echo "test_ctrl_stop_start() Verify_rw_rep_count failed"
-               collect_logs_and_exit
-       fi
-
+       verify_rw_rep_count "3"
+       echo "Test Controller stop/start test --passed"
        cleanup
 }
 
@@ -1342,9 +1333,7 @@ test_upgrade() {
 }
 
 test_upgrades() {
-       test_upgrade "openebs/jiva:0.8.0" "controller-replica"
-       test_upgrade "openebs/jiva:0.8.2" "controller-replica"
-       test_upgrade "openebs/jiva:0.9.0" "replica-controller"
+       test_upgrade "openebs/jiva:1.0.0" "replica-controller"
 }
 
 di_test_on_raw_disk() {
@@ -1735,6 +1724,8 @@ test_duplicate_data_delete() {
 	cleanup
 }
 
+# run_dd run io's on the block device in $1 file and skip $2 no of
+# blocks in $1 file.
 run_dd() {
 	dd if=/dev/urandom of=$1 bs=4k count=100000 seek=$2
         sync
@@ -1743,6 +1734,9 @@ run_dd() {
         echo "$hash1"
 }
 
+
+# copy_files_into_mnt_dir login to iscsi target and discovers block device
+# format it and copy's $1 and $2 files
 copy_files_into_mnt_dir() {
 	echo "------------------Copy files into mnt dir------------------"
 	login_to_volume "$CONTROLLER_IP:3260"
@@ -1769,10 +1763,49 @@ copy_files_into_mnt_dir() {
 	fi
 }
 
+verify_delete_snapshot_failure() {
+	echo "-------------Verify delete snapshots failure---------------"
+        declare -a errors=("Failed to coalesce" "Replica tcp://"$1":9502 mode is" "Snapshot deletion process is in progress" "Can not remove a snapshot because, RF: 3, replica count: 2" "Client.Timeout exceeded while awaiting headers")
+        local i=""
+        local cnt=0
+        local snap=""
+        local msg=""
+        local snap_ls="docker exec "$orig_controller_id" jivactl snapshot ls"
+        snap=$(eval $snap_ls | tail -1)
+        cmd="docker exec "$orig_controller_id" jivactl snapshot rm "$snap""
+        msg=$(eval $cmd 2>&1)
+        echo "$msg"
+        for i in "${errors[@]}"
+        do
+                # match the substring with the given array of strings
+                if [[ "$msg" == *"$i"* ]]; then
+                        cnt=$((cnt + 1))
+                        echo "Verify delete snapshot failure -- passed"
+                        return
+                fi
+        done
+        if [ "$cnt" == "0" ] && [ "$2" == "true" ]; then
+                if [[ "$msg" == *"deleted snapshot"* ]]; then
+                        echo "Verify delete snapshot failure -- passed"
+                        return
+                else
+                        echo "Verify delete snapshot failure -- failed"
+                        collect_logs_and_exit
+                        return
+                fi
+        elif [ "$cnt" == "0" ]; then
+                echo "Verify delete snapshot failure -- failed"
+                collect_logs_and_exit
+        fi
+
+}
+
+# delete_snapshot delete all the snapshot except for Head and latest snapshot.
 delete_snapshots() {
 	echo "---------------------delete snapshots----------------------"
-        snaps=""
-        i=3
+        local snaps=""
+        local i=3
+        local lines=""
         snaps=$(docker exec -it "$orig_controller_id" jivactl snapshot ls)
         lines=$(echo "$snaps" | wc -w)
         while [ "$i" -lt "$lines" ]
@@ -1784,6 +1817,9 @@ delete_snapshots() {
         done
 }
 
+# mount_and_verify_hash does login to iscsi target and mount the block
+# device to /mnt/store dir and verifies checksum ($1, $3) of file $2
+# and $4 respectively.
 mount_and_verify_hash() {
 	echo "--------------------Mount and verify hash------------------"
        	login_to_volume "$CONTROLLER_IP:3260"
@@ -1813,6 +1849,59 @@ mount_and_verify_hash() {
 	fi
 }
 
+# start_stop_replica start and stop replica $2 for $1 no of times
+start_stop_replica() {
+	echo "----------------------Start stop replica---------------------"
+        i=0
+        while [ "$i" -lt "$1" ];
+        do
+                sleep 2
+                sudo docker stop $2
+                sudo docker start $2
+                i=$((i + 1))
+        done
+}
+
+# verify if snapshot deletion has been failed while replica restarts
+# and other cases. $1 and $2 are the files that to be
+verify_replica_restart_while_snap_deletion() {
+	echo "--------Verify replica restart while snap deletion--------"
+        copy_files_into_mnt_dir "$1" "$2" &
+        sleep 5
+        start_stop_replica "4" "$3"
+        verify_replica_cnt "3" "Three replica count test"
+        sudo docker stop "$3"
+        wait
+        # case 1: Rebuild in progress
+        sudo docker start "$3"
+        sleep 5
+        verify_delete_snapshot_failure "$4" "false"
+        verify_rw_rep_count "3"
+
+        # case 2: Replication factor is not met
+        sudo docker stop "$3"
+        verify_delete_snapshot_failure "$4" "false"
+
+        # case 3: Coalesce failed or client timeout exceeded
+        sleep 2
+        sudo docker start "$3"
+        verify_replica_cnt "3" "Three replica count test"
+        verify_rw_rep_count "3"
+        verify_delete_snapshot_failure "$4" & "false"
+        sleep 2
+        sudo docker stop "$3"
+        wait
+
+        # case 4: Already a snapshot being deleted
+        sudo docker start "$3"
+        verify_replica_cnt "3" "Three replica count test"
+        verify_rw_rep_count "3"
+        verify_delete_snapshot_failure "$4" "true" &
+        sleep 0.5
+        verify_delete_snapshot_failure "$4" "false"
+        wait
+}
+
 test_delete_snapshot() {
 	echo "--------------------Test_delete_snapshot------------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
@@ -1831,21 +1920,11 @@ test_delete_snapshot() {
         hash_file1=$(run_dd "$file1" "0")
         hash_file2=$(run_dd "$file2" "100000")
         copy_files_into_mnt_dir "$file1" "$file2" &
-        sleep 2
-        sudo docker stop $replica3_id
-        sudo docker start $replica3_id
 
-        sleep 2
-        sudo docker stop $replica3_id
-        sudo docker start $replica3_id
-
-        sleep 2
-        sudo docker stop $replica3_id
-        sudo docker start $replica3_id
-
-        sleep 2
-        sudo docker stop $replica3_id
-        sudo docker start $replica3_id
+        # start stop replica such that data is written across various
+        # snapshots
+        sleep 1
+        start_stop_replica "4" "$replica3_id"
         wait
 
         verify_replica_cnt "3" "Three replica count test"
@@ -1858,12 +1937,8 @@ test_delete_snapshot() {
         # overwriting on the same blocks and verify data consistency
         hash_file3=$(run_dd "$file3" "0")
         copy_files_into_mnt_dir "$file3" &
-        sudo docker stop $replica3_id
-        sudo docker start $replica3_id
 
-        sleep 2
-        sudo docker stop $replica3_id
-        sudo docker start $replica3_id
+        start_stop_replica "2" "$replica3_id"
         wait
 
         verify_replica_cnt "3" "Three replica count test"
@@ -1871,14 +1946,25 @@ test_delete_snapshot() {
 
         delete_snapshots
         mount_and_verify_hash "$hash_file3" "$file3"
-        rm -vrf "$file1" "$file2" "$file3"
-
         cleanup
 }
 
+test_replica_restart_while_snap_deletion() {
+        echo "------------Test replica restart while snap deletion---------------"
+        orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+        replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+        replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+        replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+
+        verify_replica_cnt "3" "Three replica count test"
+        verify_replica_restart_while_snap_deletion "f1" "f2" "$replica3_id" "$REPLICA_IP3"
+        rm -vrf "f1" "f2" "f3"
+        cleanup
+}
 
 prepare_test_env
 test_delete_snapshot
+test_replica_restart_while_snap_deletion
 test_duplicate_data_delete
 test_single_replica_stop_start
 test_restart_during_prepare_rebuild
@@ -1891,7 +1977,6 @@ test_restart_during_prepare_rebuild
 test_preload
 test_replica_rpc_close
 test_controller_rpc_close
-test_single_replica_stop_start
 test_replication_factor
 #test_two_replica_delete
 test_replica_ip_change

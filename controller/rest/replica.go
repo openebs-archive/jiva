@@ -53,7 +53,7 @@ func (s *Server) ListReplicas(rw http.ResponseWriter, req *http.Request) error {
 	resp := client.GenericCollection{}
 	s.c.Lock()
 	for _, r := range s.c.ListReplicas() {
-		resp.Data = append(resp.Data, NewReplica(apiContext, r.Address, r.Mode))
+		resp.Data = append(resp.Data, NewReplica(apiContext, r))
 	}
 	s.c.Unlock()
 
@@ -185,7 +185,7 @@ func (s *Server) getReplica(context *api.ApiContext, id string) *Replica {
 	defer s.c.Unlock()
 	for _, r := range s.c.ListReplicas() {
 		if r.Address == id {
-			return NewReplica(context, r.Address, r.Mode)
+			return NewReplica(context, r)
 		}
 	}
 	return nil
@@ -196,7 +196,7 @@ func (s *Server) getQuorumReplica(context *api.ApiContext, id string) *Replica {
 	defer s.c.Unlock()
 	for _, r := range s.c.ListQuorumReplicas() {
 		if r.Address == id {
-			return NewReplica(context, r.Address, r.Mode)
+			return NewReplica(context, r)
 		}
 	}
 	return nil
