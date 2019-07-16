@@ -214,6 +214,7 @@ func (s *Server) DeleteSnapshot(rw http.ResponseWriter, req *http.Request) error
 	apiContext := api.GetApiContext(req)
 	var input SnapshotInput
 	if err := apiContext.Read(&input); err != nil {
+		s.c.Unlock()
 		return err
 	}
 	replicas := s.c.ListReplicas()
