@@ -130,6 +130,9 @@ func (c *Controller) canAdd(address string) (bool, error) {
 			woReplica)
 	}
 
+	// returning error if snap deletion is in progress to avoid the case
+	// where data may be overwritten with the holes while syncing from
+	// a healthy replica where snapshot was not deleted successfully.
 	if c.IsSnapDeletionInProgress {
 		logrus.Warningf("snapshot deletion is in progress")
 		return false, fmt.Errorf("snapshot deletion is in progress")
