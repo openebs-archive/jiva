@@ -49,10 +49,11 @@ func (s *Server) GetVolumeStats(rw http.ResponseWriter, req *http.Request) error
 	}
 
 	volumeStats := &VolumeStats{
-		Resource:        client.Resource{Type: "stats"},
-		RevisionCounter: stats.RevisionCounter,
-		ReplicaCounter:  len(replicas),
-		SCSIIOCount:     stats.SCSIIOCount,
+		Resource:          client.Resource{Type: "stats"},
+		RevisionCounter:   stats.RevisionCounter,
+		ReplicaCounter:    len(replicas),
+		SCSIIOCount:       stats.SCSIIOCount,
+		IsClientConnected: stats.IsClientConnected,
 
 		ReadIOPS:            strconv.FormatInt(stats.ReadIOPS, 10),
 		TotalReadTime:       strconv.FormatInt(stats.TotalReadTime, 10),
