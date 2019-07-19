@@ -61,9 +61,10 @@ type SnapshotOutput struct {
 
 type VolumeStats struct {
 	client.Resource
-	RevisionCounter int64         `json:"RevisionCounter"`
-	ReplicaCounter  int           `json:"ReplicaCounter"`
-	SCSIIOCount     map[int]int64 `json:"SCSIIOCount"`
+	IsClientConnected bool          `json:"IsClientConnected"`
+	RevisionCounter   int64         `json:"RevisionCounter"`
+	ReplicaCounter    int           `json:"ReplicaCounter"`
+	SCSIIOCount       map[int]int64 `json:"SCSIIOCount"`
 
 	ReadIOPS            string `json:"ReadIOPS"`
 	TotalReadTime       string `json:"TotalReadTime"`
