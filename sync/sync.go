@@ -342,6 +342,7 @@ func (t *Task) reloadAndVerify(address string, repClient *replicaClient.ReplicaC
 	if err = repClient.SetRebuilding(false); err != nil {
 		logrus.Errorf("Error in setRebuilding %s", address)
 	}
+
 	return err
 }
 

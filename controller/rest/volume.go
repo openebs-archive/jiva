@@ -242,7 +242,7 @@ func (s *Server) DeleteSnapshot(rw http.ResponseWriter, req *http.Request) error
 	}()
 
 	logrus.Infof("Delete snapshot: %s", input.Name)
-	err := s.c.DeleteSnapshot(rf, replicas)
+	err := s.c.DeleteSnapshot(replicas)
 	if err != nil {
 		return err
 	}

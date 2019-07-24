@@ -113,6 +113,7 @@ func (c *Controller) VerifyRebuildReplica(address string) error {
 		c.quorumReplicaCount = len(c.quorumReplicas)
 	}
 	c.UpdateVolStatus()
+	c.StartAutoSnapDeletion <- true
 	return nil
 }
 
