@@ -32,7 +32,7 @@ baseline-image:
      - echo $BRANCH
      - export COMMIT=${CI_COMMIT_SHA:0:7}
      - echo $COMMIT
-     - git clone https://github.com/openebs/e2e-infrastructure.git
+     - git clone https://github.com/$REPO/e2e-infrastructure.git
      - git checkout $BRANCH
      - cd e2e-infrastructure/baseline
      - ansible-playbook commit-writer.yml --extra-vars "branch=$BRANCH repo=$CI_PROJECT_NAME commit=$COMMIT"
@@ -40,7 +40,7 @@ baseline-image:
      - git add baseline
      - git status
      - git commit -m "updated $CI_PROJECT_NAME commit:$COMMIT"
-     - git push  https://$user:$pass@github.com/openebs/e2e-infrastructure.git --all
+     - git push  https://$user:$pass@github.com/$REPO/e2e-infrastructure.git --all
      - cat baseline
      - echo "##############################################################################################"
      - echo "JIVA-IMAGE Pushed to DOCKER is $COMMIT"
@@ -48,9 +48,7 @@ baseline-image:
      - echo "###############################################################################################" 
      - echo "Started E2E-PIPELINE"
      - echo "###############################################################################################"
-     - curl -X POST -F variables[INFRA_BRANCH]=$BRANCH -F token=$PACKET -F ref=k8s-1-11 https://gitlab.openebs.ci/api/v4/projects/27/trigger/pipeline
-     - curl -X POST -F variables[INFRA_BRANCH]=$BRANCH -F token=$PACKET -F ref=k8s-1-12 https://gitlab.openebs.ci/api/v4/projects/27/trigger/pipeline
-     - curl -X POST -F variables[INFRA_BRANCH]=$BRANCH -F token=$PACKET -F ref=k8s-1-13 https://gitlab.openebs.ci/api/v4/projects/27/trigger/pipeline
+     - curl -X POST -F variables[INFRA_BRANCH]=$BRANCH -F token=$OPENSHIFT -F ref=OpenEBS-base https://gitlab.openebs.ci/api/v4/projects/15/trigger/pipeline
 
 cleanup:
   when: always
