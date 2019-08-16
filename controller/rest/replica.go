@@ -135,19 +135,21 @@ func (s *Server) RegisterReplica(rw http.ResponseWriter, req *http.Request) erro
 func (s *Server) CreateReplica(rw http.ResponseWriter, req *http.Request) error {
 	var replica Replica
 	apiContext := api.GetApiContext(req)
+	logrusWithEcode := logrus.WithField("ecode", "jiva.create.replica.failed")
 	if err := apiContext.Read(&replica); err != nil {
-		logrus.Errorf("read in createReplica failed %v", err)
+		logrusWithEcode.Errorf("msg=\"read in createReplica failed\" reason=\"%v\"", err)
 		return err
 	}
 	logrus.Infof("Create Replica for address %v", replica.Address)
 
 	if err := s.c.AddReplica(replica.Address); err != nil {
+		logrusWithEcode.Errorf("msg=\"AddReplica in createReplica failed\" reason=\"%v\"", err)
 		return err
 	}
 
 	r := s.getReplica(apiContext, replica.Address)
 	if r == nil {
-		logrus.Errorf("createReplica failed for id %v", replica.Address)
+		logrusWithEcode.Errorf("msg=\"createReplica failed for id %v\" replica_address=\"%v\"", replica.Address, replica.Address)
 		return fmt.Errorf("createReplica failed while getting it")
 	}
 
