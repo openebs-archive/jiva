@@ -9,6 +9,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
+	"github.com/openebs/jiva/controller/rest"
 	"github.com/openebs/jiva/replica"
 	replicaClient "github.com/openebs/jiva/replica/client"
 	"github.com/openebs/jiva/sync"
@@ -167,14 +168,7 @@ func rmSnapshot(c *cli.Context) error {
 	return lastErr
 }
 
-func lsSnapshot(c *cli.Context) error {
-	cli := getCli(c)
-
-	replicas, err := cli.ListReplicas()
-	if err != nil {
-		return err
-	}
-
+func getCommonSnapshots(replicas []rest.Replica) ([]string, error) {
 	first := true
 	snapshots := []string{}
 	for _, r := range replicas {
@@ -186,7 +180,7 @@ func lsSnapshot(c *cli.Context) error {
 			first = false
 			chain, err := getChain(r.Address)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			// Replica can just started and haven't prepare the head
 			// file yet
@@ -199,12 +193,28 @@ func lsSnapshot(c *cli.Context) error {
 
 		chain, err := getChain(r.Address)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		snapshots = util.Filter(snapshots, func(i string) bool {
 			return util.Contains(chain, i)
 		})
+	}
+	return snapshots, nil
+}
+
+func lsSnapshot(c *cli.Context) error {
+	cli := getCli(c)
+
+	replicas, err := cli.ListReplicas()
+	if err != nil {
+		return err
+	}
+
+	snapshots := []string{}
+	snapshots, err = getCommonSnapshots(replicas)
+	if err != nil {
+		return err
 	}
 
 	format := "%s\n"

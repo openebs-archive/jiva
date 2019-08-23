@@ -161,6 +161,12 @@ type Frontend interface {
 	Resize(uint64) error
 }
 
+// Target ...
+type Target struct {
+	ClusterIP  string
+	FrontendIP string
+}
+
 type DataProcessor interface {
 	IOs
 	PingResponse() error

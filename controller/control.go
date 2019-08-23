@@ -36,6 +36,7 @@ type Controller struct {
 	ReadOnly                 bool
 	SnapshotName             string
 	IsSnapDeletionInProgress bool
+	StartAutoSnapDeletion    chan bool
 }
 
 func max(x int, y int) int {
@@ -55,18 +56,57 @@ func (c *Controller) GetSize() int64 {
 	return c.size
 }
 
-func NewController(name string, frontendIP string, clusterIP string, factory types.BackendFactory, frontend types.Frontend, replicationFactor int) *Controller {
+// BuildOpts is used for passing various args to NewController
+type BuildOpts func(*Controller)
+
+// WithFrontend initialize frontend(gotgt) for controller
+func WithFrontend(frontend types.Frontend, frontendIP string) BuildOpts {
+	return func(c *Controller) {
+		c.frontend = frontend
+		c.frontendIP = frontendIP
+	}
+}
+
+// WithBackend initialize backend for controller (remote R/W)
+func WithBackend(factory types.BackendFactory) BuildOpts {
+	return func(c *Controller) {
+		c.factory = factory
+	}
+}
+
+// WithRF set the replication factor in controller
+func WithRF(rf int) BuildOpts {
+	return func(c *Controller) {
+		c.ReplicationFactor = rf
+	}
+}
+
+// WithName set the volume name
+func WithName(name string) BuildOpts {
+	return func(c *Controller) {
+		c.Name = name
+	}
+}
+
+// WithClusterIP set the clusterIP
+func WithClusterIP(ip string) BuildOpts {
+	return func(c *Controller) {
+		c.clusterIP = ip
+	}
+}
+
+// NewController instantiates a new Controller
+func NewController(ch chan bool, opts ...BuildOpts) *Controller {
 	c := &Controller{
-		factory:                  factory,
-		Name:                     name,
-		frontend:                 frontend,
-		frontendIP:               frontendIP,
-		clusterIP:                clusterIP,
 		RegisteredReplicas:       map[string]types.RegReplica{},
 		RegisteredQuorumReplicas: map[string]types.RegReplica{},
 		StartTime:                time.Now(),
 		ReadOnly:                 true,
-		ReplicationFactor:        replicationFactor,
+		StartAutoSnapDeletion:    ch,
+	}
+
+	for _, o := range opts {
+		o(c)
 	}
 	c.reset()
 	return c
@@ -1095,7 +1135,7 @@ func (c *Controller) IsReplicaRW(replicaInController *types.Replica) error {
 }
 
 // DeleteSnapshot ...
-func (c *Controller) DeleteSnapshot(rf int, replicas []types.Replica) error {
+func (c *Controller) DeleteSnapshot(replicas []types.Replica) error {
 	var err error
 
 	ops := make(map[string][]replica.PrepareRemoveAction)
