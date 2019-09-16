@@ -48,9 +48,9 @@ baseline-image:
      - echo "###############################################################################################" 
      - echo "Started E2E-PIPELINE"
      - echo "###############################################################################################"
-     - curl -X POST -F variables[INFRA_BRANCH]=$BRANCH -F token=$PACKET -F ref=k8s-1-11 https://gitlab.openebs.ci/api/v4/projects/27/trigger/pipeline
-     - curl -X POST -F variables[INFRA_BRANCH]=$BRANCH -F token=$PACKET -F ref=k8s-1-12 https://gitlab.openebs.ci/api/v4/projects/27/trigger/pipeline
      - curl -X POST -F variables[INFRA_BRANCH]=$BRANCH -F token=$PACKET -F ref=k8s-1-13 https://gitlab.openebs.ci/api/v4/projects/27/trigger/pipeline
+     - curl -X POST -F variables[INFRA_BRANCH]=$BRANCH -F token=$PACKET -F ref=k8s-1-14 https://gitlab.openebs.ci/api/v4/projects/27/trigger/pipeline
+     - curl -X POST -F variables[INFRA_BRANCH]=$BRANCH -F token=$PACKET -F ref=k8s-1-15 https://gitlab.openebs.ci/api/v4/projects/27/trigger/pipeline
 
 cleanup:
   when: always
