@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/replica/client"
 	"github.com/openebs/jiva/types"
+	"github.com/sirupsen/logrus"
 )
 
 func getReplicaChain(address string) ([]string, error) {

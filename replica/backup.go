@@ -2,15 +2,13 @@ package replica
 
 import (
 	"fmt"
-	"os"
 	"syscall"
 	"time"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/longhorn/sparse-tools/sparse"
 	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/types"
-	"github.com/rancher/sparse-tools/sparse"
-	"github.com/yasker/backupstore"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -26,7 +24,7 @@ type DeltaBlockBackupOperations interface {
 	CloseSnapshot(id, volumeID string) error
 }
 */
-
+/*
 type Backup struct {
 	backingFile *BackingFile
 	replica     *Replica
@@ -180,7 +178,9 @@ func (rb *Backup) findIndex(id string) int {
 	}
 	return -1
 }
+*/
 
+// Hole holds the fd, len and offset for fallocate operation
 type Hole struct {
 	f      types.DiffDisk
 	offset int64

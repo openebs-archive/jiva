@@ -1,0 +1,77 @@
+# github.com/beorn7/perks v1.0.1
+github.com/beorn7/perks/quantile
+# github.com/cpuguy83/go-md2man/v2 v2.0.0-20190314233015-f79a8a8ca69d
+github.com/cpuguy83/go-md2man/v2/md2man
+# github.com/docker/docker v1.13.1
+github.com/docker/docker/pkg/reexec
+# github.com/docker/go-units v0.4.0
+github.com/docker/go-units
+# github.com/frostschutz/go-fibmap v0.0.0-20160825162329-b32c231bfe6a => github.com/rancher/go-fibmap v0.0.0-20160418233256-5fc9f8c1ed47
+github.com/frostschutz/go-fibmap
+# github.com/golang/protobuf v1.3.2
+github.com/golang/protobuf/proto
+# github.com/gorilla/context v1.1.1
+github.com/gorilla/context
+# github.com/gorilla/handlers v1.4.2
+github.com/gorilla/handlers
+# github.com/gorilla/mux v1.7.3
+github.com/gorilla/mux
+# github.com/gorilla/websocket v1.4.1
+github.com/gorilla/websocket
+# github.com/konsorten/go-windows-terminal-sequences v1.0.1
+github.com/konsorten/go-windows-terminal-sequences
+# github.com/kr/pretty v0.1.0
+github.com/kr/pretty
+# github.com/kr/text v0.1.0
+github.com/kr/text
+# github.com/longhorn/sparse-tools v0.0.0-20190808234252-ddb6d8733e43
+github.com/longhorn/sparse-tools/cli/sfold
+github.com/longhorn/sparse-tools/cli/ssync
+github.com/longhorn/sparse-tools/stats
+github.com/longhorn/sparse-tools/sparse
+github.com/longhorn/sparse-tools/sparse/rest
+# github.com/matttproud/golang_protobuf_extensions v1.0.1
+github.com/matttproud/golang_protobuf_extensions/pbutil
+# github.com/openebs/gotgt v0.0.0-20190919125944-0b3104578d80
+github.com/openebs/gotgt/pkg/config
+github.com/openebs/gotgt/pkg/port/iscsit
+github.com/openebs/gotgt/pkg/scsi
+github.com/openebs/gotgt/pkg/scsi/backingstore
+github.com/openebs/gotgt/pkg/homedir
+github.com/openebs/gotgt/pkg/api
+github.com/openebs/gotgt/pkg/util
+github.com/openebs/gotgt/pkg/util/pool
+github.com/openebs/gotgt/pkg/version
+# github.com/pkg/errors v0.8.1
+github.com/pkg/errors
+# github.com/prometheus/client_golang v1.1.0
+github.com/prometheus/client_golang/prometheus
+github.com/prometheus/client_golang/prometheus/promhttp
+github.com/prometheus/client_golang/prometheus/internal
+# github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
+github.com/prometheus/client_model/go
+# github.com/prometheus/common v0.6.0
+github.com/prometheus/common/expfmt
+github.com/prometheus/common/model
+github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
+# github.com/prometheus/procfs v0.0.3
+github.com/prometheus/procfs
+github.com/prometheus/procfs/internal/fs
+# github.com/rancher/go-rancher v0.1.1-0.20190307222549-9756097e5e4c
+github.com/rancher/go-rancher/api
+github.com/rancher/go-rancher/client
+# github.com/russross/blackfriday/v2 v2.0.1
+github.com/russross/blackfriday/v2
+# github.com/satori/go.uuid v1.2.0
+github.com/satori/go.uuid
+# github.com/shurcooL/sanitized_anchor_name v1.0.0
+github.com/shurcooL/sanitized_anchor_name
+# github.com/sirupsen/logrus v1.4.2
+github.com/sirupsen/logrus
+# github.com/urfave/cli v1.22.1
+github.com/urfave/cli
+# golang.org/x/sys v0.0.0-20190919044723-0c1ff786ef13
+golang.org/x/sys/unix
+golang.org/x/sys/windows
+# gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15
+gopkg.in/check.v1

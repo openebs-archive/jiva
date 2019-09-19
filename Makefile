@@ -1,5 +1,5 @@
 # Makefile for building jiva docker image
-# 
+#
 # Reference Guide - https://www.gnu.org/software/make/manual/make.html
 #
 
@@ -39,35 +39,23 @@ _build_check_docker:
 		fi;
 
 
-.dapper:
-	@echo Downloading dapper
-	@curl -sL https://releases.rancher.com/dapper/latest/dapper-`uname -s`-`uname -m` > .dapper.tmp
-	@@chmod +x .dapper.tmp
-	@./.dapper.tmp -v
-	@mv .dapper.tmp .dapper
+mod:  go.mod go.sum
+	@echo "INFO:\tVendor update"
+	@GO111MODULE=on go mod download
+	@GO111MODULE=on go mod vendor
 
-$(TARGETS): .dapper
-	./.dapper $@
+deps: _build_check_go _build_check_docker mod
+	@echo "INFO:\tVerifying dependencies for jiva"
 
-trash: .dapper
-	./.dapper -m bind trash
-
-trash-keep: .dapper
-	./.dapper -m bind trash -k
-
-
-deps: _build_check_go _build_check_docker trash
-	@echo ""
-	@echo "INFO:\tverifying dependencies for jiva ..."
-
-_install_trash:
-	go get -u github.com/rancher/trash
 
 _run_ci:
-	@echo ""
-	@echo "INFO:\t..... run ci over jiva image"
-	@echo ""
-	sudo ./ci/start_init_test.sh
+	@echo "INFO:\tRun ci over jiva image"
+	sudo bash ./ci/start_init_test.sh
+
+build_image:
+	@echo "INFO:\tRun unit tests and build image"
+	bash ./scripts/ci
+
 
 _push_image:
 	cd $(GOPATH)/src/github.com/openebs/jiva && IMAGE_REPO="openebs/jiva" ./scripts/push
@@ -87,8 +75,8 @@ endif
 	@echo "Linting with golint"
 	$(shell golint $(shell find . -maxdepth 1 -type d \( ! -iname ".git" ! -iname "vendor" \)) )
 
-build: deps _install_trash ci _run_ci _push_image
-build_gitlab: deps _install_trash ci _push_image
+build: deps build_image _run_ci _push_image
+build_gitlab: deps build_image _push_image
 
 #
 # This is done to avoid conflict with a file of same name as the targets

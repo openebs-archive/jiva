@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"os"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/openebs/gotgt/pkg/api"
 	"github.com/openebs/gotgt/pkg/scsi"
 	"github.com/openebs/gotgt/pkg/util"
+	log "github.com/sirupsen/logrus"
 )
 
 const (

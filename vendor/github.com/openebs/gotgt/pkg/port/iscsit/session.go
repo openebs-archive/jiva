@@ -22,10 +22,10 @@ import (
 	"strings"
 	"sync"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/openebs/gotgt/pkg/api"
 	"github.com/openebs/gotgt/pkg/scsi"
-	"github.com/satori/go.uuid"
+	uuid "github.com/satori/go.uuid"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -425,7 +425,7 @@ func (s *ISCSITargetDriver) BindISCSISession(conn *iscsiConnection) error {
 		} else {
 			if existConn != nil {
 				log.Infof("Connection Reinstatement initiator name:%v,target name:%v,ISID:0x%x,CID:%v",
-					conn.loginParam.initiator, conn.loginParam.target, conn.loginParam.isid)
+					conn.loginParam.initiator, conn.loginParam.target, conn.loginParam.isid, conn.cid)
 				existConn.ReInstatement(conn)
 			}
 		}

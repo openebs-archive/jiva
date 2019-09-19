@@ -24,12 +24,12 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/openebs/gotgt/pkg/api"
 	"github.com/openebs/gotgt/pkg/config"
 	"github.com/openebs/gotgt/pkg/scsi"
 	"github.com/openebs/gotgt/pkg/util"
 	"github.com/openebs/gotgt/pkg/util/pool"
+	log "github.com/sirupsen/logrus"
 )
 
 const (

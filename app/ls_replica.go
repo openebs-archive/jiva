@@ -5,10 +5,10 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
 	"github.com/openebs/jiva/controller/client"
 	replicaClient "github.com/openebs/jiva/replica/client"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 )
 
 func LsReplicaCmd() cli.Command {

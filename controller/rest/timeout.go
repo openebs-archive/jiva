@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/rancher/go-rancher/api"
+	"github.com/sirupsen/logrus"
 )
 
 func (s *Server) AddTimeout(rw http.ResponseWriter, req *http.Request) error {

@@ -8,8 +8,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
 	"github.com/gorilla/handlers"
 	"github.com/openebs/jiva/backend/dynamic"
 	"github.com/openebs/jiva/backend/file"
@@ -18,6 +16,8 @@ import (
 	"github.com/openebs/jiva/controller/rest"
 	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 )
 
 var (

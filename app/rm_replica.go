@@ -3,9 +3,9 @@ package app
 import (
 	"errors"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
 	"github.com/openebs/jiva/controller/client"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 )
 
 func RmReplicaCmd() cli.Command {

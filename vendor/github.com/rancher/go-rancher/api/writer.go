@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"reflect"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/rancher/go-rancher/client"
+	"github.com/sirupsen/logrus"
 )
 
 type ApiResponseWriter interface {
@@ -61,17 +61,24 @@ func setIfNot(data map[string]interface{}, key string, value interface{}) map[st
 }
 
 func (a *ApiContext) WriteCollection(obj interface{}) error {
-	collectionData, resourcesData, err := CollectionToMap(obj, a.schemas)
+	collectionData, err := a.PopulateCollection(obj)
 	if err != nil {
 		return err
+	}
+	return a.apiResponseWriter.Write(collectionData, a.responseWriter)
+}
+
+func (a *ApiContext) PopulateCollection(obj interface{}) (map[string]interface{}, error) {
+	collectionData, resourcesData, err := CollectionToMap(obj, a.schemas)
+	if err != nil {
+		return nil, err
 	}
 
 	a.populateCollection(collectionData, resourcesData)
 	for _, resource := range resourcesData {
 		a.populateResource(resource)
 	}
-
-	return a.apiResponseWriter.Write(collectionData, a.responseWriter)
+	return collectionData, nil
 }
 
 func (a *ApiContext) WriteResource(obj interface{}) error {
@@ -97,7 +104,7 @@ func mapInterfaceToString(input interface{}) map[string]string {
 			result[k] = fmt.Sprintf("%s", v)
 		}
 	default:
-		logrus.Infof("Unknown type", reflect.TypeOf(input))
+		logrus.Infof("Unknown type %v", reflect.TypeOf(input))
 	}
 	return result
 }

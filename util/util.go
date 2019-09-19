@@ -11,9 +11,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/handlers"
 	"github.com/satori/go.uuid"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 

@@ -5,7 +5,7 @@ import (
 	"net"
 	"os"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	"github.com/openebs/jiva/types"
 

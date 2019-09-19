@@ -6,12 +6,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	units "github.com/docker/go-units"
 	"github.com/openebs/jiva/replica"
 	replicaClient "github.com/openebs/jiva/replica/client"
 	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
+	"github.com/sirupsen/logrus"
 )
 
 type Controller struct {

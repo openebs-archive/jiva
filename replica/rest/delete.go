@@ -3,9 +3,9 @@ package rest
 import (
 	"net/http"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
+	"github.com/sirupsen/logrus"
 )
 
 // DeleteVolume deletes all the contents of the volume. It purges all the replica

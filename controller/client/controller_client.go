@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/controller/rest"
+	"github.com/sirupsen/logrus"
 )
 
 type ControllerClient struct {

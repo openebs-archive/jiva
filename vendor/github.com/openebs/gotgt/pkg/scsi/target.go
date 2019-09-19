@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"unsafe"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/openebs/gotgt/pkg/api"
-	"github.com/satori/go.uuid"
+	uuid "github.com/satori/go.uuid"
+	log "github.com/sirupsen/logrus"
 )
 
 func (s *SCSITargetService) NewSCSITarget(tid int, driverName, name string) (*api.SCSITarget, error) {
@@ -97,7 +97,7 @@ func deviceReserve(cmd *api.SCSICommand) error {
 		}
 	}
 	if lu == nil {
-		log.Errorf("invalid target and lun %d %s", cmd.Target.TID, lun)
+		log.Errorf("invalid target and lun %d %v", cmd.Target.TID, lun)
 		return nil
 	}
 

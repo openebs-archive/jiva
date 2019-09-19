@@ -1,18 +1,14 @@
 package replica
 
 import (
-	"io/ioutil"
-	"os"
-	"path"
-
-	"github.com/openebs/jiva/util"
-	. "gopkg.in/check.v1"
+	_ "gopkg.in/check.v1"
 )
 
 const (
 	mb = 1 << 20
 )
 
+/*
 func (s *TestSuite) TestBackup(c *C) {
 	dir, err := ioutil.TempDir("", "replica")
 	c.Assert(err, IsNil)
@@ -255,3 +251,4 @@ func (s *TestSuite) testBackupWithBackups(c *C, backingFile *BackingFile) {
 	err = rb.CloseSnapshot(chain[3], volume)
 	c.Assert(err, IsNil)
 }
+*/
