@@ -5,7 +5,7 @@ install: true
 services:
   - docker
 go:
-  - 1.12
+  - 1.12.x
 env:
   global:
     - GOARCH=amd64
