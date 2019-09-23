@@ -14,12 +14,12 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/Sirupsen/logrus"
 	units "github.com/docker/go-units"
+	"github.com/longhorn/sparse-tools/sparse"
 	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
-	"github.com/rancher/sparse-tools/sparse"
+	"github.com/sirupsen/logrus"
 )
 
 const (

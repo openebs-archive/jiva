@@ -4,9 +4,9 @@ import (
 	"net"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/replica"
 	"github.com/openebs/jiva/rpc"
+	"github.com/sirupsen/logrus"
 )
 
 type Server struct {

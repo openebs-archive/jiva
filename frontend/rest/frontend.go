@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/handlers"
 	"github.com/openebs/jiva/types"
+	"github.com/sirupsen/logrus"
 )
 
 var (

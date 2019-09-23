@@ -6,9 +6,9 @@ import (
 	"syscall"
 
 	fibmap "github.com/frostschutz/go-fibmap"
+	"github.com/longhorn/sparse-tools/sparse"
 	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/types"
-	"github.com/rancher/sparse-tools/sparse"
 )
 
 type fileType struct {

@@ -8,9 +8,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/backend/remote"
 	"github.com/openebs/jiva/types"
+	"github.com/sirupsen/logrus"
 )
 
 var (

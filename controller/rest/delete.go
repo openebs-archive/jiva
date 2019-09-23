@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/Sirupsen/logrus"
 	replicaClient "github.com/openebs/jiva/replica/client"
 	"github.com/openebs/jiva/util"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
+	"github.com/sirupsen/logrus"
 )
 
 const (

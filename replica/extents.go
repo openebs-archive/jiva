@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/frostschutz/go-fibmap"
 	"github.com/openebs/jiva/types"
+	"github.com/sirupsen/logrus"
 )
 
 type UsedGenerator struct {

@@ -3,10 +3,10 @@ package app
 import (
 	"errors"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
 	"github.com/openebs/jiva/replica"
 	"github.com/openebs/jiva/sync"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 )
 
 func AddReplicaCmd() cli.Command {

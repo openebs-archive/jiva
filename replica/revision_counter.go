@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/rancher/sparse-tools/sparse"
+	"github.com/longhorn/sparse-tools/sparse"
+	"github.com/sirupsen/logrus"
 )
 
 const (

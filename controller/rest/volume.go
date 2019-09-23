@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
+	"github.com/sirupsen/logrus"
 )
 
 func (s *Server) ListVolumes(rw http.ResponseWriter, req *http.Request) error {

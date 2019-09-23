@@ -10,12 +10,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/replica/rest"
 	"github.com/openebs/jiva/rpc"
 	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
+	"github.com/sirupsen/logrus"
 )
 
 var (

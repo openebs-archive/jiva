@@ -3,8 +3,8 @@ package file
 import (
 	"os"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/types"
+	"github.com/sirupsen/logrus"
 )
 
 func New() types.BackendFactory {

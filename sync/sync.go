@@ -6,13 +6,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/controller/client"
 	"github.com/openebs/jiva/controller/rest"
 	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/replica"
 	replicaClient "github.com/openebs/jiva/replica/client"
 	"github.com/openebs/jiva/types"
+	"github.com/sirupsen/logrus"
 )
 
 var (

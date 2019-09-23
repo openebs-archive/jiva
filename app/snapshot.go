@@ -7,13 +7,13 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
 	"github.com/openebs/jiva/controller/rest"
 	"github.com/openebs/jiva/replica"
 	replicaClient "github.com/openebs/jiva/replica/client"
 	"github.com/openebs/jiva/sync"
 	"github.com/openebs/jiva/util"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 )
 
 const VolumeHeadName = "volume-head"

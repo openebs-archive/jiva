@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/replica/rest"
 	"github.com/openebs/jiva/sync/agent"
+	"github.com/sirupsen/logrus"
 )
 
 const defaultSleepTime = 250 * time.Millisecond

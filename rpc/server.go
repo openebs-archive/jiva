@@ -8,9 +8,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/types"
+	"github.com/sirupsen/logrus"
 )
 
 type operation func(*Message)

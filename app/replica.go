@@ -14,8 +14,6 @@ import (
 
 	"github.com/openebs/jiva/types"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
 	"github.com/docker/go-units"
 	"github.com/openebs/jiva/controller/client"
 	"github.com/openebs/jiva/replica"
@@ -23,6 +21,8 @@ import (
 	"github.com/openebs/jiva/replica/rpc"
 	"github.com/openebs/jiva/sync"
 	"github.com/openebs/jiva/util"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 )
 
 func ReplicaCmd() cli.Command {
