@@ -1,5 +1,5 @@
 language: go
-dist: xenial
+dist: xenial 
 sudo: required
 install: true
 services:
@@ -8,7 +8,7 @@ go:
   - 1.12.x
 env:
   global:
-    - GOARCH=amd64
+    - GOARCH=$(go env GOARCH)
     - GO_FOR_RELEASE=1.12
 
 addons:
