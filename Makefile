@@ -13,6 +13,20 @@ IS_DOCKER_INSTALLED       := $(shell which docker >> /dev/null 2>&1; echo $$?)
 
 TARGETS := $(shell ls scripts)
 
+# Determine the arch/os
+ifeq (${XC_OS}, )
+  XC_OS:=$(shell go env GOOS)
+endif
+export XC_OS
+
+ifeq (${XC_ARCH}, )
+  XC_ARCH:=$(shell go env GOARCH)
+endif
+export XC_ARCH
+
+ARCH:=${XC_OS}_${XC_ARCH}
+export ARCH
+
 help:
 	@echo ""
 	@echo "Usage:-"
