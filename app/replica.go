@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"github.com/openebs/jiva/alertlog"
 	"net"
 	"net/http"
 	"os"
@@ -128,10 +129,29 @@ func CloneReplica(s *replica.Server, address string, cloneIP string, snapName st
 	url := "http://" + cloneIP + ":9501"
 	task := sync.NewTask(url)
 	if err = task.CloneReplica(url, address, cloneIP, snapName); err != nil {
+		alertlog.Logger.Errorw("",
+			"eventcode", "jiva.volume.replica.clone.failure",
+			"msg", "Failed to clone Jiva volume replica",
+			"rname", snapName,
+		)
 		return err
 	}
 	if s.Replica() != nil {
 		err = s.Replica().SetCloneStatus("completed")
+	}
+
+	if err != nil {
+		alertlog.Logger.Errorw("",
+			"eventcode", "jiva.volume.replica.clone.failure",
+			"msg", "Failed to clone Jiva volume replica",
+			"rname", snapName,
+		)
+	} else {
+		alertlog.Logger.Infow("",
+			"eventcode", "jiva.volume.replica.clone.success",
+			"msg", "Successfully cloned Jiva volume replica",
+			"rname", snapName,
+		)
 	}
 	return err
 }
@@ -290,11 +310,32 @@ func startReplica(c *cli.Context) error {
 	}
 	select {
 	case resp = <-controlResp:
+		alertlog.Logger.Errorw("",
+			"eventcode", "jiva.volume.replica.api.exited",
+			"msg", "Jiva volume replica API stopped",
+			"rname", address,
+		)
 		logrus.Fatalf("Rest API exited: %v", resp)
 	case resp = <-rpcResp:
+		alertlog.Logger.Errorw("",
+			"eventcode", "jiva.volume.replica.rpc.exited",
+			"msg", "Jiva volume replica RPC stopped",
+			"rname", address,
+		)
 		logrus.Fatalf("RPC listen exited: %v", resp)
 	case resp = <-syncResp:
+		alertlog.Logger.Errorw("",
+			"eventcode", "jiva.volume.replica.sync.exited",
+			"msg", "Jiva volume replica sync stopped",
+			"rname", address,
+		)
 		logrus.Fatalf("Sync process exited: %v", resp)
 	}
+
+	alertlog.Logger.Infow("",
+		"eventcode", "jiva.volume.replica.start.success",
+		"msg", "Successfully started Jiva volume replica",
+		"rname", address,
+	)
 	return resp
 }
