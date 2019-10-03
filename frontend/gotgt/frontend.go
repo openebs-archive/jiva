@@ -1,10 +1,12 @@
 package gotgt
 
 import (
+	"encoding/binary"
 	"fmt"
 	"net"
 	"os"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 
 	"github.com/openebs/jiva/types"
@@ -132,7 +134,9 @@ func (t *goTgt) Resize(size uint64) error {
 
 func (t *goTgt) startScsiTarget(cfg *config.Config) error {
 	var err error
-	scsi.InitSCSILUMapEx(t.tgtName, t.Volume, 1, 0, uint64(t.Size), uint64(t.SectorSize), t.rw)
+	id := uuid.NewV4()
+	uid := binary.BigEndian.Uint64(id[:8])
+	scsi.InitSCSILUMapEx(t.tgtName, t.Volume, uid, 0, uint64(t.Size), uint64(t.SectorSize), t.rw)
 	scsiTarget := scsi.NewSCSITargetService()
 	t.targetDriver, err = scsi.NewTargetDriver("iscsi", scsiTarget)
 	if err != nil {
