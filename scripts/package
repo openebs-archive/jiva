@@ -15,5 +15,12 @@ fi
 cp ../bin/longhorn* .
 cp ../bin/longhorn jivactl
 #cp /usr/src/tgt/pkg/tgt_*.deb .
-docker build -t ${REPO}/jiva:${TAG} .
-echo Built ${REPO}/jiva:${TAG}
+if [ ${ARCH} == "linux_arm64" ]
+then
+  DOCKERFILE=Dockerfile_build_arm64
+  docker build -f ${DOCKERFILE} -t ${REPO}/jiva-${XC_ARCH}:${TAG} .
+else
+  DOCKERFILE=Dockerfile_build_amd64
+  docker build -f ${DOCKERFILE} -t ${REPO}/jiva:${TAG} .
+fi
+echo Built ${REPO}/jiva-${XC_ARCH}:${TAG}
