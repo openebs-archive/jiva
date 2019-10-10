@@ -5,7 +5,6 @@ import (
 	"log"
 )
 
-
 var (
 	// Logger facilitates logging with alert format
 	Logger = initLogger()

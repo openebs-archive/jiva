@@ -7,12 +7,12 @@ import (
 	"time"
 
 	units "github.com/docker/go-units"
+	"github.com/openebs/jiva/alertlog"
 	"github.com/openebs/jiva/replica"
 	replicaClient "github.com/openebs/jiva/replica/client"
 	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
 	"github.com/sirupsen/logrus"
-	"github.com/openebs/jiva/alertlog"
 )
 
 type Controller struct {
