@@ -238,32 +238,8 @@ func (c *ReplicaClient) LaunchReceiver(toFilePath string) (string, int, error) {
 }
 
 func (c *ReplicaClient) Coalesce(from, to string) error {
-	var running agent.Process
-	err := c.post(c.syncAgent+"/processes", &agent.Process{
-		ProcessType: "fold",
-		SrcFile:     from,
-		DestFile:    to,
-	}, &running)
-	if err != nil {
-		return err
-	}
-
-	start := defaultSleepTime
-	for {
-		err := c.get(running.Links["self"], &running)
-		if err != nil {
-			return err
-		}
-
-		switch running.ExitCode {
-		case -2:
-			RetrySleep(&start)
-		case 0:
-			return nil
-		default:
-			return fmt.Errorf("ExitCode: %d", running.ExitCode)
-		}
-	}
+	var processType = "fold"
+	return c.fileOperation(from, to, processType)
 }
 
 func (c *ReplicaClient) SendFile(from, host string, port int) error {
@@ -502,9 +478,14 @@ func (c *ReplicaClient) post(path string, req, resp interface{}) error {
 }
 
 func (c *ReplicaClient) HardLink(from, to string) error {
+	var processType = "hardlink"
+	return c.fileOperation(from, to, processType)
+}
+
+func (c *ReplicaClient) fileOperation(from, to, processType string) error {
 	var running agent.Process
 	err := c.post(c.syncAgent+"/processes", &agent.Process{
-		ProcessType: "hardlink",
+		ProcessType: processType,
 		SrcFile:     from,
 		DestFile:    to,
 	}, &running)
