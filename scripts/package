@@ -7,6 +7,7 @@ cd $(dirname $0)/../package
 
 TAG=${TAG:-${VERSION}}
 REPO=${REPO:-openebs}
+BASE_DOCKER_IMAGEARM64=${BASE_DOCKER_IMAGEARM64:-arm64v8/ubuntu:18.04}
 
 if [ ! -x ../bin/longhorn ]; then
     ../scripts/build_binaries
@@ -18,7 +19,7 @@ cp ../bin/longhorn jivactl
 if [ ${ARCH} == "linux_arm64" ]
 then
   DOCKERFILE=Dockerfile_build_arm64
-  docker build -f ${DOCKERFILE} -t ${REPO}/jiva-${XC_ARCH}:${TAG} .
+  docker build -f ${DOCKERFILE} -t ${REPO}/jiva-${XC_ARCH}:${TAG} --build-arg BASE_IMAGE=${BASE_DOCKER_IMAGEARM64} .
 else
   DOCKERFILE=Dockerfile_build_amd64
   docker build -f ${DOCKERFILE} -t ${REPO}/jiva:${TAG} .
