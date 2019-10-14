@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/gorilla/handlers"
-	"github.com/satori/go.uuid"
+	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
@@ -26,10 +26,10 @@ const (
 	BlockSizeLinux = 512
 )
 
-func ParseAddresses(name string) (string, string, string, error) {
-	matches := parsePattern.FindStringSubmatch(name)
+func ParseAddresses(address string) (string, string, string, error) {
+	matches := parsePattern.FindStringSubmatch(address)
 	if matches == nil {
-		return "", "", "", fmt.Errorf("Invalid address %s does not match pattern: %v", name, parsePattern)
+		return "", "", "", fmt.Errorf("Invalid address %s does not match pattern: %v", address, parsePattern)
 	}
 
 	host := matches[1]
