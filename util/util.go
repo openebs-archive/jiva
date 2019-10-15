@@ -111,12 +111,13 @@ func mknod(device string, major, minor int) error {
 }
 
 func RemoveDevice(dev string) error {
-	if _, err := os.Stat(dev); err == nil {
-		if err := remove(dev); err != nil {
+	var err error
+	if _, err = os.Stat(dev); err == nil {
+		if err = remove(dev); err != nil {
 			return fmt.Errorf("Failed to removing device %s, %v", dev, err)
 		}
 	}
-	return nil
+	return err
 }
 
 func removeAsync(path string, done chan<- error) {
