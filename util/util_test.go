@@ -35,6 +35,7 @@ func TestParseAddresses(t *testing.T) {
 		{"correct address 3", "https://www.test.com:1234/status", "https://www.test.com:1234", "https://www.test.com:1235", "https://www.test.com:1236", false},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			got, got1, got2, err := ParseAddresses(tt.address)
 			if (err != nil) != tt.wantErr {
@@ -128,6 +129,7 @@ func TestValidVolumeName(t *testing.T) {
 		{"invalid name", "My=Volume1", false},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.scenario, func(t *testing.T) {
 			if got := ValidVolumeName(tt.name); got != tt.want {
 				t.Errorf("ValidVolumeName() = %v, want %v", got, tt.want)
@@ -146,6 +148,7 @@ func TestVolume2ISCSIName(t *testing.T) {
 		{"with-replacement", "This_Is_A_Name", "This:Is:A:Name"},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.scenario, func(t *testing.T) {
 			if got := Volume2ISCSIName(tt.name); got != tt.want {
 				t.Errorf("Volume2ISCSIName() = %v, want %v", got, tt.want)

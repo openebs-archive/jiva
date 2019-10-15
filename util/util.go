@@ -26,6 +26,7 @@ const (
 	BlockSizeLinux = 512
 )
 
+// ParseAddresses returns the base address and two with subsequent ports
 func ParseAddresses(address string) (string, string, string, error) {
 	matches := parsePattern.FindStringSubmatch(address)
 	if matches == nil {
