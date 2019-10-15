@@ -6,4 +6,9 @@ source $(dirname $0)/version
 cd $(dirname $0)/..
 
 mkdir -p bin/debug
-go build -tags "debug" -ldflags "-X main.VERSION=$VERSION" -o bin/debug/longhorn
+if [ ${ARCH} == "linux_arm64" ]
+then
+    GOARCH=arm GOOS=linux GOARM=5 go build -tags "debug" -ldflags "-X main.VERSION=$VERSION" -o bin/debug/longhorn
+else
+    go build -tags "debug" -ldflags "-X main.VERSION=$VERSION" -o bin/debug/longhorn  
+fi

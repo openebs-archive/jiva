@@ -9,5 +9,8 @@ PACKAGES="$(find . -name '*.go' | xargs -I{} dirname {} | sort -u | grep -Ev '(.
 
 echo Packages: ${PACKAGES}
 
-[ "${ARCH}" == "linux_amd64" ] && RACE=-race
-go test ${RACE} -cover -tags="test qcow" ${PACKAGES}
+HOST_ARCH="$(go env GOHOSTARCH)"
+
+[ "${HOST_ARCH}" == "amd64" ] && RACE=-race
+[ "${HOST_ARCH}" == "${XC_ARCH}" ] && go test ${RACE} -cover -tags="test qcow" ${PACKAGES}
+echo "Finish test ..."
