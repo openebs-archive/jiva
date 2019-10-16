@@ -7,6 +7,7 @@ import (
 	"time"
 
 	units "github.com/docker/go-units"
+	"github.com/openebs/jiva/alertlog"
 	"github.com/openebs/jiva/replica"
 	replicaClient "github.com/openebs/jiva/replica/client"
 	"github.com/openebs/jiva/types"
@@ -1076,6 +1077,13 @@ func (c *Controller) shutdownBackend() error {
 }
 
 func (c *Controller) Shutdown() error {
+
+	alertlog.Logger.Infow("",
+		"eventcode", "jiva.volume.replica.shutdown",
+		"msg", "Shutting down Jiva volume replica",
+		"rname", c.Name,
+	)
+
 	/*
 		Need to shutdown frontend first because it will write
 		the final piece of data to backend
@@ -1084,11 +1092,22 @@ func (c *Controller) Shutdown() error {
 	err := c.shutdownFrontend()
 	if err != nil {
 		logrus.Error("Error when shutting down frontend:", err)
+		alertlog.Logger.Warnw("",
+			"eventcode", "jiva.volume.replica.frontend.shutdown.failure",
+			"msg", "Failed to shut down Jiva volume replica frontend",
+			"rname", c.Name,
+		)
 	}
 	err = c.shutdownBackend()
 	if err != nil {
 		logrus.Error("Error when shutting down backend:", err)
+		alertlog.Logger.Warnw("",
+			"eventcode", "jiva.volume.replica.backend.shutdown.failure",
+			"msg", "Failed to shut down Jiva volume replica backend",
+			"rname", c.Name,
+		)
 	}
+
 	return nil
 }
 
