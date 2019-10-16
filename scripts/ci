@@ -4,7 +4,8 @@ set -e
 cd $(dirname $0)
 
 ./build_binaries
+./build_debug_binaries
 ./test
 ./validate
-#./integration-test
 ./package
+./package_debug

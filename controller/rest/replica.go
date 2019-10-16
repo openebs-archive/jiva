@@ -1,8 +1,10 @@
 package rest
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -10,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -33,6 +36,7 @@ var (
 		},
 		[]string{"code", "method"},
 	)
+	prometheusLock sync.Mutex
 )
 
 // init registers Prometheus metrics.It's good to register these varibles here
@@ -47,9 +51,11 @@ func init() {
 func (s *Server) ListReplicas(rw http.ResponseWriter, req *http.Request) error {
 	apiContext := api.GetApiContext(req)
 	resp := client.GenericCollection{}
+	s.c.Lock()
 	for _, r := range s.c.ListReplicas() {
-		resp.Data = append(resp.Data, NewReplica(apiContext, r.Address, r.Mode))
+		resp.Data = append(resp.Data, NewReplica(apiContext, r))
 	}
+	s.c.Unlock()
 
 	resp.ResourceType = "replica"
 	resp.CreateTypes = map[string]string{
@@ -65,50 +71,62 @@ func (s *Server) GetReplica(rw http.ResponseWriter, req *http.Request) error {
 	vars := mux.Vars(req)
 	id, err := DencodeID(vars["id"])
 	if err != nil {
+		logrus.Errorf("Get Replica decodeid %v failed %v", id, err)
 		rw.WriteHeader(http.StatusNotFound)
 		return nil
 	}
 
-	apiContext.Write(s.getReplica(apiContext, id))
+	r := s.getReplica(apiContext, id)
+	if r == nil {
+		logrus.Errorf("Get Replica failed for id %v", id)
+		rw.WriteHeader(http.StatusNotFound)
+		return nil
+	}
+
+	apiContext.Write(r)
 	return nil
 }
 
 func (s *Server) RegisterReplica(rw http.ResponseWriter, req *http.Request) error {
 	var (
-		regReplica    RegReplica
-		localRevCount int64
-		code          int
+		regReplica      RegReplica
+		localRevCount   int64
+		code            int
+		RequestDuration *prometheus.HistogramVec
+		RequestCounter  *prometheus.CounterVec
 	)
 	start := time.Now()
 	apiContext := api.GetApiContext(req)
-	s.RequestDuration = OpenEBSJivaRegestrationRequestDuration
-	s.RequestCounter = OpenEBSJivaRegestrationRequestCounter
 
 	if err := apiContext.Read(&regReplica); err != nil {
+		logrus.Errorf("read in RegReplica failed %v", err)
 		return err
 	}
 
 	localRevCount, _ = strconv.ParseInt(regReplica.RevCount, 10, 64)
 	local := types.RegReplica{
-		Address:    regReplica.Address,
-		RevCount:   localRevCount,
-		PeerDetail: regReplica.PeerDetails,
-		RepType:    regReplica.RepType,
-		UpTime:     regReplica.UpTime,
-		RepState:   regReplica.RepState,
+		Address:  regReplica.Address,
+		RevCount: localRevCount,
+		RepType:  regReplica.RepType,
+		UpTime:   regReplica.UpTime,
+		RepState: regReplica.RepState,
 	}
 	code = http.StatusOK
 	rw.WriteHeader(code)
 	defer func() {
+		RequestDuration = OpenEBSJivaRegestrationRequestDuration
+		RequestCounter = OpenEBSJivaRegestrationRequestCounter
+		prometheusLock.Lock()
 		// This will Display the metrics something similar to
 		// the examples given below
 		// exp: openebs_jiva_registration_request_duration_seconds{code="200", method="POST"}
-		s.RequestDuration.WithLabelValues(strconv.Itoa(code), req.Method).Observe(time.Since(start).Seconds())
+		RequestDuration.WithLabelValues(strconv.Itoa(code), req.Method).Observe(time.Since(start).Seconds())
 
 		// This will Display the metrics something similar to
 		// the examples given below
 		// exp: openebs_jiva_registration_requests_total{code="200", method="POST"}
-		s.RequestCounter.WithLabelValues(strconv.Itoa(code), req.Method).Inc()
+		RequestCounter.WithLabelValues(strconv.Itoa(code), req.Method).Inc()
+		prometheusLock.Unlock()
 	}()
 	return s.c.RegisterReplica(local)
 
@@ -118,14 +136,23 @@ func (s *Server) CreateReplica(rw http.ResponseWriter, req *http.Request) error 
 	var replica Replica
 	apiContext := api.GetApiContext(req)
 	if err := apiContext.Read(&replica); err != nil {
+		logrus.Errorf("read in createReplica failed %v", err)
 		return err
 	}
+	logrus.Infof("Create Replica for address %v", replica.Address)
 
 	if err := s.c.AddReplica(replica.Address); err != nil {
 		return err
 	}
 
-	apiContext.Write(s.getReplica(apiContext, replica.Address))
+	r := s.getReplica(apiContext, replica.Address)
+	if r == nil {
+		logrus.Errorf("createReplica failed for id %v", replica.Address)
+		return fmt.Errorf("createReplica failed while getting it")
+	}
+
+	apiContext.Write(r)
+
 	return nil
 }
 
@@ -133,30 +160,43 @@ func (s *Server) CreateQuorumReplica(rw http.ResponseWriter, req *http.Request) 
 	var replica Replica
 	apiContext := api.GetApiContext(req)
 	if err := apiContext.Read(&replica); err != nil {
+		logrus.Errorf("read in createQuorumReplica failed %v", err)
 		return err
 	}
+	logrus.Infof("Create QuorumReplica for address %v", replica.Address)
 
 	if err := s.c.AddQuorumReplica(replica.Address); err != nil {
 		return err
 	}
 
-	apiContext.Write(s.getQuorumReplica(apiContext, replica.Address))
+	r := s.getQuorumReplica(apiContext, replica.Address)
+	if r == nil {
+		logrus.Errorf("createQuorumReplica failed for id %v", replica.Address)
+		return fmt.Errorf("createQuorumReplica failed while getting it")
+	}
+
+	apiContext.Write(r)
+
 	return nil
 }
 
 func (s *Server) getReplica(context *api.ApiContext, id string) *Replica {
+	s.c.Lock()
+	defer s.c.Unlock()
 	for _, r := range s.c.ListReplicas() {
 		if r.Address == id {
-			return NewReplica(context, r.Address, r.Mode)
+			return NewReplica(context, r)
 		}
 	}
 	return nil
 }
 
 func (s *Server) getQuorumReplica(context *api.ApiContext, id string) *Replica {
+	s.c.Lock()
+	defer s.c.Unlock()
 	for _, r := range s.c.ListQuorumReplicas() {
 		if r.Address == id {
-			return NewReplica(context, r.Address, r.Mode)
+			return NewReplica(context, r)
 		}
 	}
 	return nil
@@ -166,9 +206,11 @@ func (s *Server) DeleteReplica(rw http.ResponseWriter, req *http.Request) error 
 	vars := mux.Vars(req)
 	id, err := DencodeID(vars["id"])
 	if err != nil {
+		logrus.Errorf("Getting ID in DeleteReplica failed %v", err)
 		rw.WriteHeader(http.StatusNotFound)
 		return nil
 	}
+	logrus.Infof("Delete Replica for id %v", id)
 
 	return s.c.RemoveReplica(id)
 }
@@ -177,9 +219,11 @@ func (s *Server) UpdateReplica(rw http.ResponseWriter, req *http.Request) error 
 	vars := mux.Vars(req)
 	id, err := DencodeID(vars["id"])
 	if err != nil {
+		logrus.Errorf("Getting ID in UpdateReplica failed %v", err)
 		rw.WriteHeader(http.StatusNotFound)
 		return nil
 	}
+	logrus.Infof("Update Replica for id %v", id)
 
 	var replica Replica
 	apiContext := api.GetApiContext(req)
@@ -196,12 +240,15 @@ func (s *Server) PrepareRebuildReplica(rw http.ResponseWriter, req *http.Request
 	vars := mux.Vars(req)
 	id, err := DencodeID(vars["id"])
 	if err != nil {
+		logrus.Errorf("Getting ID in PrepareRebuildReplica failed %v", err)
 		rw.WriteHeader(http.StatusNotFound)
 		return nil
 	}
+	logrus.Infof("Prepare Rebuild Replica for id %v", id)
 
 	disks, err := s.c.PrepareRebuildReplica(id)
 	if err != nil {
+		logrus.Errorf("Prepare Rebuild Replica failed %v for id %v", err, id)
 		return err
 	}
 
@@ -222,11 +269,14 @@ func (s *Server) VerifyRebuildReplica(rw http.ResponseWriter, req *http.Request)
 	vars := mux.Vars(req)
 	id, err := DencodeID(vars["id"])
 	if err != nil {
+		logrus.Errorf("Error %v in getting id while verifyrebuildreplica", err)
 		rw.WriteHeader(http.StatusNotFound)
 		return nil
 	}
+	logrus.Infof("Verify Rebuild Replica for id %v", id)
 
 	if err := s.c.VerifyRebuildReplica(id); err != nil {
+		logrus.Errorf("Err %v in verifyrebuildreplica for id %v", err, id)
 		return err
 	}
 

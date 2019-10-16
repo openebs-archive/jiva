@@ -14,11 +14,12 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/Sirupsen/logrus"
 	units "github.com/docker/go-units"
+	"github.com/longhorn/sparse-tools/sparse"
+	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
-	"github.com/rancher/sparse-tools/sparse"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -32,7 +33,7 @@ const (
 	diskPrefix         = "volume-snap-"
 	diskSuffix         = ".img"
 	diskName           = diskPrefix + "%s" + diskSuffix
-	maximumChainLength = 250
+	maximumChainLength = 512
 )
 
 var (
@@ -46,10 +47,19 @@ type Replica struct {
 	ReplicaStartTime time.Time
 	ReplicaType      string
 	info             Info
-	diskData         map[string]*disk
-	diskChildrenMap  map[string]map[string]bool
-	activeDiskData   []*disk
-	readOnly         bool
+	// diskData is mapping of disk (i., Head or snapshot files)
+	// with their parent, name and other info.
+	// For exp: H->S3->S2->S1->S0
+	// diskData[S3] = {Name: S3, Parent: S2}
+	diskData map[string]*disk
+	// diskChildrenMap is mapping of disks with the respective
+	// childrens if exists.
+	diskChildrenMap map[string]map[string]bool
+	// list of active snapshots and head at the last index
+	// len(activeDiskData) - 2 as latest snapshot.
+	activeDiskData []*disk
+	readOnly       bool
+	mode           types.Mode
 
 	revisionLock  sync.Mutex
 	revisionCache int64
@@ -62,6 +72,8 @@ type Replica struct {
 	cloneStatus   string
 	CloneSnapName string
 	Clone         bool
+	// used for draining the HoleCreatorChan also useful for mocking
+	holeDrainer func()
 }
 
 type Info struct {
@@ -121,11 +133,10 @@ func CreateTempReplica() (*Replica, error) {
 	r := &Replica{
 		dir:              Dir,
 		ReplicaStartTime: StartTime,
+		mode:             types.INIT,
 	}
 	if err := r.initRevisionCounter(); err != nil {
-		return nil, err
-	}
-	if err := r.initPeerDetails(); err != nil {
+		logrus.Errorf("Error in initializing revision counter while creating temp replica")
 		return nil, err
 	}
 	return r, nil
@@ -158,6 +169,7 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 	}
 
 	if err := os.Mkdir(dir, 0700); err != nil && !os.IsExist(err) {
+		logrus.Errorf("failed to create directory: %s", dir)
 		return nil, err
 	}
 
@@ -166,6 +178,12 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 		activeDiskData:  make([]*disk, 1),
 		diskData:        make(map[string]*disk),
 		diskChildrenMap: map[string]map[string]bool{},
+		mode:            types.INIT,
+		holeDrainer: func() {
+			// this is just initializing function,
+			// actual excution will be done by r.holeDrainer()
+			holeDrainer()
+		},
 	}
 	r.info.Size = size
 	r.info.SectorSize = sectorSize
@@ -184,18 +202,15 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 		return nil, err
 	}
 
-	if err := r.initPeerDetails(); err != nil {
-		return nil, err
-	}
-
 	// Reference r.info.Size because it may have changed from reading
 	// metadata
 	locationSize := r.info.Size / r.volume.sectorSize
 	if size%defaultSectorSize != 0 {
 		locationSize++
 	}
-	r.volume.location = make([]byte, locationSize)
+	r.volume.location = make([]uint16, locationSize)
 	r.volume.files = []types.DiffDisk{nil}
+	r.volume.UserCreatedSnap = []bool{false}
 
 	if r.readOnly && !exists {
 		return nil, os.ErrNotExist
@@ -220,8 +235,12 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 
 	r.insertBackingFile()
 	r.ReplicaType = replicaType
-
-	PreloadLunMap(&r.volume)
+	inject.AddPreloadTimeout()
+	logrus.Info("Start reading extents")
+	if err := PreloadLunMap(&r.volume); err != nil {
+		return r, fmt.Errorf("failed to load Lun map, error: %v", err)
+	}
+	logrus.Info("Read extents successful")
 	return r, r.writeVolumeMetaData(true, r.info.Rebuilding)
 }
 
@@ -257,6 +276,7 @@ func (r *Replica) insertBackingFile() {
 	d := disk{Name: r.info.BackingFile.Name}
 	r.activeDiskData = append([]*disk{{}, &d}, r.activeDiskData[1:]...)
 	r.volume.files = append([]types.DiffDisk{nil, r.info.BackingFile.Disk}, r.volume.files[1:]...)
+	r.volume.UserCreatedSnap = append([]bool{false, false}, r.volume.UserCreatedSnap[1:]...)
 	r.diskData[d.Name] = &d
 }
 
@@ -271,6 +291,7 @@ func (r *Replica) SetRebuilding(rebuilding bool) error {
 
 func (r *Replica) GetUsage() (*types.VolUsage, error) {
 	return &types.VolUsage{
+		RevisionCounter:   r.revisionCache,
 		UsedLogicalBlocks: r.volume.UsedLogicalBlocks,
 		UsedBlocks:        r.volume.UsedBlocks,
 		SectorSize:        r.volume.sectorSize,
@@ -298,6 +319,8 @@ func (r *Replica) Resize(obj interface{}) error {
 			return nil
 		}
 	}
+	r.Lock()
+	defer r.Unlock()
 	if r.info.Size > sizeInBytes {
 		return fmt.Errorf("Previous size %d is greater than %d", r.info.Size, sizeInBytes)
 	}
@@ -306,6 +329,8 @@ func (r *Replica) Resize(obj interface{}) error {
 			return err
 		}
 	}
+	byteArray := make([]uint16, (sizeInBytes-r.info.Size)/4096)
+	r.volume.location = append(r.volume.location, byteArray...)
 	r.info.Size = sizeInBytes
 	return r.encodeToFile(&r.info, volumeMetaData)
 }
@@ -315,6 +340,7 @@ func (r *Replica) Reload() (*Replica, error) {
 	if err != nil {
 		return nil, err
 	}
+	newReplica.mode = r.mode
 	newReplica.info.Dirty = r.info.Dirty
 	return newReplica, nil
 }
@@ -344,9 +370,21 @@ func (r *Replica) RemoveDiffDisk(name string) error {
 	r.Lock()
 	defer r.Unlock()
 
+	if r.mode != types.RW {
+		return fmt.Errorf("Can not delete snapshot, replica mode: %v", r.mode)
+	}
 	if name == r.info.Head {
 		return fmt.Errorf("Can not delete the active differencing disk")
 	}
+
+	if r.info.Parent == name {
+		return fmt.Errorf("Can't delete latest snapshot: %s", name)
+	}
+
+	// Empty the data in HoleCreatorChan send for punching
+	// holes (fallocate), since it may be punching holes in
+	// the file that is going to be deleted.
+	r.holeDrainer()
 
 	if err := r.removeDiskNode(name); err != nil {
 		return err
@@ -373,13 +411,26 @@ func (r *Replica) hardlinkDisk(target, source string) error {
 	return nil
 }
 
+// ReplaceDisk replace the source with target snapshot
+// and remove and close both source and target and open
+// new instance of file for R/W and update the file index
+// with new reference.
 func (r *Replica) ReplaceDisk(target, source string) error {
 	r.Lock()
 	defer r.Unlock()
 
+	if r.mode != types.RW {
+		return fmt.Errorf("Can not delete snapshot, replica mode: %v", r.mode)
+	}
+
 	if target == r.info.Head {
 		return fmt.Errorf("Can not replace the active differencing disk")
 	}
+
+	// Empty the data in HoleCreatorChan send for punching
+	// holes (fallocate), since it may be punching holes in
+	// the file that is going to be deleted.
+	r.holeDrainer()
 
 	if err := r.hardlinkDisk(target, source); err != nil {
 		return err
@@ -390,9 +441,35 @@ func (r *Replica) ReplaceDisk(target, source string) error {
 	}
 
 	if err := r.rmDisk(source); err != nil {
+		logrus.Fatalf("Failed to remove disk: %v, err: %v", source, err)
 		return err
 	}
 
+	// find the updated index of target
+	index := r.findDisk(target)
+	// This case is valid if revert has happened
+	// For exp: H->S3->S2->S1->S0, and revert to S1
+	// so resulting chain will be NH->S1->S0 and after
+	// reload S3 will no longer will be in chain
+	if index <= 0 {
+		return nil
+	}
+
+	// Close the removed file
+	if err := r.volume.files[index].Close(); err != nil {
+		logrus.Fatalf("Failed to close old instance of target: %v, err: %v", target, err)
+		return err
+	}
+
+	// Open for R/W
+	newFile, err := r.openFile(r.activeDiskData[index].Name, 0)
+	if err != nil {
+		logrus.Fatalf("Failed to open new instance of target: %v, err: %v", target, err)
+		return err
+	}
+
+	// update index with the newFile
+	r.volume.files[index] = newFile
 	logrus.Infof("Done replacing %v with %v", target, source)
 
 	return nil
@@ -418,30 +495,48 @@ func (r *Replica) removeDiskNode(name string) error {
 	var child string
 	for child = range children {
 	}
+
 	r.updateChildDisk(name, child)
 	if err := r.updateParentDisk(child, name); err != nil {
+		logrus.Fatalf("Failed to update parent disk: %v with child: %v", name, child)
 		return err
 	}
 	delete(r.diskData, name)
 
 	index := r.findDisk(name)
+	// This case is valid if revert has happened
+	// For exp: H->S3->S2->S1->S0, and revert to S1
+	// so resulting chain will be NH->S1->S0 and after
+	// reload S3 will no longer will be in chain
 	if index <= 0 {
 		return nil
 	}
 	if err := r.volume.RemoveIndex(index); err != nil {
+		logrus.Fatalf("Failed to remove index for disk: %v, err: %v", name, err)
 		return err
 	}
+
 	if len(r.activeDiskData)-2 == index {
 		r.info.Parent = r.diskData[r.info.Head].Parent
 	}
-	r.activeDiskData = append(r.activeDiskData[:index], r.activeDiskData[index+1:]...)
 
+	r.activeDiskData = append(r.activeDiskData[:index], r.activeDiskData[index+1:]...)
 	return nil
 }
 
+// PrepareRemoveDisk mark and prepare the list of the disks that
+// is going to be deleted.
+// NOTE: We don't delete latest snapshot because the data
+// needs to be merged into Head file where IO's are being
+// precessed that means we need to block IO's for some
+// time till this get precessed.
 func (r *Replica) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) {
 	r.Lock()
 	defer r.Unlock()
+
+	if r.mode != types.RW {
+		return nil, fmt.Errorf("Can not prepare remove disk, replica mode: %v", r.mode)
+	}
 
 	disk := name
 
@@ -458,6 +553,10 @@ func (r *Replica) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) 
 		return nil, fmt.Errorf("Can not delete the active differencing disk")
 	}
 
+	if r.info.Parent == disk {
+		return nil, fmt.Errorf("Can't delete latest snapshot: %s", disk)
+	}
+
 	logrus.Infof("Mark disk %v as removed", disk)
 	if err := r.markDiskAsRemoved(disk); err != nil {
 		return nil, fmt.Errorf("Fail to mark disk %v as removed: %v", disk, err)
@@ -465,14 +564,14 @@ func (r *Replica) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) 
 
 	targetDisks := []string{}
 	if data.Parent != "" {
-		parentData, exists := r.diskData[data.Parent]
+		// check if metadata of parent exists for the snapshot
+		// going to be deleted.
+		_, exists := r.diskData[data.Parent]
 		if !exists {
 			return nil, fmt.Errorf("Can not find snapshot %v's parent %v", disk, data.Parent)
 		}
-		if parentData.Removed {
-			targetDisks = append(targetDisks, parentData.Name)
-		}
 	}
+
 	targetDisks = append(targetDisks, disk)
 	actions, err := r.processPrepareRemoveDisks(targetDisks)
 	if err != nil {
@@ -537,19 +636,30 @@ func (r *Replica) DisplayChain() ([]string, error) {
 
 	cur := r.info.Head
 	for cur != "" {
-		disk, ok := r.diskData[cur]
+		_, ok := r.diskData[cur]
 		if !ok {
-			return nil, fmt.Errorf("Failed to find metadata for %s", cur)
+			cur1 := r.info.Head
+			for cur1 != "" {
+				logrus.Errorf("cur1: %s", cur1)
+				if _, ok1 := r.diskData[cur1]; !ok1 {
+					break
+				}
+				cur1 = r.diskData[cur1].Parent
+			}
+			return nil, fmt.Errorf("Failed to find metadata for %s in DisplayChain", cur)
 		}
-		if !disk.Removed {
-			result = append(result, cur)
-		}
+
+		//		if !disk.Removed {
+		result = append(result, cur)
+		//		}
 		cur = r.diskData[cur].Parent
 	}
 
 	return result, nil
 }
 
+//Chain returns the disk chain starting with Head(index=0),
+//till the base snapshot
 func (r *Replica) Chain() ([]string, error) {
 	r.RLock()
 	defer r.RUnlock()
@@ -560,6 +670,14 @@ func (r *Replica) Chain() ([]string, error) {
 	for cur != "" {
 		result = append(result, cur)
 		if _, ok := r.diskData[cur]; !ok {
+			cur1 := r.info.Head
+			for cur1 != "" {
+				logrus.Errorf("cur1: %s", cur1)
+				if _, ok1 := r.diskData[cur1]; !ok1 {
+					break
+				}
+				cur1 = r.diskData[cur1].Parent
+			}
 			return nil, fmt.Errorf("Failed to find metadata for %s", cur)
 		}
 		cur = r.diskData[cur].Parent
@@ -599,15 +717,18 @@ func (r *Replica) encodeToFile(obj interface{}, file string) error {
 
 	f, err := os.Create(r.diskPath(file + ".tmp"))
 	if err != nil {
+		logrus.Errorf("failed to create temp file: %s while encoding the data to file", file)
 		return err
 	}
 	defer f.Close()
 
 	if err := json.NewEncoder(f).Encode(&obj); err != nil {
+		logrus.Errorf("failed to encode the data to file: %s", f.Name())
 		return err
 	}
 
 	if err := f.Close(); err != nil {
+		logrus.Errorf("failed to close file after encoding to file: %s", f.Name())
 		return err
 	}
 
@@ -746,7 +867,12 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 		return fmt.Errorf("Can not create disk on read-only replica")
 	}
 
-	if len(r.activeDiskData)+1 > maximumChainLength {
+	maxChainLen := maximumChainLength
+	if types.MaxChainLength != 0 {
+		maxChainLen = types.MaxChainLength
+	}
+
+	if len(r.activeDiskData)+1 > maxChainLen {
 		return fmt.Errorf("Too many active disks: %v", len(r.activeDiskData)+1)
 	}
 
@@ -809,6 +935,12 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 
 	r.info = info
 	r.volume.files = append(r.volume.files, f)
+	if userCreated {
+		//Indx 0 is nil, indx 1 is base snapshot,
+		//last indx (len(r.volume.files)-1) is active file
+		r.volume.SnapIndx = len(r.volume.files) - 2
+	}
+	r.volume.UserCreatedSnap = append(r.volume.UserCreatedSnap, userCreated)
 	r.activeDiskData = append(r.activeDiskData, &newHeadDisk)
 
 	return nil
@@ -869,14 +1001,21 @@ func (r *Replica) openLiveChain() error {
 	}
 
 	for i := len(chain) - 1; i >= 0; i-- {
-
 		parent := chain[i]
 		f, err := r.openFile(parent, 0)
 		if err != nil {
+			logrus.Error("failed to open live chain with existing parent: ", parent)
 			return err
 		}
 
 		r.volume.files = append(r.volume.files, f)
+		userCreated := r.diskData[parent].UserCreated
+		r.volume.UserCreatedSnap = append(r.volume.UserCreatedSnap, userCreated)
+		if userCreated {
+			//This chain is the actual disk chain and does not contain the extra
+			//nil at index 0, which is present in r.volume.files
+			r.volume.SnapIndx = len(chain) - i
+		}
 		r.activeDiskData = append(r.activeDiskData, r.diskData[parent])
 	}
 	return nil
@@ -896,6 +1035,7 @@ func (r *Replica) readMetadata() (bool, error) {
 	for _, file := range files {
 		if file.Name() == volumeMetaData {
 			if err := r.unmarshalFile(file.Name(), &r.info); err != nil {
+				logrus.Errorf("failed to read metadata, error in unmarshalling file: %s", file.Name())
 				return false, err
 			}
 			r.volume.sectorSize = defaultSectorSize
@@ -924,6 +1064,7 @@ func (r *Replica) readMetadata() (bool, error) {
 func (r *Replica) readDiskData(file string) error {
 	var data disk
 	if err := r.unmarshalFile(file, &data); err != nil {
+		logrus.Errorf("failed to read disk data, error while unmarshalling file: %s", file)
 		return err
 	}
 
@@ -952,6 +1093,7 @@ func (r *Replica) Close() error {
 	r.Lock()
 	defer r.Unlock()
 
+	r.mode = types.CLOSED
 	return r.close()
 }
 
@@ -961,12 +1103,34 @@ func (r *Replica) Delete() error {
 
 	for name := range r.diskData {
 		if name != r.info.BackingFileName {
-			r.rmDisk(name)
+			if err := r.rmDisk(name); err != nil {
+				logrus.Error("Error in removing disk data, error : ", err.Error())
+				return err
+			}
 		}
 	}
 
-	os.Remove(r.diskPath(volumeMetaData))
-	os.Remove(r.diskPath(revisionCounterFile))
+	err := os.Remove(r.diskPath(volumeMetaData))
+	if err != nil {
+		logrus.Error("Error in removing volume metadata, error : ", err.Error())
+		return err
+	}
+	err = os.Remove(r.diskPath(revisionCounterFile))
+	if err != nil {
+		logrus.Error("Error in removing revision counter file, error : ", err.Error())
+		return err
+	}
+	return nil
+}
+
+func (r *Replica) DeleteAll() error {
+	r.Lock()
+	defer r.Unlock()
+
+	if err := os.RemoveAll(r.dir); err != nil {
+		logrus.Error("Error in deleting the directory contents, error : ", err.Error())
+		return err
+	}
 	return nil
 }
 
@@ -984,26 +1148,64 @@ func (r *Replica) Revert(name, created string) (*Replica, error) {
 	return r.revertDisk(name, created)
 }
 
-func (r *Replica) WriteAt(buf []byte, offset int64) (int, error) {
-	var (
-		c   int
-		err error
-	)
+func (r *Replica) Sync() (int, error) {
 	if r.readOnly {
-		return 0, fmt.Errorf("Can not write on read-only replica")
+		return -1, fmt.Errorf("Can not sync on read-only replica")
 	}
 
 	if r.ReplicaType != "quorum" {
 		r.RLock()
 		r.info.Dirty = true
+		n, err := r.volume.Sync()
+		r.RUnlock()
+		if err != nil {
+			return n, err
+		}
+	}
+	return 0, nil
+}
+func (r *Replica) Unmap(offset int64, length int64) (int, error) {
+	if r.readOnly {
+		return -1, fmt.Errorf("Can not sync on read-only replica")
+	}
+
+	if r.ReplicaType != "quorum" {
+		r.RLock()
+		r.info.Dirty = true
+		n, err := r.volume.Unmap(offset, length)
+		r.RUnlock()
+		if err != nil {
+			return n, err
+		}
+	}
+	return 0, nil
+}
+
+func (r *Replica) WriteAt(buf []byte, offset int64) (int, error) {
+	var (
+		c    int
+		err  error
+		mode types.Mode
+	)
+	if r.readOnly {
+		return 0, fmt.Errorf("Can not write on read-only replica")
+	}
+	if r.ReplicaType != "quorum" {
+		r.RLock()
+		r.info.Dirty = true
 		c, err = r.volume.WriteAt(buf, offset)
+		mode = r.mode
 		r.RUnlock()
 		if err != nil {
 			return c, err
 		}
 	}
-	if err := r.increaseRevisionCounter(); err != nil {
-		return c, err
+	if mode == types.RW {
+		if err := r.increaseRevisionCounter(); err != nil {
+			return c, err
+		}
+	} else if mode != types.WO {
+		return c, fmt.Errorf("write happening on invalid rep state %v", mode)
 	}
 	return c, nil
 }
@@ -1043,8 +1245,11 @@ func (r *Replica) ListDisks() map[string]DiskInfo {
 func (r *Replica) GetRemainSnapshotCounts() int {
 	r.RLock()
 	defer r.RUnlock()
-
-	return maximumChainLength - len(r.activeDiskData)
+	maxChainLen := maximumChainLength
+	if types.MaxChainLength != 0 {
+		maxChainLen = types.MaxChainLength
+	}
+	return maxChainLen - len(r.activeDiskData)
 }
 
 func (r *Replica) GetCloneStatus() string {
@@ -1069,4 +1274,26 @@ func (r *Replica) SetCloneStatus(status string) error {
 
 func (r *Replica) getDiskSize(disk string) int64 {
 	return util.GetFileActualSize(r.diskPath(disk))
+}
+
+// GetReplicaMode ...
+func (r *Replica) GetReplicaMode() string {
+	r.Lock()
+	defer r.Unlock()
+	return string(r.mode)
+}
+
+// SetReplicaMode ...
+func (r *Replica) SetReplicaMode(mode string) error {
+	r.Lock()
+	defer r.Unlock()
+
+	if mode == "RW" {
+		r.mode = types.RW
+	} else if mode == "WO" {
+		r.mode = types.WO
+	} else {
+		return fmt.Errorf("invalid mode string %s", mode)
+	}
+	return nil
 }

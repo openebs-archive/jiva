@@ -2,17 +2,19 @@ package app
 
 import (
 	"errors"
+	"github.com/openebs/jiva/alertlog"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
+	"github.com/openebs/jiva/types"
+
 	"github.com/docker/go-units"
 	"github.com/openebs/jiva/controller/client"
 	"github.com/openebs/jiva/replica"
@@ -20,6 +22,8 @@ import (
 	"github.com/openebs/jiva/replica/rpc"
 	"github.com/openebs/jiva/sync"
 	"github.com/openebs/jiva/util"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 )
 
 func ReplicaCmd() cli.Command {
@@ -84,20 +88,39 @@ func CheckReplicaState(frontendIP string, replicaIP string) (string, error) {
 }
 
 func AutoConfigureReplica(s *replica.Server, frontendIP string, address string, replicaType string) {
+	retryCount := 10
 checkagain:
+	retryCount--
 	state, err := CheckReplicaState(frontendIP, address)
-	if err == nil && (state == "" || state == "ERR") {
-		logrus.Infof("Removing Replica")
-	} else {
+	if err != nil {
+		logrus.Warningf("Failed to check replica state, err: %v, will retry (%v retry left)", err, retryCount)
+		if retryCount == 0 {
+			logrus.Fatalf("Retry count exceeded, Shutting down...")
+		}
 		time.Sleep(5 * time.Second)
 		goto checkagain
-	}
-	s.Close()
-	AutoRmReplica(frontendIP, address)
-	AutoAddReplica(frontendIP, address, replicaType)
-	select {
-	case <-s.MonitorChannel:
+	} else if state == "ERR" {
+		retryCount++
+		logrus.Infof("Got replica state: %v", state)
+		// replica may be in errored state marked by controller and
+		// not yet removed. The cause of ERR state would be following:
+		// - I/O error while R/W operations
+		// - Failed to revert snapshot
+		time.Sleep(5 * time.Second)
 		goto checkagain
+	} else {
+		// Replica might be in rebuilding state, closing will change it to
+		// closed state, then it can be registered, else register replica
+		// will fail.
+		_ = s.Close()
+		// this is just to be sure that replica is not attached to
+		// controller. Assumption is replica might be in RO, RW or in
+		// "" state and not removed from controller.
+		AutoRmReplica(frontendIP, address)
+		if err := AutoAddReplica(s, frontendIP, address, replicaType); err != nil {
+			s.Close()
+			logrus.Fatalf("Failed to add replica to controller, err: %v, Shutting down...", err)
+		}
 	}
 }
 
@@ -106,27 +129,55 @@ func CloneReplica(s *replica.Server, address string, cloneIP string, snapName st
 	url := "http://" + cloneIP + ":9501"
 	task := sync.NewTask(url)
 	if err = task.CloneReplica(url, address, cloneIP, snapName); err != nil {
+		alertlog.Logger.Errorw("",
+			"eventcode", "jiva.volume.replica.clone.failure",
+			"msg", "Failed to clone Jiva volume replica",
+			"rname", snapName,
+		)
 		return err
 	}
 	if s.Replica() != nil {
-		s.Replica().SetCloneStatus("completed")
+		err = s.Replica().SetCloneStatus("completed")
+	}
+
+	if err != nil {
+		alertlog.Logger.Errorw("",
+			"eventcode", "jiva.volume.replica.clone.failure",
+			"msg", "Failed to clone Jiva volume replica",
+			"rname", snapName,
+		)
+	} else {
+		alertlog.Logger.Infow("",
+			"eventcode", "jiva.volume.replica.clone.success",
+			"msg", "Successfully cloned Jiva volume replica",
+			"rname", snapName,
+		)
 	}
 	return err
 }
 
 func startReplica(c *cli.Context) error {
+
+	formatter := &logrus.TextFormatter{
+		FullTimestamp: true,
+	}
+	logrus.SetFormatter(formatter)
+
 	if c.NArg() != 1 {
 		return errors.New("directory name is required")
 	}
 
-	dir := c.Args()[0]
-	backingFile, err := openBackingFile(c.String("backing-file"))
-	if err != nil {
-		return err
+	types.MaxChainLength, _ = strconv.Atoi(os.Getenv("MAX_CHAIN_LENGTH"))
+	if types.MaxChainLength == 0 {
+		logrus.Infof("MAX_CHAIN_LENGTH env not set, default value is 512")
+	} else {
+		logrus.Infof("MAX_CHAIN_LENGTH: %v", types.MaxChainLength)
 	}
 
+	dir := c.Args()[0]
 	replicaType := c.String("type")
-	s := replica.NewServer(dir, backingFile, 512, replicaType)
+	s := replica.NewServer(dir, 512, replicaType)
+	go replica.CreateHoles()
 
 	address := c.String("listen")
 	frontendIP := c.String("frontendIP")
@@ -167,23 +218,30 @@ func startReplica(c *cli.Context) error {
 		return err
 	}
 
-	resp := make(chan error)
+	logrus.Infof("Starting replica having replicaType: %v, frontendIP: %v, size: %v, dir: %v", replicaType, frontendIP, size, dir)
+	logrus.Infof("Setting replicaAddr: %v, controlAddr: %v, dataAddr: %v, syncAddr: %v", address, controlAddress, dataAddress, syncAddress)
+
+	var resp error
+	controlResp := make(chan error)
+	syncResp := make(chan error)
+	rpcResp := make(chan error)
 
 	go func() {
 		server := rest.NewServer(s)
 		router := http.Handler(rest.NewRouter(server))
 		router = util.FilteredLoggingHandler(map[string]struct{}{
-			"/ping":          struct{}{},
-			"/v1/replicas/1": struct{}{},
+			"/ping":                   {},
+			"/v1/replicas/1":          {},
+			"/v1/replicas/1/volusage": {},
 		}, os.Stdout, router)
 		logrus.Infof("Listening on control %s", controlAddress)
-		resp <- http.ListenAndServe(controlAddress, router)
+		controlResp <- http.ListenAndServe(controlAddress, router)
 	}()
 
 	go func() {
 		rpcServer := rpc.New(dataAddress, s)
 		logrus.Infof("Listening on data %s", dataAddress)
-		resp <- rpcServer.ListenAndServe()
+		rpcResp <- rpcServer.ListenAndServe()
 	}()
 
 	if c.Bool("sync-agent") {
@@ -205,7 +263,7 @@ func startReplica(c *cli.Context) error {
 			cmd.Dir = dir
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
-			resp <- cmd.Run()
+			syncResp <- cmd.Run()
 		}()
 	}
 	if frontendIP != "" {
@@ -214,24 +272,70 @@ func startReplica(c *cli.Context) error {
 		}
 		go AutoConfigureReplica(s, frontendIP, "tcp://"+address, replicaType)
 	}
+
 	for s.Replica() == nil {
+		logrus.Infof("Waiting for s.Replica() to be non nil")
 		time.Sleep(2 * time.Second)
 	}
 	if replicaType == "clone" && snapName != "" {
 		logrus.Infof("Starting clone process\n")
 		status := s.Replica().GetCloneStatus()
 		if status != "completed" {
-			s.Replica().SetCloneStatus("inProgress")
+			logrus.Infof("Set clone status as inProgress")
+			if err = s.Replica().SetCloneStatus("inProgress"); err != nil {
+				logrus.Error("Error in setting the clone status as 'inProgress'")
+				return err
+			}
 			if err = CloneReplica(s, "tcp://"+address, cloneIP, snapName); err != nil {
-				s.Replica().SetCloneStatus("error")
+				logrus.Error("Error in cloning replica, setting clone status as 'error'")
+				if statusErr := s.Replica().SetCloneStatus("error"); err != nil {
+					logrus.Errorf("Error in setting the clone status as 'error', found error:%v", statusErr)
+					return err
+				}
 				return err
 			}
 		}
-		s.Replica().SetCloneStatus("completed")
+		logrus.Infof("Set clone status as Completed")
+		if err := s.Replica().SetCloneStatus("completed"); err != nil {
+			logrus.Error("Error in setting the clone status as 'completed'")
+			return err
+		}
 		logrus.Infof("Clone process completed successfully\n")
 	} else {
-		s.Replica().SetCloneStatus("NA")
+		logrus.Infof("Set clone status as NA")
+		if err := s.Replica().SetCloneStatus("NA"); err != nil {
+			logrus.Error("Error in setting the clone status as 'NA'")
+			return err
+		}
+	}
+	select {
+	case resp = <-controlResp:
+		alertlog.Logger.Errorw("",
+			"eventcode", "jiva.volume.replica.api.exited",
+			"msg", "Jiva volume replica API stopped",
+			"rname", address,
+		)
+		logrus.Fatalf("Rest API exited: %v", resp)
+	case resp = <-rpcResp:
+		alertlog.Logger.Errorw("",
+			"eventcode", "jiva.volume.replica.rpc.exited",
+			"msg", "Jiva volume replica RPC stopped",
+			"rname", address,
+		)
+		logrus.Fatalf("RPC listen exited: %v", resp)
+	case resp = <-syncResp:
+		alertlog.Logger.Errorw("",
+			"eventcode", "jiva.volume.replica.sync.exited",
+			"msg", "Jiva volume replica sync stopped",
+			"rname", address,
+		)
+		logrus.Fatalf("Sync process exited: %v", resp)
 	}
 
-	return <-resp
+	alertlog.Logger.Infow("",
+		"eventcode", "jiva.volume.replica.start.success",
+		"msg", "Successfully started Jiva volume replica",
+		"rname", address,
+	)
+	return resp
 }

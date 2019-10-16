@@ -2,13 +2,14 @@ package replica
 
 import (
 	"fmt"
+	"github.com/openebs/jiva/types"
 	"io"
 	"os"
 	"strconv"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/rancher/sparse-tools/sparse"
+	"github.com/longhorn/sparse-tools/sparse"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -64,17 +65,21 @@ func (r *Replica) initRevisionCounter() error {
 		}
 		// file doesn't exist yet
 		if err := r.openRevisionFile(true); err != nil {
+			logrus.Errorf("failed to open revision counter file")
 			return err
 		}
-		if err := r.writeRevisionCounter(0); err != nil {
+		if err := r.writeRevisionCounter(1); err != nil {
+			logrus.Errorf("failed to update revision counter")
 			return err
 		}
 	} else if err := r.openRevisionFile(false); err != nil {
+		logrus.Errorf("open existing revision counter file failed")
 		return err
 	}
 
 	counter, err := r.readRevisionCounter()
 	if err != nil {
+		logrus.Errorf("failed to read revision counter")
 		return err
 	}
 	// Don't use r.revisionCache directly
@@ -100,6 +105,12 @@ func (r *Replica) GetRevisionCounter() int64 {
 }
 
 func (r *Replica) SetRevisionCounter(counter int64) error {
+	r.Lock()
+	if r.mode != types.RW {
+		r.Unlock()
+		return fmt.Errorf("setting revisioncounter during %v mode is invalid", r.mode)
+	}
+	r.Unlock()
 	r.revisionLock.Lock()
 	defer r.revisionLock.Unlock()
 

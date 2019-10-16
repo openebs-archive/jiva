@@ -20,11 +20,16 @@ type Replica struct {
 	Chain             []string                    `json:"chain"`
 	Disks             map[string]replica.DiskInfo `json:"disks"`
 	RemainSnapshots   int                         `json:"remainsnapshots"`
+	ReplicaMode       string                      `json:"replicamode"`
 	RevisionCounter   string                      `json:"revisioncounter"`
 	ReplicaCounter    int64                       `json:"replicacounter"`
 	UsedLogicalBlocks string                      `json:"usedlogicalblocks"`
 	UsedBlocks        string                      `json:"usedblocks"`
 	CloneStatus       string                      `json:"clonestatus"`
+}
+
+type DeleteReplicaOutput struct {
+	client.Resource
 }
 
 type Stats struct {
@@ -68,6 +73,7 @@ type RemoveDiskInput struct {
 
 type VolUsage struct {
 	client.Resource
+	RevisionCounter   string `json:"revisioncounter"`
 	UsedLogicalBlocks string `json:"usedlogicalblocks"`
 	UsedBlocks        string `json:"usedblocks"`
 	SectorSize        string `json:"sectorSize"`
@@ -95,6 +101,12 @@ type PrepareRemoveDiskOutput struct {
 	Operations []replica.PrepareRemoveAction `json:"operations"`
 }
 
+// ReplicaMode ...
+type ReplicaMode struct {
+	client.Resource
+	Mode string `json:"mode"`
+}
+
 type RevisionCounter struct {
 	client.Resource
 	Counter string `json:"counter"`
@@ -103,12 +115,6 @@ type RevisionCounter struct {
 type ReplicaCounter struct {
 	client.Resource
 	Counter int64 `json:"counter"`
-}
-
-type PeerDetails struct {
-	client.Resource
-	ReplicaCount       int `json:"replicacount"`
-	QuorumReplicaCount int `json:"quorumreplicacount"`
 }
 
 type Action struct {
@@ -139,6 +145,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["start"] = true
 		actions["resize"] = true
 		actions["close"] = true
+		actions["updatediskmode"] = true
 		actions["resize"] = true
 		actions["setrebuilding"] = true
 		actions["snapshot"] = true
@@ -147,10 +154,10 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["replacedisk"] = true
 		actions["revert"] = true
 		actions["prepareremovedisk"] = true
+		actions["setreplicamode"] = true
 		actions["setrevisioncounter"] = true
 		actions["updatecloneinfo"] = true
 		actions["setreplicacounter"] = true
-		actions["updatepeerdetails"] = true
 	case replica.Closed:
 		actions["start"] = true
 		actions["open"] = true
@@ -170,11 +177,12 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["reload"] = true
 		actions["removedisk"] = true
 		actions["replacedisk"] = true
+		actions["updatediskmode"] = true
 		actions["revert"] = true
+		actions["setreplicamode"] = true
 		actions["prepareremovedisk"] = true
 		actions["setreplicacounter"] = true
 		actions["updatecloneinfo"] = true
-		actions["updatepeerdetails"] = true
 	case replica.Rebuilding:
 		actions["start"] = true
 		actions["resize"] = true
@@ -182,10 +190,10 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["setrebuilding"] = true
 		actions["close"] = true
 		actions["reload"] = true
+		actions["setreplicamode"] = true
 		actions["setrevisioncounter"] = true
 		actions["setreplicacounter"] = true
 		actions["updatecloneinfo"] = true
-		actions["updatepeerdetails"] = true
 	case replica.Error:
 	}
 
@@ -205,31 +213,13 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		r.Disks = rep.ListDisks()
 		r.RemainSnapshots = rep.GetRemainSnapshotCounts()
 		r.RevisionCounter = strconv.FormatInt(rep.GetRevisionCounter(), 10)
+		r.ReplicaMode = rep.GetReplicaMode()
 		r.CloneStatus = rep.GetCloneStatus()
 	}
-
 	return r
 }
 
-func NewSchema() *client.Schemas {
-	schemas := &client.Schemas{}
-
-	schemas.AddType("error", client.ServerApiError{})
-	schemas.AddType("apiVersion", client.Resource{})
-	schemas.AddType("schema", client.Schema{})
-	schemas.AddType("createInput", CreateInput{})
-	schemas.AddType("rebuildingInput", RebuildingInput{})
-	schemas.AddType("snapshotInput", SnapshotInput{})
-	schemas.AddType("removediskInput", RemoveDiskInput{})
-	schemas.AddType("revertInput", RevertInput{})
-	schemas.AddType("prepareRemoveDiskInput", PrepareRemoveDiskInput{})
-	schemas.AddType("prepareRemoveDiskOutput", PrepareRemoveDiskOutput{})
-	schemas.AddType("revisionCounter", RevisionCounter{})
-	schemas.AddType("replicaCounter", ReplicaCounter{})
-	schemas.AddType("replacediskInput", ReplaceDiskInput{})
-	replica := schemas.AddType("replica", Replica{})
-
-	replica.ResourceMethods = []string{"GET", "DELETE"}
+func setReplicaResourceActions(replica *client.Schema) {
 	replica.ResourceActions = map[string]client.Action{
 		"close": {
 			Output: "replica",
@@ -264,6 +254,9 @@ func NewSchema() *client.Schemas {
 			Input:  "prepareRemoveDiskInput",
 			Output: "prepareRemoveDiskOutput",
 		},
+		"setreplicamode": {
+			Input: "replicaMode",
+		},
 		"setrevisioncounter": {
 			Input: "revisionCounter",
 		},
@@ -275,6 +268,33 @@ func NewSchema() *client.Schemas {
 			Output: "replica",
 		},
 	}
+}
+
+func NewSchema() *client.Schemas {
+	schemas := &client.Schemas{}
+
+	schemas.AddType("error", client.ServerApiError{})
+	schemas.AddType("apiVersion", client.Resource{})
+	schemas.AddType("schema", client.Schema{})
+	schemas.AddType("createInput", CreateInput{})
+	schemas.AddType("rebuildingInput", RebuildingInput{})
+	schemas.AddType("snapshotInput", SnapshotInput{})
+	schemas.AddType("removediskInput", RemoveDiskInput{})
+	schemas.AddType("revertInput", RevertInput{})
+	schemas.AddType("prepareRemoveDiskInput", PrepareRemoveDiskInput{})
+	schemas.AddType("prepareRemoveDiskOutput", PrepareRemoveDiskOutput{})
+	schemas.AddType("replicaMode", ReplicaMode{})
+	schemas.AddType("revisionCounter", RevisionCounter{})
+	schemas.AddType("replicaCounter", ReplicaCounter{})
+	schemas.AddType("replacediskInput", ReplaceDiskInput{})
+
+	delete := schemas.AddType("delete", DeleteReplicaOutput{})
+	delete.ResourceMethods = []string{"DELETE"}
+
+	replica := schemas.AddType("replica", Replica{})
+
+	replica.ResourceMethods = []string{"GET", "DELETE"}
+	setReplicaResourceActions(replica)
 
 	return schemas
 }

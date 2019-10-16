@@ -3,8 +3,8 @@ package rest
 import (
 	"net/http"
 
+	journal "github.com/longhorn/sparse-tools/stats"
 	"github.com/rancher/go-rancher/api"
-	journal "github.com/rancher/sparse-tools/stats"
 )
 
 //ListJournal flushes operation journal (replica read/write, ping, etc.) accumulated since previous flush

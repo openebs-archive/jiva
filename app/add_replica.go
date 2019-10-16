@@ -2,11 +2,12 @@ package app
 
 import (
 	"errors"
-	"time"
+	"github.com/openebs/jiva/alertlog"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
+	"github.com/openebs/jiva/replica"
 	"github.com/openebs/jiva/sync"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 )
 
 func AddReplicaCmd() cli.Command {
@@ -29,22 +30,29 @@ func addReplica(c *cli.Context) error {
 
 	url := c.GlobalString("url")
 	task := sync.NewTask(url)
-	return task.AddReplica(replica)
+	return task.AddReplica(replica, nil)
 }
-func AutoAddReplica(frontendIP string, replica string, replicaType string) error {
+func AutoAddReplica(s *replica.Server, frontendIP string, replica string, replicaType string) error {
 	var err error
 	url := "http://" + frontendIP + ":9501"
 	task := sync.NewTask(url)
-	for {
-		if replicaType == "quorum" {
-			err = task.AddQuorumReplica(replica)
-		} else {
-			err = task.AddReplica(replica)
-		}
-		if err != nil {
-			time.Sleep(2 * time.Second)
-			continue
-		}
-		return err
+	if replicaType == "quorum" {
+		err = task.AddQuorumReplica(replica, s)
+	} else {
+		err = task.AddReplica(replica, s)
 	}
+	if err != nil {
+		alertlog.Logger.Errorw("",
+			"eventcode", "jiva.volume.replica.add.failure",
+			"msg", "Failed to add Jiva volume replica",
+			"rname", replica,
+		)
+	} else {
+		alertlog.Logger.Infow("",
+			"eventcode", "jiva.volume.replica.add.success",
+			"msg", "Successfully added Jiva volume replica",
+			"rname", replica,
+		)
+	}
+	return err
 }

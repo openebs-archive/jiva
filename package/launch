@@ -23,7 +23,7 @@ do
 done
 
 if [ $is_controller -eq 1 ]; then
-        mount --rbind /host/dev /dev
+#        mount --rbind /host/dev /dev
 
         if [ "$frontend" == "tcmu" ]
         then

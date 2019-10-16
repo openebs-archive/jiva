@@ -4,9 +4,9 @@ import (
 	"net"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/replica"
 	"github.com/openebs/jiva/rpc"
+	"github.com/sirupsen/logrus"
 )
 
 type Server struct {
@@ -38,7 +38,6 @@ func (s *Server) ListenAndServe() error {
 			logrus.Errorf("failed to accept connection %v", err)
 			continue
 		}
-
 		err = conn.SetKeepAlive(true)
 		if err != nil {
 			logrus.Errorf("failed to accept connection %v", err)
@@ -53,10 +52,14 @@ func (s *Server) ListenAndServe() error {
 
 		logrus.Infof("New connection from: %v", conn.RemoteAddr())
 
-		go func(conn net.Conn) {
-			server := rpc.NewServer(conn, s.s)
-			s.s.MonitorChannel = server.CreateMonitorChannel()
-			server.Handle()
-		}(conn)
+		server := rpc.NewServer(conn, s.s)
+		if err := server.Handle(); err != nil {
+			// ignore err for below operations,as connection may be
+			// closed from the other side and also files may have
+			// been closed already or not initialized yet.
+			_ = server.Stop() // shutdown fd and conn
+			_ = s.s.Close()   // close all the open files before fataling
+			logrus.Fatalf("Failed to handle connection, err: %v, shutdown replica...", err)
+		}
 	}
 }

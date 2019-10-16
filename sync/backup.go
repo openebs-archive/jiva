@@ -3,11 +3,11 @@ package sync
 import (
 	"fmt"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/controller/rest"
 	"github.com/openebs/jiva/replica"
 	replicaClient "github.com/openebs/jiva/replica/client"
 	"github.com/openebs/jiva/util"
+	"github.com/sirupsen/logrus"
 )
 
 func (t *Task) CreateBackup(snapshot, dest string) (string, error) {

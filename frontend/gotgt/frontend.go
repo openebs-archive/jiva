@@ -1,11 +1,13 @@
 package gotgt
 
 import (
+	"encoding/binary"
 	"fmt"
 	"net"
 	"os"
 
-	"github.com/Sirupsen/logrus"
+	uuid "github.com/satori/go.uuid"
+	"github.com/sirupsen/logrus"
 
 	"github.com/openebs/jiva/types"
 
@@ -26,7 +28,7 @@ type goTgt struct {
 	SectorSize int
 
 	isUp bool
-	rw   types.ReaderWriterAt
+	rw   types.IOs
 
 	tgtName      string
 	lhbsName     string
@@ -36,7 +38,7 @@ type goTgt struct {
 	stats        scsi.Stats
 }
 
-func (t *goTgt) Startup(name string, frontendIP string, clusterIP string, size, sectorSize int64, rw types.ReaderWriterAt) error {
+func (t *goTgt) Startup(name string, frontendIP string, clusterIP string, size, sectorSize int64, rw types.IOs) error {
 	/*if err := t.Shutdown(); err != nil {
 		return err
 	}*/
@@ -59,22 +61,22 @@ func (t *goTgt) Startup(name string, frontendIP string, clusterIP string, size, 
 	t.lhbsName = "RemBs:" + name
 	t.cfg = &config.Config{
 		Storages: []config.BackendStorage{
-			config.BackendStorage{
+			{
 				DeviceID: 1000,
 				Path:     t.lhbsName,
 				Online:   true,
 			},
 		},
 		ISCSIPortals: []config.ISCSIPortalInfo{
-			config.ISCSIPortalInfo{
+			{
 				ID:     0,
 				Portal: frontendIP + ":3260",
 			},
 		},
 		ISCSITargets: map[string]config.ISCSITarget{
-			t.tgtName: config.ISCSITarget{
+			t.tgtName: {
 				TPGTs: map[string][]uint64{
-					"1": []uint64{0},
+					"1": {0},
 				},
 				LUNs: map[string]uint64{
 					"1": uint64(1000),
@@ -88,6 +90,7 @@ func (t *goTgt) Startup(name string, frontendIP string, clusterIP string, size, 
 	t.SectorSize = int(sectorSize)
 	t.rw = rw
 	t.clusterIP = clusterIP
+	logrus.Info("Start SCSI target")
 	if err := t.startScsiTarget(t.cfg); err != nil {
 		return err
 	}
@@ -131,7 +134,9 @@ func (t *goTgt) Resize(size uint64) error {
 
 func (t *goTgt) startScsiTarget(cfg *config.Config) error {
 	var err error
-	scsi.InitSCSILUMapEx(t.tgtName, t.Volume, 1, 0, uint64(t.Size), uint64(t.SectorSize), t.rw)
+	id := uuid.NewV4()
+	uid := binary.BigEndian.Uint64(id[:8])
+	scsi.InitSCSILUMapEx(t.tgtName, t.Volume, uid, 0, uint64(t.Size), uint64(t.SectorSize), t.rw)
 	scsiTarget := scsi.NewSCSITargetService()
 	t.targetDriver, err = scsi.NewTargetDriver("iscsi", scsiTarget)
 	if err != nil {
@@ -147,6 +152,9 @@ func (t *goTgt) startScsiTarget(cfg *config.Config) error {
 }
 
 func (t *goTgt) stopScsiTarget() error {
+	if t.targetDriver == nil {
+		return nil
+	}
 	logrus.Infof("stopping target %v ...", t.tgtName)
 	t.targetDriver.Stop()
 	logrus.Infof("target %v stopped", t.tgtName)

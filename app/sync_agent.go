@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
 	"github.com/openebs/jiva/sync/agent"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 )
 
 func SyncAgentCmd() cli.Command {
@@ -54,7 +54,7 @@ func startSyncAgent(c *cli.Context) error {
 
 	server := agent.NewServer(start, end)
 	router := agent.NewRouter(server)
-	logrus.Infof("Listening on sync %s", listen)
+	logrus.Infof("Listening on sync %s start: %d end: %d", listen, start, end)
 
 	return http.ListenAndServe(listen, router)
 }

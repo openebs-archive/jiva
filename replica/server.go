@@ -1,13 +1,14 @@
 package replica
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"sync"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/types"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -32,18 +33,21 @@ type Server struct {
 	dir               string
 	defaultSectorSize int64
 	backing           *BackingFile
-	MonitorChannel    chan struct{}
+	//This channel is used to montitor the IO connection
+	//between controller and replica. If the connection is broken,
+	//the replica attempts to connect back to controller
+	MonitorChannel chan struct{}
 }
 
-func NewServer(dir string, backing *BackingFile, sectorSize int64, serverType string) *Server {
+func NewServer(dir string, sectorSize int64, serverType string) *Server {
 	ActionChannel = make(chan string, 5)
 	Dir = dir
 	StartTime = time.Now()
 	return &Server{
 		dir:               dir,
-		backing:           backing,
 		defaultSectorSize: sectorSize,
 		ServerType:        serverType,
+		MonitorChannel:    make(chan struct{}),
 	}
 }
 
@@ -72,7 +76,13 @@ func (s *Server) getSize(size int64) int64 {
 func (s *Server) Create(size int64) error {
 	s.Lock()
 	defer s.Unlock()
-
+	if err := os.Mkdir(s.dir, 0700); err != nil && !os.IsExist(err) {
+		logrus.Errorf("failed to create directory: %s", s.dir)
+		return err
+	}
+	if err := isExtentSupported(s.dir); err != nil {
+		return err
+	}
 	state, _ := s.Status()
 
 	if state != Initial {
@@ -103,10 +113,10 @@ func (s *Server) Open() error {
 	_, info := s.Status()
 	size := s.getSize(info.Size)
 	sectorSize := s.getSectorSize()
-
 	logrus.Infof("Opening volume %s, size %d/%d", s.dir, size, sectorSize)
 	r, err := New(size, sectorSize, s.dir, s.backing, s.ServerType)
 	if err != nil {
+		logrus.Errorf("Error %v during open", err)
 		return err
 	}
 	s.r = r
@@ -118,12 +128,16 @@ func (s *Server) Reload() error {
 	defer s.Unlock()
 
 	if s.r == nil {
+		logrus.Infof("returning as s.r is nil in reloading volume")
 		return nil
 	}
 
+	types.ShouldPunchHoles = true
 	logrus.Infof("Reloading volume")
 	newReplica, err := s.r.Reload()
 	if err != nil {
+		logrus.Errorf("error in Reload")
+		types.ShouldPunchHoles = false
 		return err
 	}
 
@@ -183,16 +197,32 @@ func (s *Server) PrevStatus() (State, Info) {
 	return Closed, info
 }
 
+// Stats returns the revisionCache and Peerdetails
+// TODO: What to return in Stats and GetUsage if s.r is nil?
 func (s *Server) Stats() *types.Stats {
 	r := s.r
-	return &types.Stats{
-		RevisionCounter: r.revisionCache,
-		ReplicaCounter:  int64(r.peerCache.ReplicaCount),
+	var revisionCache int64
+
+	revisionCache = 0
+	if r != nil {
+		revisionCache = r.revisionCache
 	}
+
+	stats1 := &types.Stats{
+		RevisionCounter: revisionCache,
+	}
+	return stats1
 }
 
 func (s *Server) GetUsage() (*types.VolUsage, error) {
-	return s.r.GetUsage()
+	if s.r != nil {
+		return s.r.GetUsage()
+	}
+	return &types.VolUsage{
+		UsedLogicalBlocks: 0,
+		UsedBlocks:        0,
+		SectorSize:        0,
+	}, nil
 }
 
 func (s *Server) SetRebuilding(rebuilding bool) error {
@@ -224,6 +254,7 @@ func (s *Server) Revert(name, created string) error {
 	defer s.Unlock()
 
 	if s.r == nil {
+		logrus.Infof("Revert is not performed as s.r is nil")
 		return nil
 	}
 
@@ -242,6 +273,7 @@ func (s *Server) Snapshot(name string, userCreated bool, createdTime string) err
 	defer s.Unlock()
 
 	if s.r == nil {
+		logrus.Infof("snapshot is not performed as s.r is nil")
 		return nil
 	}
 
@@ -255,6 +287,7 @@ func (s *Server) RemoveDiffDisk(name string) error {
 	defer s.Unlock()
 
 	if s.r == nil {
+		logrus.Infof("RemoveDiffDisk is not performed as s.r is nil")
 		return nil
 	}
 
@@ -267,6 +300,7 @@ func (s *Server) ReplaceDisk(target, source string) error {
 	defer s.Unlock()
 
 	if s.r == nil {
+		logrus.Infof("ReplicaDisk is not performed as s.r is nil")
 		return nil
 	}
 
@@ -279,6 +313,7 @@ func (s *Server) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) {
 	defer s.Unlock()
 
 	if s.r == nil {
+		logrus.Infof("PrepareRemoveDisk is not performed as s.r is nil")
 		return nil, nil
 	}
 
@@ -286,40 +321,96 @@ func (s *Server) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) {
 	return s.r.PrepareRemoveDisk(name)
 }
 
-func (s *Server) Delete() error {
-	s.Lock()
-	defer s.Unlock()
-
+// CheckPreDeleteConditions checks if any replica exists.
+// If it exists, it closes all the connections with the replica
+// and deletes the entry from the controller.
+func (s *Server) CheckPreDeleteConditions() error {
 	if s.r == nil {
-		return nil
-	}
-
-	logrus.Infof("Deleting volume")
-	if err := s.r.Close(); err != nil {
-		return err
-	}
-
-	err := s.r.Delete()
-	s.r = nil
-	return err
-}
-
-func (s *Server) Close() error {
-	s.Lock()
-	defer s.Unlock()
-
-	if s.r == nil {
-		return nil
+		return errors.New("s.r is nil")
 	}
 
 	logrus.Infof("Closing volume")
 	if err := s.r.Close(); err != nil {
 		return err
 	}
+	return nil
+}
+
+// Delete deletes the volume metadata and revision counter file.
+func (s *Server) Delete() error {
+	s.Lock()
+	defer s.Unlock()
+
+	err := s.CheckPreDeleteConditions()
+	if err != nil {
+		return err
+	}
+
+	logrus.Info("Delete the metadata and revision counter file")
+	err = s.r.Delete()
+	s.r = nil
+	return err
+}
+
+// DeleteAll deletes all the contents of the mounted directory.
+func (s *Server) DeleteAll() error {
+	s.Lock()
+	defer s.Unlock()
+
+	err := s.CheckPreDeleteConditions()
+	if err != nil {
+		return err
+	}
+
+	logrus.Infof("Deleting all the contents of the volume")
+	err = s.r.DeleteAll()
+	s.r = nil
+	return err
+}
+
+// Close drain the data from HoleCreatorChan and close
+// all the associated files with the replica instance.
+func (s *Server) Close() error {
+	logrus.Infof("Closing replica")
+	s.Lock()
+
+	defer s.Unlock()
+	if s.r == nil {
+		logrus.Infof("Skip closing replica, s.r not set")
+		return nil
+	}
+
+	// r.holeDrainer is initialized at construct
+	// function in replica.go
+	s.r.holeDrainer()
+
+	if err := s.r.Close(); err != nil {
+		return err
+	}
 
 	s.r = nil
-	s.MonitorChannel <- struct{}{}
 	return nil
+}
+
+func (s *Server) Sync() (int, error) {
+	s.RLock()
+	defer s.RUnlock()
+
+	if s.r == nil {
+		return -1, fmt.Errorf("Volume no longer exist")
+	}
+	n, err := s.r.Sync()
+	return n, err
+}
+func (s *Server) Unmap(offset int64, length int64) (int, error) {
+	s.RLock()
+	defer s.RUnlock()
+
+	if s.r == nil {
+		return -1, fmt.Errorf("Volume no longer exist")
+	}
+	n, err := s.r.Unmap(offset, length)
+	return n, err
 }
 
 func (s *Server) WriteAt(buf []byte, offset int64) (int, error) {
@@ -344,25 +435,27 @@ func (s *Server) ReadAt(buf []byte, offset int64) (int, error) {
 	return i, err
 }
 
+// SetReplicaMode ...
+func (s *Server) SetReplicaMode(mode string) error {
+	s.Lock()
+	defer s.Unlock()
+
+	if s.r == nil {
+		logrus.Infof("s.r is nil during setReplicaMode")
+		return nil
+	}
+	return s.r.SetReplicaMode(mode)
+}
+
 func (s *Server) SetRevisionCounter(counter int64) error {
 	s.Lock()
 	defer s.Unlock()
 
 	if s.r == nil {
+		logrus.Infof("s.r is nil during setRevisionCounter")
 		return nil
 	}
 	return s.r.SetRevisionCounter(counter)
-}
-
-func (s *Server) UpdatePeerDetails(peerDetails types.PeerDetails) error {
-
-	s.Lock()
-	defer s.Unlock()
-
-	if s.r == nil {
-		return nil
-	}
-	return s.r.UpdatePeerDetails(peerDetails)
 }
 
 func (s *Server) PingResponse() error {

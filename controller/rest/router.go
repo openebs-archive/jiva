@@ -1,12 +1,13 @@
 package rest
 
 import (
+	"net/http"
+	_ "net/http/pprof" /* for profiling */
+
 	"github.com/gorilla/mux"
 	"github.com/openebs/jiva/replica/rest"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rancher/go-rancher/api"
-	"net/http"
-	_ "net/http/pprof" /* for profiling */
 )
 
 func NewRouter(s *Server) *mux.Router {
@@ -29,7 +30,7 @@ func NewRouter(s *Server) *mux.Router {
 	router.Methods("POST").Path("/v1/volumes/{id}").Queries("action", "snapshot").Handler(f(schemas, s.SnapshotVolume))
 	router.Methods("POST").Path("/v1/volumes/{id}").Queries("action", "revert").Handler(f(schemas, s.RevertVolume))
 	router.Methods("POST").Path("/v1/volumes/{id}").Queries("action", "resize").Handler(f(schemas, s.ResizeVolume))
-
+	router.Methods("DELETE").Path("/v1/volumes/{id}").Queries("action", "deleteSnapshot").Handler(f(schemas, s.DeleteSnapshot))
 	// Replicas
 	router.Methods("GET").Path("/v1/replicas").Handler(f(schemas, s.ListReplicas))
 	router.Methods("GET").Path("/v1/replicas/{id}").Handler(f(schemas, s.GetReplica))
@@ -44,6 +45,10 @@ func NewRouter(s *Server) *mux.Router {
 
 	// Journal
 	router.Methods("POST").Path("/v1/journal").Handler(f(schemas, s.ListJournal))
+	// Delete
+	router.Methods("POST").Path("/v1/delete").Handler(f(schemas, s.DeleteVolume))
+	// Debug
+	router.Methods("POST").Path("/timeout").Handler(f(schemas, s.AddTimeout))
 
 	router.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
 

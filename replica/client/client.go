@@ -11,16 +11,32 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/replica/rest"
 	"github.com/openebs/jiva/sync/agent"
+	"github.com/sirupsen/logrus"
 )
+
+const defaultSleepTime = 250 * time.Millisecond
+const maxSleepTime = 1 * time.Second
+
+func RetrySleep(sleepTime *time.Duration) {
+	time.Sleep(*sleepTime)
+	*sleepTime = (*sleepTime) * 2
+	if *sleepTime > maxSleepTime {
+		*sleepTime = maxSleepTime
+	}
+}
 
 type ReplicaClient struct {
 	address    string
 	syncAgent  string
 	host       string
 	httpClient *http.Client
+}
+
+// GetAddress is used to get the address of replica client
+func (c *ReplicaClient) GetAddress() string {
+	return c.address
 }
 
 func NewReplicaClient(address string) (*ReplicaClient, error) {
@@ -77,6 +93,23 @@ func (c *ReplicaClient) Create(size string) error {
 	}, nil)
 }
 
+func (c *ReplicaClient) Delete(path string) error {
+	_, err := c.GetReplica()
+	if err != nil {
+		return err
+	}
+	deleteAPI := c.address + path
+	req, err := http.NewRequest("DELETE", deleteAPI, nil)
+	if err != nil {
+		return err
+	}
+	_, err = c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c *ReplicaClient) Revert(name, created string) error {
 	r, err := c.GetReplica()
 	if err != nil {
@@ -92,6 +125,7 @@ func (c *ReplicaClient) Revert(name, created string) error {
 func (c *ReplicaClient) Close() error {
 	r, err := c.GetReplica()
 	if err != nil {
+		logrus.Errorf("getReplica in close failed")
 		return err
 	}
 
@@ -101,6 +135,7 @@ func (c *ReplicaClient) Close() error {
 func (c *ReplicaClient) SetRebuilding(rebuilding bool) error {
 	r, err := c.GetReplica()
 	if err != nil {
+		logrus.Errorf("getReplica in setrebuilding failed %v", rebuilding)
 		return err
 	}
 
@@ -112,7 +147,11 @@ func (c *ReplicaClient) SetRebuilding(rebuilding bool) error {
 func (c *ReplicaClient) RemoveDisk(disk string) error {
 	r, err := c.GetReplica()
 	if err != nil {
+		logrus.Errorf("getReplica in removeDisk failed")
 		return err
+	}
+	if r.ReplicaMode != "RW" {
+		return fmt.Errorf("Replica %s mode is %s", c.address, r.ReplicaMode)
 	}
 
 	return c.post(r.Actions["removedisk"], &rest.RemoveDiskInput{
@@ -124,6 +163,9 @@ func (c *ReplicaClient) ReplaceDisk(target, source string) error {
 	r, err := c.GetReplica()
 	if err != nil {
 		return err
+	}
+	if r.ReplicaMode != "RW" {
+		return fmt.Errorf("Replica %s mode is %s", c.address, r.ReplicaMode)
 	}
 
 	return c.post(r.Actions["replacedisk"], &rest.ReplaceDiskInput{
@@ -139,6 +181,9 @@ func (c *ReplicaClient) PrepareRemoveDisk(disk string) (rest.PrepareRemoveDiskOu
 		return output, err
 	}
 
+	if r.ReplicaMode != "RW" {
+		return output, fmt.Errorf("Replica %s mode is %s", c.address, r.ReplicaMode)
+	}
 	err = c.post(r.Actions["prepareremovedisk"], &rest.PrepareRemoveDiskInput{
 		Name: disk,
 	}, &output)
@@ -203,7 +248,7 @@ func (c *ReplicaClient) Coalesce(from, to string) error {
 		return err
 	}
 
-	start := 250 * time.Millisecond
+	start := defaultSleepTime
 	for {
 		err := c.get(running.Links["self"], &running)
 		if err != nil {
@@ -212,11 +257,7 @@ func (c *ReplicaClient) Coalesce(from, to string) error {
 
 		switch running.ExitCode {
 		case -2:
-			time.Sleep(start)
-			start = start * 2
-			if start > 1*time.Second {
-				start = 1 * time.Second
-			}
+			RetrySleep(&start)
 		case 0:
 			return nil
 		default:
@@ -237,7 +278,8 @@ func (c *ReplicaClient) SendFile(from, host string, port int) error {
 		return err
 	}
 
-	start := 250 * time.Millisecond
+	successCount := 0
+	start := defaultSleepTime
 	for {
 		err := c.get(running.Links["self"], &running)
 		if err != nil {
@@ -246,13 +288,18 @@ func (c *ReplicaClient) SendFile(from, host string, port int) error {
 
 		switch running.ExitCode {
 		case -2:
-			time.Sleep(start)
-			start = start * 2
-			if start > 1*time.Second {
-				start = 1 * time.Second
-			}
+			RetrySleep(&start)
 		case 0:
-			return nil
+			/*
+			* During sync process, degraded replica receives exitCode as success
+			* in cases like restart of healthy replica.
+			* Below changes verifies the exitCode once again - PR101
+			 */
+			successCount++
+			if successCount == 2 {
+				return nil
+			}
+			time.Sleep(start)
 		default:
 			return fmt.Errorf("ExitCode: %d", running.ExitCode)
 		}
@@ -271,7 +318,7 @@ func (c *ReplicaClient) CreateBackup(snapshot, dest, volume string) (string, err
 		return "", err
 	}
 
-	start := 250 * time.Millisecond
+	start := defaultSleepTime
 	for {
 		err := c.get(running.Links["self"], &running)
 		if err != nil {
@@ -280,11 +327,7 @@ func (c *ReplicaClient) CreateBackup(snapshot, dest, volume string) (string, err
 
 		switch running.ExitCode {
 		case -2:
-			time.Sleep(start)
-			start = start * 2
-			if start > 1*time.Second {
-				start = 1 * time.Second
-			}
+			RetrySleep(&start)
 		case 0:
 			return running.Output, nil
 		default:
@@ -304,7 +347,7 @@ func (c *ReplicaClient) RmBackup(backup string) error {
 		return err
 	}
 
-	start := 250 * time.Millisecond
+	start := defaultSleepTime
 	for {
 		err := c.get(running.Links["self"], &running)
 		if err != nil {
@@ -313,11 +356,7 @@ func (c *ReplicaClient) RmBackup(backup string) error {
 
 		switch running.ExitCode {
 		case -2:
-			time.Sleep(start)
-			start = start * 2
-			if start > 1*time.Second {
-				start = 1 * time.Second
-			}
+			RetrySleep(&start)
 		case 0:
 			return nil
 		default:
@@ -338,7 +377,7 @@ func (c *ReplicaClient) RestoreBackup(backup, snapshotFile string) error {
 		return err
 	}
 
-	start := 250 * time.Millisecond
+	start := defaultSleepTime
 	for {
 		err := c.get(running.Links["self"], &running)
 		if err != nil {
@@ -347,11 +386,7 @@ func (c *ReplicaClient) RestoreBackup(backup, snapshotFile string) error {
 
 		switch running.ExitCode {
 		case -2:
-			time.Sleep(start)
-			start = start * 2
-			if start > 1*time.Second {
-				start = 1 * time.Second
-			}
+			RetrySleep(&start)
 		case 0:
 			return nil
 		default:
@@ -371,7 +406,7 @@ func (c *ReplicaClient) InspectBackup(backup string) (string, error) {
 		return "", err
 	}
 
-	start := 250 * time.Millisecond
+	start := defaultSleepTime
 	for {
 		err := c.get(running.Links["self"], &running)
 		if err != nil {
@@ -380,11 +415,7 @@ func (c *ReplicaClient) InspectBackup(backup string) (string, error) {
 
 		switch running.ExitCode {
 		case -2:
-			time.Sleep(start)
-			start = start * 2
-			if start > 1*time.Second {
-				start = 1 * time.Second
-			}
+			RetrySleep(&start)
 		case 0:
 			return running.Output, nil
 		default:
@@ -405,7 +436,7 @@ func (c *ReplicaClient) ListBackup(destURL, volume string) (string, error) {
 		return "", err
 	}
 
-	start := 250 * time.Millisecond
+	start := defaultSleepTime
 	for {
 		err := c.get(running.Links["self"], &running)
 		if err != nil {
@@ -414,11 +445,7 @@ func (c *ReplicaClient) ListBackup(destURL, volume string) (string, error) {
 
 		switch running.ExitCode {
 		case -2:
-			time.Sleep(start)
-			start = start * 2
-			if start > 1*time.Second {
-				start = 1 * time.Second
-			}
+			RetrySleep(&start)
 		case 0:
 			return running.Output, nil
 		default:
@@ -485,7 +512,7 @@ func (c *ReplicaClient) HardLink(from, to string) error {
 		return err
 	}
 
-	start := 250 * time.Millisecond
+	start := defaultSleepTime
 	for {
 		err := c.get(running.Links["self"], &running)
 		if err != nil {
@@ -494,11 +521,7 @@ func (c *ReplicaClient) HardLink(from, to string) error {
 
 		switch running.ExitCode {
 		case -2:
-			time.Sleep(start)
-			start = start * 2
-			if start > 1*time.Second {
-				start = 1 * time.Second
-			}
+			RetrySleep(&start)
 		case 0:
 			return nil
 		default:

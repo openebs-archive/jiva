@@ -11,9 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/controller/rest"
-	"github.com/openebs/jiva/types"
+	"github.com/sirupsen/logrus"
 )
 
 type ControllerClient struct {
@@ -116,6 +115,17 @@ func (c *ControllerClient) CreateQuorumReplica(address string) (*rest.Replica, e
 	return &resp, err
 }
 
+// DeleteSnapshot ...
+func (c *ControllerClient) DeleteSnapshot(name string) error {
+	volume, err := c.GetVolume()
+	if err != nil {
+		return err
+	}
+	return c.delete(volume.Actions["deleteSnapshot"], &rest.SnapshotInput{
+		Name: name,
+	}, nil)
+}
+
 func (c *ControllerClient) DeleteReplica(address string) (*rest.Replica, error) {
 	reps, err := c.ListReplicas()
 	if err != nil {
@@ -158,6 +168,7 @@ func (c *ControllerClient) GetReplica(address string) (*rest.Replica, error) {
 func (c *ControllerClient) VerifyRebuildReplica(address string) error {
 	replica, err := c.GetReplica(address)
 	if err != nil {
+		logrus.Errorf("getReplica in verifyRebuildReplica failed %s", address)
 		return err
 	}
 	return c.post(replica.Actions["verifyrebuild"], &replica, nil)
@@ -167,6 +178,7 @@ func (c *ControllerClient) PrepareRebuild(address string) (*rest.PrepareRebuildO
 	var output rest.PrepareRebuildOutput
 	replica, err := c.GetReplica(address)
 	if err != nil {
+		logrus.Errorf("getReplica in prepareRebuild failed %s", address)
 		return nil, err
 	}
 	err = c.post(replica.Actions["preparerebuild"], &replica, &output)
@@ -178,24 +190,25 @@ func (c *ControllerClient) GetVolume() (*rest.Volume, error) {
 
 	err := c.get("/volumes", &volumes)
 	if err != nil {
+		logrus.Errorf("GetVolume failed, %v", err)
 		return nil, err
 	}
 
 	if len(volumes.Data) == 0 {
+		logrus.Errorf("volume not found")
 		return nil, errors.New("No volume found")
 	}
 
 	return &volumes.Data[0], nil
 }
 
-func (c *ControllerClient) Register(address string, revisionCount int64, peerDetails types.PeerDetails, replicaType string, upTime time.Duration, state string) error {
+func (c *ControllerClient) Register(address string, revisionCount int64, replicaType string, upTime time.Duration, state string) error {
 	err := c.post("/register", &rest.RegReplica{
-		Address:     address,
-		RevCount:    strconv.FormatInt(revisionCount, 10),
-		PeerDetails: peerDetails,
-		RepType:     replicaType,
-		UpTime:      upTime,
-		RepState:    state,
+		Address:  address,
+		RevCount: strconv.FormatInt(revisionCount, 10),
+		RepType:  replicaType,
+		UpTime:   upTime,
+		RepState: state,
 	}, nil)
 	return err
 }
@@ -206,6 +219,10 @@ func (c *ControllerClient) post(path string, req, resp interface{}) error {
 
 func (c *ControllerClient) put(path string, req, resp interface{}) error {
 	return c.do("PUT", path, req, resp)
+}
+
+func (c *ControllerClient) delete(path string, req, resp interface{}) error {
+	return c.do("DELETE", path, req, resp)
 }
 
 func (c *ControllerClient) do(method, path string, req, resp interface{}) error {

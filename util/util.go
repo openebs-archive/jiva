@@ -11,9 +11,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/handlers"
 	"github.com/satori/go.uuid"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -161,4 +161,15 @@ func GetFileActualSize(file string) int64 {
 		return -1
 	}
 	return st.Blocks * BlockSizeLinux
+}
+
+// CheckReplicationFactor returns the value of env var REPLICATION_FACTOR
+// if it has not been set, then it returns 0.
+func CheckReplicationFactor() int {
+	replicationFactor, _ := strconv.ParseInt(os.Getenv("REPLICATION_FACTOR"), 10, 32)
+	if replicationFactor == 0 {
+		logrus.Infof("REPLICATION_FACTOR env not set")
+		return int(replicationFactor)
+	}
+	return int(replicationFactor)
 }

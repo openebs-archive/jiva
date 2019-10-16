@@ -10,11 +10,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Sirupsen/logrus"
+	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/replica/rest"
 	"github.com/openebs/jiva/rpc"
 	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -31,8 +32,8 @@ type Factory struct {
 }
 
 type Remote struct {
-	types.ReaderWriterAt
-	name        string
+	types.IOs
+	Name        string
 	pingURL     string
 	replicaURL  string
 	httpClient  *http.Client
@@ -41,19 +42,19 @@ type Remote struct {
 }
 
 func (r *Remote) Close() error {
-	logrus.Infof("Closing: %s", r.name)
+	logrus.Infof("Closing: %s", r.Name)
 	r.StopMonitoring()
-	return r.doAction("close", nil)
+	return nil
 }
 
 func (r *Remote) open() error {
-	logrus.Infof("Opening: %s", r.name)
+	logrus.Infof("Opening: %s", r.Name)
 	return r.doAction("open", nil)
 }
 
 func (r *Remote) Snapshot(name string, userCreated bool, created string) error {
 	logrus.Infof("Snapshot: %s %s UserCreated %v Created at %v",
-		r.name, name, userCreated, created)
+		r.Name, name, userCreated, created)
 	return r.doAction("snapshot",
 		&map[string]interface{}{
 			"name":        name,
@@ -95,10 +96,20 @@ func (r *Remote) doAction(action string, obj interface{}) error {
 		req.Header.Add("Content-Type", "application/json")
 	}
 
-	resp, err := r.httpClient.Do(req)
+	client := r.httpClient
+	// timeout of zero means there is no timeout
+	// Since preload can take time while opening
+	// replica, we don't know the exact time elapsed
+	// to complete the request.
+	if action == "open" {
+		client.Timeout = 0
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -175,6 +186,7 @@ func (r *Remote) GetVolUsage() (types.VolUsage, error) {
 	}
 
 	err = json.NewDecoder(resp.Body).Decode(&Details)
+	volUsage.RevisionCounter, _ = strconv.ParseInt(Details.RevisionCounter, 10, 64)
 	volUsage.UsedLogicalBlocks, _ = strconv.ParseInt(Details.UsedLogicalBlocks, 10, 64)
 	volUsage.UsedBlocks, _ = strconv.ParseInt(Details.UsedBlocks, 10, 64)
 	volUsage.SectorSize, _ = strconv.ParseInt(Details.SectorSize, 10, 64)
@@ -182,19 +194,24 @@ func (r *Remote) GetVolUsage() (types.VolUsage, error) {
 	return volUsage, err
 }
 
-func (r *Remote) SetRevisionCounter(counter int64) error {
-	logrus.Infof("Set revision counter of %s to : %v", r.name, counter)
-	localRevCount := strconv.FormatInt(counter, 10)
-	return r.doAction("setrevisioncounter", &map[string]string{"counter": localRevCount})
+// SetReplicaMode ...
+func (r *Remote) SetReplicaMode(mode types.Mode) error {
+	var m string
+	logrus.Infof("Set replica mode of %s to : %v", r.Name, mode)
+	if mode == types.RW {
+		m = "RW"
+	} else if mode == types.WO {
+		m = "WO"
+	} else {
+		return fmt.Errorf("invalid mode string %v", mode)
+	}
+	return r.doAction("setreplicamode", &map[string]string{"mode": m})
 }
 
-func (r *Remote) UpdatePeerDetails(replicaCount int, quorumReplicaCount int) error {
-	logrus.Infof("Update peer details of %s ", r.name)
-	return r.doAction("updatepeerdetails",
-		&map[string]interface{}{
-			"replicacount":       replicaCount,
-			"quorumreplicacount": quorumReplicaCount,
-		})
+func (r *Remote) SetRevisionCounter(counter int64) error {
+	logrus.Infof("Set revision counter of %s to : %v", r.Name, counter)
+	localRevCount := strconv.FormatInt(counter, 10)
+	return r.doAction("setrevisioncounter", &map[string]string{"counter": localRevCount})
 }
 
 func (r *Remote) info() (rest.Replica, error) {
@@ -218,7 +235,10 @@ func (r *Remote) info() (rest.Replica, error) {
 	return replica, err
 }
 
+// Create Remote with address given string, returns backend and error
 func (rf *Factory) Create(address string) (types.Backend, error) {
+	// No need to add prints in this function.
+	// Make sure caller of this takes care of printing error
 	logrus.Infof("Connecting to remote: %s", address)
 
 	controlAddress, dataAddress, _, err := util.ParseAddresses(address)
@@ -227,7 +247,7 @@ func (rf *Factory) Create(address string) (types.Backend, error) {
 	}
 
 	r := &Remote{
-		name:       address,
+		Name:       address,
 		replicaURL: fmt.Sprintf("http://%s/v1/replicas/1", controlAddress),
 		pingURL:    fmt.Sprintf("http://%s/ping", controlAddress),
 		httpClient: &http.Client{
@@ -253,14 +273,16 @@ func (rf *Factory) Create(address string) (types.Backend, error) {
 		return nil, err
 	}
 
-	rpc := rpc.NewClient(conn)
-	r.ReaderWriterAt = rpc
+	remote := rpc.NewClient(conn, r.closeChan)
+	r.IOs = remote
 
 	if err := r.open(); err != nil {
+		logrus.Errorf("Failed to open replica, error: %v", err)
+		remote.Close()
 		return nil, err
 	}
 
-	go r.monitorPing(rpc)
+	go r.monitorPing(remote)
 
 	return r, nil
 }
@@ -271,12 +293,13 @@ func (rf *Factory) SignalToAdd(address string, action string) error {
 		return err
 	}
 	r := &Remote{
-		name:       address,
+		Name:       address,
 		replicaURL: fmt.Sprintf("http://%s/v1/replicas/1", controlAddress),
 		httpClient: &http.Client{
 			Timeout: timeout,
 		},
 	}
+	inject.AddTimeout()
 	return r.doAction("start", &map[string]string{"Action": action})
 }
 
@@ -304,5 +327,6 @@ func (r *Remote) GetMonitorChannel() types.MonitorChannel {
 }
 
 func (r *Remote) StopMonitoring() {
+	logrus.Infof("stopping monitoring %v", r.Name)
 	r.closeChan <- struct{}{}
 }

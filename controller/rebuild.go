@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/replica/client"
 	"github.com/openebs/jiva/types"
+	"github.com/sirupsen/logrus"
 )
 
 func getReplicaChain(address string) ([]string, error) {
@@ -32,10 +32,17 @@ func (c *Controller) getCurrentAndRWReplica(address string) (*types.Replica, *ty
 	for i := range c.replicas {
 		if c.replicas[i].Address == address {
 			current = &c.replicas[i]
-		} else if c.replicas[i].Mode == types.RW {
-			rwReplica = &c.replicas[i]
+			break
 		}
 	}
+
+	for i := range c.replicas {
+		if c.replicas[i].Mode == types.RW {
+			rwReplica = &c.replicas[i]
+			break
+		}
+	}
+
 	if current == nil {
 		return nil, nil, fmt.Errorf("Cannot find replica %v", address)
 	}
@@ -47,7 +54,7 @@ func (c *Controller) getCurrentAndRWReplica(address string) (*types.Replica, *ty
 }
 
 func (c *Controller) VerifyRebuildReplica(address string) error {
-	// Prevent snapshot happenes at the same time, as well as prevent
+	// Prevent snapshot happens at the same time, as well as prevent
 	// writing from happening since we're updating revision counter
 	c.Lock()
 	defer c.Unlock()
@@ -68,6 +75,8 @@ func (c *Controller) VerifyRebuildReplica(address string) error {
 	if err != nil {
 		return err
 	}
+
+	logrus.Infof("chain %v from rw replica %s", rwChain, rwReplica.Address)
 	// Don't need to compare the volume head disk
 	rwChain = rwChain[1:]
 
@@ -75,6 +84,8 @@ func (c *Controller) VerifyRebuildReplica(address string) error {
 	if err != nil {
 		return err
 	}
+
+	logrus.Infof("chain %v from wo replica %s", chain, address)
 	chain = chain[1:]
 
 	if !reflect.DeepEqual(rwChain, chain) {
@@ -88,18 +99,21 @@ func (c *Controller) VerifyRebuildReplica(address string) error {
 			rwReplica.Address, counter, err)
 
 	}
+	logrus.Infof("rw replica %s revision counter %d", rwReplica.Address, counter)
+
+	if err := c.backend.SetReplicaMode(address, types.RW); err != nil {
+		return fmt.Errorf("Fail to set replica mode for %v: %v", address, err)
+	}
 	if err := c.backend.SetRevisionCounter(address, counter); err != nil {
 		return fmt.Errorf("Fail to set revision counter for %v: %v", address, err)
 	}
 	logrus.Debugf("WO replica %v's chain verified, update mode to RW", address)
 	c.setReplicaModeNoLock(address, types.RW)
-	if len(c.replicas) > c.replicaCount {
-		c.replicaCount = len(c.replicas)
-	}
 	if len(c.quorumReplicas) > c.quorumReplicaCount {
 		c.quorumReplicaCount = len(c.quorumReplicas)
 	}
-	c.backend.UpdatePeerDetails(c.replicaCount, c.quorumReplicaCount)
+	c.UpdateVolStatus()
+	c.StartAutoSnapDeletion <- true
 	return nil
 }
 
@@ -125,7 +139,7 @@ func syncFile(from, to string, fromReplica, toReplica *types.Replica) error {
 		return err
 	}
 
-	logrus.Infof("Synchronizing %s to %s@%s:%d", from, to, host, port)
+	logrus.Infof("Synchronizing %s@%s to %s@%s:%d", from, fromReplica.Address, to, host, port)
 	err = fromClient.SendFile(from, host, port)
 	if err != nil {
 		logrus.Infof("Failed synchronizing %s to %s@%s:%d: %v", from, to, host, port, err)
@@ -139,11 +153,6 @@ func syncFile(from, to string, fromReplica, toReplica *types.Replica) error {
 func (c *Controller) PrepareRebuildReplica(address string) ([]string, error) {
 	c.Lock()
 	defer c.Unlock()
-
-	if err := c.backend.SetRevisionCounter(address, 0); err != nil {
-		return nil, fmt.Errorf("Fail to set revision counter for %v: %v", address, err)
-	}
-
 	replica, rwReplica, err := c.getCurrentAndRWReplica(address)
 	if err != nil {
 		return nil, err

@@ -2,9 +2,13 @@ package replica
 
 import (
 	"fmt"
-	"os"
+	"syscall"
+	"time"
 
-	"github.com/yasker/backupstore"
+	"github.com/longhorn/sparse-tools/sparse"
+	inject "github.com/openebs/jiva/error-inject"
+	"github.com/openebs/jiva/types"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -20,7 +24,7 @@ type DeltaBlockBackupOperations interface {
 	CloseSnapshot(id, volumeID string) error
 }
 */
-
+/*
 type Backup struct {
 	backingFile *BackingFile
 	replica     *Replica
@@ -139,7 +143,7 @@ func (rb *Backup) CompareSnapshot(id, compareID, volumeID string) (*backupstore.
 	}
 
 	for i, val := range rb.replica.volume.location {
-		if val <= byte(from) && val > byte(to) {
+		if val <= uint16(from) && val > uint16(to) {
 			offset := int64(i) * rb.replica.volume.sectorSize
 			// align
 			offset -= (offset % snapBlockSize)
@@ -174,8 +178,104 @@ func (rb *Backup) findIndex(id string) int {
 	}
 	return -1
 }
+*/
 
+// Hole holds the fd, len and offset for fallocate operation
+type Hole struct {
+	f      types.DiffDisk
+	offset int64
+	len    int64
+}
+
+var HoleCreatorChan = make(chan Hole, 1000000)
+
+func holeDrainer() {
+	types.DrainOps = types.DrainStart
+	HoleCreatorChan <- Hole{}
+	for {
+		if types.DrainOps == types.DrainDone {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+}
+
+// drainHoleCreatorChan is called if replica is closed, to drain
+// all the data for punching hole in the HoleCreatorChan.
+func drainHoleCreatorChan() {
+	for {
+		select {
+		case <-HoleCreatorChan:
+		default:
+			return
+		}
+	}
+}
+
+//CreateHoles removes the offsets from corresponding sparse files
+func CreateHoles() error {
+	var (
+		fd uintptr
+	)
+	retryCount := 0
+	for {
+		hole := <-HoleCreatorChan
+		inject.AddPunchHoleTimeout()
+		if types.DrainOps == types.DrainStart {
+			drainHoleCreatorChan()
+			types.DrainOps = types.DrainDone
+			continue
+		}
+		if (Hole{}) == hole {
+			continue
+		}
+		fd = hole.f.Fd()
+	retry:
+		if err := syscall.Fallocate(int(fd),
+			sparse.FALLOC_FL_KEEP_SIZE|sparse.FALLOC_FL_PUNCH_HOLE,
+			hole.offset, hole.len); err != nil {
+			logrus.Errorf("ERROR in creating hole: %v, Retry_Count: %v", err, retryCount)
+			time.Sleep(1)
+			retryCount++
+			if retryCount == 5 {
+				logrus.Fatalf("Error Creating holes: %v", err)
+			}
+			goto retry
+		}
+		retryCount = 0
+	}
+}
+
+func sendToCreateHole(f types.DiffDisk, offset int64, len int64) {
+	hole := Hole{
+		f:      f,
+		offset: offset,
+		len:    len,
+	}
+	HoleCreatorChan <- hole
+}
+
+func shouldCreateHoles() bool {
+	if types.ShouldPunchHoles {
+		return true
+	}
+	return false
+}
+
+// preload creates a mapping of block number to fileIndx (d.location).
+// This is done with the help of extent list fetched from filesystem.
+// Extents list in each file is traversed and the location table is updated
+// TODO: Visit this function again in case of optimization while preload call.
 func preload(d *diffDisk) error {
+	var file types.DiffDisk
+	var length int64
+	var lOffset int64
+	var fileIndx uint16
+	// userCreatedSnapIndx represents the index of the latest User Created
+	// snapshot traversed till this point. This value is used instead of
+	// d.SnapIndx because this will also aid in removing duplicate blocks
+	// in auto-created snapshots between 2 user created snapshots
+	var userCreatedSnapIndx uint16
 	for i, f := range d.files {
 		if i == 0 {
 			continue
@@ -186,13 +286,44 @@ func preload(d *diffDisk) error {
 				d.location[j] = 0
 			}
 		}
+		if d.UserCreatedSnap[i] {
+			userCreatedSnapIndx = uint16(i)
+		}
 		generator := newGenerator(d, f)
 		for offset := range generator.Generate() {
-			d.location[offset] = byte(i)
+			if d.location[offset] != 0 {
+				// We are looking for continuous blocks over here.
+				// If the file of the next block is changed, we punch a hole
+				// for the previous unpunched blocks, and reset the file and
+				// fileIndx pointed to by this block
+				if d.files[d.location[offset]] != file ||
+					offset != lOffset+length {
+					if file != nil && fileIndx > userCreatedSnapIndx && shouldCreateHoles() {
+						sendToCreateHole(file, lOffset*d.sectorSize, length*d.sectorSize)
+					}
+					file = d.files[d.location[offset]]
+					fileIndx = d.location[offset]
+					length = 1
+					lOffset = offset
+				} else {
+					// If this is the last block in the loop, hole for this
+					// block will be punched outside the loop
+					length++
+				}
+			}
+			d.location[offset] = uint16(i)
 			d.UsedBlocks++
 		}
+		// This will take care of the case when the last call in the above loop
+		// enters else case
+		if file != nil && fileIndx > userCreatedSnapIndx && shouldCreateHoles() {
+			sendToCreateHole(file, lOffset*d.sectorSize, length*d.sectorSize)
+		}
+		file = nil
+		fileIndx = 0
 
 		if generator.Err() != nil {
+			fmt.Println("GENERATOR ERROR")
 			return generator.Err()
 		}
 	}
@@ -201,11 +332,14 @@ func preload(d *diffDisk) error {
 }
 
 func PreloadLunMap(d *diffDisk) error {
-	err := preload(d)
+	if err := preload(d); err != nil {
+		return err
+	}
+
 	for _, val := range d.location {
 		if val != 0 {
 			d.UsedLogicalBlocks++
 		}
 	}
-	return err
+	return nil
 }
