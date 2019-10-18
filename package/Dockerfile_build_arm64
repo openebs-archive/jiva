@@ -1,4 +1,9 @@
-From arm64v8/ubuntu:18.04
+#Make the base image configurable. If BASE IMAGES is not provided
+#docker command will fail
+ARG BASE_IMAGE=arm64v8/ubuntu:18.04
+
+FROM $BASE_IMAGE
+
 RUN apt-get update && apt-get install -y curl \
     && rm -rf /var/lib/apt/lists/*
 
