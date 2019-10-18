@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"github.com/openebs/jiva/alertlog"
 
 	"github.com/openebs/jiva/sync"
 	"github.com/sirupsen/logrus"
@@ -105,10 +106,21 @@ func createBackup(c *cli.Context) error {
 
 	backup, err := task.CreateBackup(snapshot, dest)
 	if err != nil {
+		alertlog.Logger.Errorw("",
+			"eventcode", "jiva.volume.backup.create.failure",
+			"msg", "Failed to create Jiva volume backup",
+			"rname", dest,
+			"snapshot", snapshot,
+		)
 		return err
 	}
 	fmt.Println(backup)
-
+	alertlog.Logger.Infow("",
+		"eventcode", "jiva.volume.backup.create.success",
+		"msg", "successfully created Jiva volume backup",
+		"rname", dest,
+		"snapshot", snapshot,
+	)
 	return nil
 }
 
@@ -121,7 +133,22 @@ func rmBackup(c *cli.Context) error {
 		return fmt.Errorf("Missing required parameter backup")
 	}
 
-	return task.RmBackup(backup)
+	err := task.RmBackup(backup)
+	if err != nil {
+		alertlog.Logger.Errorw("",
+			"eventcode", "jiva.volume.backup.delete.failure",
+			"msg", "Failed to delete Jiva volume backup",
+			"rname", backup,
+		)
+	} else {
+		alertlog.Logger.Infow("",
+			"eventcode", "jiva.volume.backup.delete.success",
+			"msg", "Successfully deleted Jiva volume backup",
+			"rname", backup,
+		)
+	}
+
+	return err
 }
 
 func restoreBackup(c *cli.Context) error {
@@ -133,7 +160,21 @@ func restoreBackup(c *cli.Context) error {
 		return fmt.Errorf("Missing required parameter backup")
 	}
 
-	return task.RestoreBackup(backup)
+	err := task.RestoreBackup(backup)
+	if err != nil {
+		alertlog.Logger.Errorw("",
+			"eventcode", "jiva.volume.backup.restore.failure",
+			"msg", "Failed to restore Jiva volume backup",
+			"rname", backup,
+		)
+	} else {
+		alertlog.Logger.Infow("",
+			"eventcode", "jiva.volume.backup.restore.success",
+			"msg", "Successfully restored Jiva volume backup",
+			"rname", backup,
+		)
+	}
+	return err
 }
 
 func inspectBackup(c *cli.Context) error {

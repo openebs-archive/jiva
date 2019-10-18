@@ -22,6 +22,9 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/urfave/cli v1.22.1
+	go.uber.org/atomic v1.4.0 // indirect
+	go.uber.org/multierr v1.1.0 // indirect
+	go.uber.org/zap v1.10.0
 	golang.org/x/sys v0.0.0-20190919044723-0c1ff786ef13
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15
 )
