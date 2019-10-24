@@ -88,7 +88,7 @@ func (s *Server) createTempFile(filePath string) (*os.File, error) {
 		return nil, err
 	}
 	// Open file in case file exists (not removed)
-	file, err = os.OpenFile(filePath, os.O_RDWR|os.O_SYNC, 0666)
+	file, err = os.OpenFile(filePath, os.O_RDWR|os.O_SYNC, 0600)
 	if err != nil {
 		return nil, err
 	}
@@ -101,10 +101,16 @@ func (s *Server) isExtentSupported() error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(filePath)
-	if _, err := file.WriteString("This is temp file\n"); err != nil {
+
+	defer func() {
+		_ = os.Remove(filePath)
+	}()
+
+	_, err = file.WriteString("This is temp file\n")
+	if err != nil {
 		return err
 	}
+
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		return err
