@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	fibmap "github.com/frostschutz/go-fibmap"
 	"github.com/openebs/jiva/types"
 	"github.com/sirupsen/logrus"
 )
@@ -73,6 +74,58 @@ func (s *Server) getSize(size int64) int64 {
 	return size
 }
 
+func (s *Server) createTempFile(filePath string) (*os.File, error) {
+	var file *os.File
+	_, err := os.Stat(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			file, err = os.Create(filePath)
+			if err != nil {
+				return nil, err
+			}
+			return file, nil
+		}
+		return nil, err
+	}
+	// Open file in case file exists (not removed)
+	file, err = os.OpenFile(filePath, os.O_RDWR|os.O_SYNC, 0600)
+	if err != nil {
+		return nil, err
+	}
+	return file, nil
+}
+
+func (s *Server) isExtentSupported() error {
+	filePath := s.dir + "/tmpFile.tmp"
+	file, err := s.createTempFile(filePath)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		_ = os.Remove(filePath)
+	}()
+
+	_, err = file.WriteString("This is temp file\n")
+	if err != nil {
+		return err
+	}
+
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		return err
+	}
+	fiemapFile := fibmap.NewFibmapFile(file)
+	if _, errno := fiemapFile.Fiemap(uint32(fileInfo.Size())); errno != 0 {
+		// verify is FIBMAP is supported incase FIEMAP failed
+		if _, err := fiemapFile.FibmapExtents(); err != 0 {
+			return fmt.Errorf("failed to find extents, error: %v", err.Error())
+		}
+		return errno
+	}
+	return file.Close()
+}
+
 func (s *Server) Create(size int64) error {
 	s.Lock()
 	defer s.Unlock()
@@ -80,7 +133,7 @@ func (s *Server) Create(size int64) error {
 		logrus.Errorf("failed to create directory: %s", s.dir)
 		return err
 	}
-	if err := isExtentSupported(s.dir); err != nil {
+	if err := s.isExtentSupported(); err != nil {
 		return err
 	}
 	state, _ := s.Status()
