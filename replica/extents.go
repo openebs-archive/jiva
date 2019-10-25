@@ -1,12 +1,8 @@
 package replica
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/frostschutz/go-fibmap"
 	"github.com/openebs/jiva/types"
-	"github.com/sirupsen/logrus"
 )
 
 type UsedGenerator struct {
@@ -66,48 +62,4 @@ func (u *UsedGenerator) findExtents(c chan<- int64) {
 			}
 		}
 	}
-}
-
-func createTempFile(path string) error {
-	var file *os.File
-	_, err := os.Stat(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			file, err = os.Create(path)
-			if err != nil {
-				logrus.Errorf("failed to create tmp file %s, error: %v", path, err.Error())
-				return err
-			}
-		}
-	}
-	defer file.Close()
-	if _, err := file.WriteString("This is temp file\n"); err != nil {
-		return err
-	}
-	return file.Sync()
-}
-
-func isExtentSupported(dir string) error {
-	path := dir + "/tmpFile.tmp"
-	if err := createTempFile(path); err != nil {
-		return err
-	}
-	defer os.Remove(path)
-	fileInfo, err := os.Stat(path)
-	if err != nil {
-		return err
-	}
-	file, err := os.Open(path)
-	if err != nil {
-		return nil
-	}
-	defer file.Close()
-	fiemapFile := fibmap.NewFibmapFile(file)
-	if _, err := fiemapFile.Fiemap(uint32(fileInfo.Size())); err != 0 {
-		// verify is FIBMAP is supported incase FIEMAP failed
-		if _, err := fiemapFile.FibmapExtents(); err != 0 {
-			return fmt.Errorf("failed to find extents, error: %v", err.Error())
-		}
-	}
-	return nil
 }
