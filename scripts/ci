@@ -5,7 +5,7 @@ cd $(dirname $0)
 
 ./build_binaries
 ./build_debug_binaries
-./test
+./prepare_test
 ./validate
 ./package
 ./package_debug

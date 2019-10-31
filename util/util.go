@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/gorilla/handlers"
-	"github.com/satori/go.uuid"
+	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
@@ -26,10 +26,11 @@ const (
 	BlockSizeLinux = 512
 )
 
-func ParseAddresses(name string) (string, string, string, error) {
-	matches := parsePattern.FindStringSubmatch(name)
+// ParseAddresses returns the base address and two with subsequent ports
+func ParseAddresses(address string) (string, string, string, error) {
+	matches := parsePattern.FindStringSubmatch(address)
 	if matches == nil {
-		return "", "", "", fmt.Errorf("Invalid address %s does not match pattern: %v", name, parsePattern)
+		return "", "", "", fmt.Errorf("Invalid address %s does not match pattern: %v", address, parsePattern)
 	}
 
 	host := matches[1]
@@ -111,12 +112,13 @@ func mknod(device string, major, minor int) error {
 }
 
 func RemoveDevice(dev string) error {
-	if _, err := os.Stat(dev); err == nil {
-		if err := remove(dev); err != nil {
+	var err error
+	if _, err = os.Stat(dev); err == nil {
+		if err = remove(dev); err != nil {
 			return fmt.Errorf("Failed to removing device %s, %v", dev, err)
 		}
 	}
-	return nil
+	return err
 }
 
 func removeAsync(path string, done chan<- error) {
