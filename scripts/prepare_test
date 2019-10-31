@@ -1,0 +1,10 @@
+#!/bin/bash
+set -e
+
+cd $(dirname $0)/..
+
+echo building image
+
+docker build -t jivatest -f package/Dockerfile_tests .
+
+docker run jivatest
