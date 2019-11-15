@@ -25,4 +25,7 @@ script:
 notifications:
   email:
     recipients:
-      - kiran.mova@cloudbyte.com
+      - kiran.mova@mayadata.io
+      - utkarsh.tripathi@mayadata.io
+      - vitta@mayadata.io
+      - payes.anand@mayadata.io
