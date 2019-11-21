@@ -6,15 +6,17 @@ import (
 	"net"
 	"os"
 
+	"github.com/openebs/jiva/controller"
+	"github.com/openebs/jiva/types"
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 
-	"github.com/openebs/jiva/types"
-
-	"github.com/openebs/gotgt/pkg/config"
-	_ "github.com/openebs/gotgt/pkg/port/iscsit" /* init lib */
-	"github.com/openebs/gotgt/pkg/scsi"
-	_ "github.com/openebs/gotgt/pkg/scsi/backingstore" /* init lib */
+	"github.com/gostor/gotgt/pkg/api"
+	"github.com/gostor/gotgt/pkg/config"
+	"github.com/gostor/gotgt/pkg/port/iscsit" /* init lib */
+	"github.com/gostor/gotgt/pkg/scsi"
+	_ "github.com/gostor/gotgt/pkg/scsi/backingstore" /* init lib */
+	"github.com/gostor/gotgt/pkg/scsi/backingstore/remote"
 )
 
 /*New is called on module load */
@@ -38,11 +40,22 @@ type goTgt struct {
 	stats        scsi.Stats
 }
 
+var _ types.Frontend = (*goTgt)(nil)
+var _ api.RemoteBackingStore = (*controller.Controller)(nil)
+
 func (t *goTgt) Startup(name string, frontendIP string, clusterIP string, size, sectorSize int64, rw types.IOs) error {
 	/*if err := t.Shutdown(); err != nil {
 		return err
 	}*/
 
+	iscsit.EnableStats = true
+	scsi.SCSIVendorID = "CLOUDBYTE"
+	scsi.SCSIProductID = "OPENEBS"
+	scsi.SCSIID = "iqn.2016-09.com.jiva.openebs:iscsi-tgt"
+	scsi.EnableORWrite16 = false
+	scsi.EnablePersistentReservation = false
+	scsi.EnableMultipath = false
+	remote.Size = uint64(size)
 	if frontendIP == "" {
 		host, _ := os.Hostname()
 		addrs, _ := net.LookupIP(host)
@@ -136,7 +149,16 @@ func (t *goTgt) startScsiTarget(cfg *config.Config) error {
 	var err error
 	id := uuid.NewV4()
 	uid := binary.BigEndian.Uint64(id[:8])
-	scsi.InitSCSILUMapEx(t.tgtName, t.Volume, uid, 0, uint64(t.Size), uint64(t.SectorSize), t.rw)
+	if err := scsi.InitSCSILUMapEx(&config.BackendStorage{
+		DeviceID:         uid,
+		Path:             "RemBs:" + t.tgtName,
+		Online:           true,
+		BlockShift:       9,
+		ThinProvisioning: true,
+	},
+		t.tgtName, uint64(0), t.rw); err != nil {
+		return err
+	}
 	scsiTarget := scsi.NewSCSITargetService()
 	t.targetDriver, err = scsi.NewTargetDriver("iscsi", scsiTarget)
 	if err != nil {
@@ -144,7 +166,6 @@ func (t *goTgt) startScsiTarget(cfg *config.Config) error {
 		return err
 	}
 	t.targetDriver.NewTarget(t.tgtName, cfg)
-	t.targetDriver.SetClusterIP(t.clusterIP)
 	go t.targetDriver.Run()
 
 	logrus.Infof("SCSI device created")
@@ -156,7 +177,7 @@ func (t *goTgt) stopScsiTarget() error {
 		return nil
 	}
 	logrus.Infof("stopping target %v ...", t.tgtName)
-	t.targetDriver.Stop()
+	t.targetDriver.Close()
 	logrus.Infof("target %v stopped", t.tgtName)
 	return nil
 }

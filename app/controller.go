@@ -94,6 +94,10 @@ func initializeFrontend(c *cli.Context) (types.Frontend, types.Target, error) {
 		}
 		frontend = f
 	}
+
+	if frontend == nil {
+		return nil, target, fmt.Errorf("frontend is nil")
+	}
 	return frontend, target, nil
 }
 
