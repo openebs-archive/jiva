@@ -26,3 +26,5 @@ require (
 	golang.org/x/sys v0.0.0-20190919044723-0c1ff786ef13
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15
 )
+
+replace github.com/gostor/gotgt => github.com/utkarshmani1997/gotgt v0.0.0-20191127062905-bd0e69a38443

@@ -45,8 +45,8 @@ var _ api.RemoteBackingStore = (*controller.Controller)(nil)
 
 func initializeSCSITarget(size int64) {
 	iscsit.EnableStats = true
-	scsi.SCSIVendorID = "CLOUDBYTE"
-	scsi.SCSIProductID = "OPENEBS"
+	scsi.SCSIVendorID = "OPENEBS"
+	scsi.SCSIProductID = "JIVA"
 	scsi.SCSIID = "iqn.2016-09.com.jiva.openebs:iscsi-tgt"
 	scsi.EnableORWrite16 = false
 	scsi.EnablePersistentReservation = false
@@ -175,6 +175,7 @@ func (t *goTgt) startScsiTarget(cfg *config.Config) error {
 		return err
 	}
 	t.targetDriver.NewTarget(t.tgtName, cfg)
+	t.targetDriver.SetClusterIP(t.clusterIP)
 	go t.targetDriver.Run()
 
 	logrus.Infof("SCSI device created")
