@@ -12,7 +12,7 @@ require (
 	github.com/gorilla/handlers v1.4.2
 	github.com/gorilla/mux v1.7.3
 	github.com/gorilla/websocket v1.4.1 // indirect
-	github.com/gostor/gotgt v0.1.0
+	github.com/gostor/gotgt 2f1d32710a93615f77916110673a8cf59a90a3d6
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/longhorn/sparse-tools v0.0.0-20190808234252-ddb6d8733e43
 	github.com/prometheus/client_golang v1.1.0
@@ -27,4 +27,3 @@ require (
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15
 )
 
-replace github.com/gostor/gotgt => github.com/utkarshmani1997/gotgt v0.0.0-20191127062905-bd0e69a38443
