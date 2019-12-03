@@ -12,11 +12,9 @@ require (
 	github.com/gorilla/handlers v1.4.2
 	github.com/gorilla/mux v1.7.3
 	github.com/gorilla/websocket v1.4.1 // indirect
+	github.com/gostor/gotgt v0.1.1-0.20191128095459-2f1d32710a93
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/longhorn/sparse-tools v0.0.0-20190808234252-ddb6d8733e43
-	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
-	github.com/modern-go/reflect2 v1.0.1 // indirect
-	github.com/openebs/gotgt v0.0.0-20190920120853-ebbd55e75de8
 	github.com/prometheus/client_golang v1.1.0
 	github.com/rancher/go-rancher v0.1.1-0.20190307222549-9756097e5e4c
 	github.com/satori/go.uuid v1.2.0
