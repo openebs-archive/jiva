@@ -12,13 +12,13 @@ Jiva provides highly available iSCSI block storage Persistent Volumes for Kubern
 
 Jiva comprises of two components:
 -   A Target ( or a Storage Controller) that exposes iSCSI, while synchronously replicating the data to one or more Replicas. 
--   A set of Replicas that a Target uses to read/write data. Each of the replica will be on a different node to ensure high availabiliby against node or network failures. The Replicas save the data into sparse files on the host filesystem directories. 
+-   A set of Replicas that a Target uses to read/write data. Each of the replicas will be on a different node to ensure high availability against node or network failures. The Replicas save the data into sparse files on the host filesystem directories. 
 
 Jiva is containerized storage controller. The docker images are available at:
 -   [Docker Hub](https://cloud.docker.com/u/openebs/repository/docker/openebs/jiva)
 -   [Quay](https://quay.io/repository/openebs/jiva)
 
-The docker container can be used directly to spin up volume. OpenEBS Control Plane makes it easy to manage Jiva Volumes. 
+The docker container can be used directly to spin up the volume. OpenEBS Control Plane makes it easy to manage Jiva Volumes. 
 
 When using Jiva volumes with OpenEBS, the Jiva volumes is composed of the following Kubernetes native objects.
 -   A Kubernetes Service pointing to Jiva iSCSI Target
