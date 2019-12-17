@@ -2,11 +2,12 @@ package replica
 
 import (
 	"fmt"
-	"github.com/openebs/jiva/types"
 	"io"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/openebs/jiva/types"
 
 	"github.com/longhorn/sparse-tools/sparse"
 	"github.com/sirupsen/logrus"
@@ -46,6 +47,7 @@ func (r *Replica) writeRevisionCounter(counter int64) error {
 	if err != nil {
 		return fmt.Errorf("fail to write to revision counter file: %v", err)
 	}
+
 	return nil
 }
 

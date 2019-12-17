@@ -89,11 +89,12 @@ type Info struct {
 }
 
 type disk struct {
-	Name        string
-	Parent      string
-	Removed     bool
-	UserCreated bool
-	Created     string
+	Name            string
+	Parent          string
+	Removed         bool
+	UserCreated     bool
+	Created         string
+	RevisionCounter int64
 }
 
 type BackingFile struct {
@@ -110,13 +111,14 @@ type PrepareRemoveAction struct {
 }
 
 type DiskInfo struct {
-	Name        string   `json:"name"`
-	Parent      string   `json:"parent"`
-	Children    []string `json:"children"`
-	Removed     bool     `json:"removed"`
-	UserCreated bool     `json:"usercreated"`
-	Created     string   `json:"created"`
-	Size        string   `json:"size"`
+	Name            string   `json:"name"`
+	Parent          string   `json:"parent"`
+	Children        []string `json:"children"`
+	Removed         bool     `json:"removed"`
+	UserCreated     bool     `json:"usercreated"`
+	Created         string   `json:"created"`
+	Size            string   `json:"size"`
+	RevisionCounter int64    `json:"revisionCount"`
 }
 
 const (
@@ -918,6 +920,7 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 		r.diskData[newSnapName] = r.diskData[oldHead]
 		r.diskData[newSnapName].UserCreated = userCreated
 		r.diskData[newSnapName].Created = created
+		r.diskData[newSnapName].RevisionCounter = r.GetRevisionCounter()
 		if err := r.encodeToFile(r.diskData[newSnapName], newSnapName+metadataSuffix); err != nil {
 			return err
 		}
@@ -1225,12 +1228,13 @@ func (r *Replica) ListDisks() map[string]DiskInfo {
 	for _, disk := range r.diskData {
 		diskSize := strconv.FormatInt(r.getDiskSize(disk.Name), 10)
 		diskInfo := DiskInfo{
-			Name:        disk.Name,
-			Parent:      disk.Parent,
-			Removed:     disk.Removed,
-			UserCreated: disk.UserCreated,
-			Created:     disk.Created,
-			Size:        diskSize,
+			Name:            disk.Name,
+			Parent:          disk.Parent,
+			Removed:         disk.Removed,
+			UserCreated:     disk.UserCreated,
+			Created:         disk.Created,
+			Size:            diskSize,
+			RevisionCounter: disk.RevisionCounter,
 		}
 		children := []string{}
 		for child := range r.diskChildrenMap[disk.Name] {

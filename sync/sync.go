@@ -346,21 +346,45 @@ func (t *Task) reloadAndVerify(address string, repClient *replicaClient.ReplicaC
 	return err
 }
 
-func (t *Task) syncFiles(fromClient *replicaClient.ReplicaClient, toClient *replicaClient.ReplicaClient, disks []string) error {
+func isRevisionCountSame(fromClient, toClient *replicaClient.ReplicaClient, disk string) (bool, error) {
+	rwReplica, err := fromClient.GetReplica()
+	if err != nil {
+		return false, err
+	}
+
+	curReplica, err := toClient.GetReplica()
+	if err != nil {
+		return false, err
+	}
+
+	if rwReplica.Disks[disk].RevisionCounter != curReplica.Disks[disk].RevisionCounter {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func (t *Task) syncFiles(fromClient, toClient *replicaClient.ReplicaClient, disks []string) error {
 	for i := range disks {
 		//We are syncing from the oldest snapshots to newer ones
 		disk := disks[len(disks)-1-i]
 		if strings.Contains(disk, "volume-head") {
 			return fmt.Errorf("Disk list shouldn't contain volume-head")
 		}
-		if err := t.syncFile(disk, "", fromClient, toClient); err != nil {
+
+		ok, err := isRevisionCountSame(fromClient, toClient, disk)
+		if err != nil {
 			return err
 		}
 
+		if !ok {
+			if err := t.syncFile(disk, "", fromClient, toClient); err != nil {
+				return err
+			}
+		}
 		if err := t.syncFile(disk+".meta", "", fromClient, toClient); err != nil {
 			return err
 		}
-
 	}
 
 	return nil
