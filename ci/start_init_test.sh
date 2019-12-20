@@ -440,7 +440,7 @@ get_replica_count() {
 #the replicas will not be deleted and error will be returned that replica
 #count is not equal to the RF.
 verify_delete_replica_unsuccess() {
-    expected_error="Error deleting replica" 
+    expected_error="Error deleting replica"
     error=$(curl -X "POST" http://$CONTROLLER_IP:9501/v1/delete | jq '.replicas[0].msg' | tr -d '"')
     if [ "$error" != "$expected_error" ]; then
                echo $2"  --failed"
@@ -643,7 +643,7 @@ test_controller_rpc_close() {
 
 	curl -k --data "{ \"rpcPingTimeout\":\"0\" }" -H "Content-Type:application/json" -XPOST $CONTROLLER_IP:9501/timeout
 	verify_replica_cnt "1" "One replica count test1"
-    
+
 	cleanup
 }
 
@@ -1333,7 +1333,7 @@ test_upgrade() {
 }
 
 test_upgrades() {
-       test_upgrade "openebs/jiva:1.0.0" "replica-controller"
+       test_upgrade "openebs/jiva:1.4.0" "replica-controller"
 }
 
 di_test_on_raw_disk() {

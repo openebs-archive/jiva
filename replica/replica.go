@@ -1074,6 +1074,12 @@ func (r *Replica) readDiskData(file string) error {
 	name := file[:len(file)-len(metadataSuffix)]
 	data.Name = name
 	r.diskData[name] = &data
+	if r.diskData[name].RevisionCounter == 0 || r.diskData[name].RevisionCounter == -1 {
+		r.diskData[name].RevisionCounter = r.GetRevisionCounter()
+		if err := r.encodeToFile(r.diskData[name], name+metadataSuffix); err != nil {
+			return err
+		}
+	}
 	if data.Parent != "" {
 		r.addChildDisk(data.Parent, data.Name)
 	}
