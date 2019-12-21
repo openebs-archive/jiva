@@ -1328,7 +1328,6 @@ test_upgrade() {
 	verify_replica_cnt "3" "Three replica count test in controller upgrade"
 	wait
 	test_data_integrity
-
 	cleanup
 }
 
