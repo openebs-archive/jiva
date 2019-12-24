@@ -195,15 +195,15 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 	}
 	r.volume.sectorSize = defaultSectorSize
 
+	if err := r.initRevisionCounter(); err != nil {
+		return nil, err
+	}
+
 	// Scan all the disks to build the disk map
 	exists, err := r.readMetadata()
 	if err != nil {
 		return nil, err
 	}
-	if err := r.initRevisionCounter(); err != nil {
-		return nil, err
-	}
-
 	// Reference r.info.Size because it may have changed from reading
 	// metadata
 	locationSize := r.info.Size / r.volume.sectorSize
