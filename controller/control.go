@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"sync"
 	"time"
 
@@ -160,17 +161,53 @@ func (c *Controller) hasWOReplica() (string, bool) {
 	return "", false
 }
 
+func (c *Controller) hasGreaterRevisionCount(woReplica, newReplica string) (bool, error) {
+	woRevCnt, err := c.backend.GetRevisionCounter(woReplica)
+	if err != nil {
+		return false, err
+	}
+
+	repClient, err := replicaClient.NewReplicaClient(newReplica)
+	if err != nil {
+		return false, err
+	}
+
+	replica, err := repClient.GetReplica()
+	if err != nil {
+		return false, err
+	}
+
+	newRevCnt, err := strconv.ParseInt(replica.RevisionCounter, 10, 64)
+	if err != nil {
+		return false, err
+	}
+	if newRevCnt > woRevCnt {
+		return true, nil
+	}
+	return false, nil
+}
+
 func (c *Controller) canAdd(address string) (bool, error) {
 	if c.hasReplica(address) {
 		logrus.Warningf("replica %s is already added with this controller instance", address)
 		return false, fmt.Errorf("replica: %s is already added", address)
 	}
 	if woReplica, ok := c.hasWOReplica(); ok {
+		if ok, err := c.hasGreaterRevisionCount(woReplica, address); ok {
+			// Remove so that replica with greater IO number can take over
+			if err := c.RemoveReplicaNoLock(woReplica); err != nil {
+				return false, err
+			}
+			goto snap
+		} else if err != nil {
+			return false, err
+		}
 		logrus.Warningf("can have only one WO replica at a time, found WO replica: %s", woReplica)
 		return false, fmt.Errorf("can only have one WO replica at a time, found WO Replica: %s",
 			woReplica)
 	}
 
+snap:
 	// returning error if snap deletion is in progress to avoid the case
 	// where data may be overwritten with the holes while syncing from
 	// a healthy replica where snapshot was not deleted successfully.
