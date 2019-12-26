@@ -82,6 +82,15 @@ func NewReplicaClient(address string) (*ReplicaClient, error) {
 	}, nil
 }
 
+// SetTimeout override the timeout of the client for a request
+// Ignore setting timeout if httpClient is nil as ReplicaClient may not be
+// initialized.
+func (c *ReplicaClient) SetTimeout(timeout time.Duration) {
+	if c.httpClient != nil {
+		c.httpClient.Timeout = timeout
+	}
+}
+
 func (c *ReplicaClient) Create(size string) error {
 	r, err := c.GetReplica()
 	if err != nil {

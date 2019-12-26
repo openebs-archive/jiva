@@ -162,9 +162,18 @@ func (c *Controller) hasWOReplica() (string, bool) {
 }
 
 func (c *Controller) hasGreaterRevisionCount(woReplica, newReplica string) (bool, error) {
-	woRevCnt, err := c.backend.GetRevisionCounter(woReplica)
-	if err != nil {
-		return false, err
+	var (
+		woRevCnt int64
+		err      error
+	)
+
+	if _, ok := c.RegisteredReplicas[woReplica]; !ok {
+		woRevCnt, err = c.backend.GetRevisionCounter(woReplica)
+		if err != nil {
+			return false, err
+		}
+	} else {
+		woRevCnt = c.RegisteredReplicas[woReplica].RevCount
 	}
 
 	repClient, err := replicaClient.NewReplicaClient(newReplica)
@@ -172,6 +181,7 @@ func (c *Controller) hasGreaterRevisionCount(woReplica, newReplica string) (bool
 		return false, err
 	}
 
+	repClient.SetTimeout(5 * time.Second)
 	replica, err := repClient.GetReplica()
 	if err != nil {
 		return false, err
