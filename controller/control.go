@@ -205,8 +205,8 @@ func (c *Controller) canAdd(address string) (bool, error) {
 	if woReplica, ok := c.hasWOReplica(); ok {
 		if ok, err := c.hasGreaterRevisionCount(woReplica, address); ok {
 			// Remove so that replica with greater IO number can take over
-			if err := c.RemoveReplicaNoLock(woReplica); err != nil {
-				return false, err
+			if err1 := c.RemoveReplicaNoLock(woReplica); err1 != nil {
+				return false, err1
 			}
 			goto snap
 		} else if err != nil {
