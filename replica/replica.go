@@ -1074,6 +1074,12 @@ func (r *Replica) readDiskData(file string) error {
 	name := file[:len(file)-len(metadataSuffix)]
 	data.Name = name
 	r.diskData[name] = &data
+	// we are updating the revision count of snapshot with the latest
+	// revision count. This is done to know how many io's have been served
+	// if replica has been restarted multiple times and new snapshots have
+	// been created with no data.
+	// This is compared with 1 since revision.counter is initialized
+	// with 1 initially.
 	if r.diskData[name].RevisionCounter <= 1 {
 		r.diskData[name].RevisionCounter = r.GetRevisionCounter()
 		if err := r.encodeToFile(r.diskData[name], name+metadataSuffix); err != nil {

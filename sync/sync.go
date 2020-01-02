@@ -299,6 +299,7 @@ func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.R
 		// ignoring Chain[0] since it's head file and it is opened for writing the latest data.
 		if !reflect.DeepEqual(rwReplica.Chain[1:], curReplica.Chain[1:]) {
 			logrus.Warningf("Replica %v's chain not equal to RW replica %v's chain", toClient.GetAddress(), fromClient.GetAddress())
+			logrus.Warningf("RW replica chain: %v, cur replica chain: %v", rwReplica.Chain, curReplica.Chain)
 			return false, nil
 		}
 		return true, nil
@@ -349,15 +350,18 @@ func (t *Task) reloadAndVerify(address string, repClient *replicaClient.ReplicaC
 func isRevisionCountSame(fromClient, toClient *replicaClient.ReplicaClient, disk string) (bool, error) {
 	rwReplica, err := fromClient.GetReplica()
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("Failed to verify isRevisionCountSame, err: %v", err)
 	}
 
 	curReplica, err := toClient.GetReplica()
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("Failed to verify isRevisionCountSame, err: %v", err)
+
 	}
 
 	if rwReplica.Disks[disk].RevisionCounter != curReplica.Disks[disk].RevisionCounter {
+		logrus.Warningf("Revision count not same for snap: %v, cur: %v, RW: %v",
+			disk, rwReplica.Disks[disk].RevisionCounter, curReplica.Disks[disk].RevisionCounter)
 		return false, nil
 	}
 
