@@ -774,11 +774,12 @@ func (r *Replica) createNewHead(oldHead, parent, created string) (types.DiffDisk
 	}
 
 	newDisk := disk{
-		Parent:      parent,
-		Name:        newHeadName,
-		Removed:     false,
-		UserCreated: false,
-		Created:     created,
+		Parent:          parent,
+		Name:            newHeadName,
+		Removed:         false,
+		UserCreated:     false,
+		Created:         created,
+		RevisionCounter: r.GetRevisionCounter(),
 	}
 	err = r.encodeToFile(&newDisk, newHeadName+metadataSuffix)
 	return f, newDisk, err
