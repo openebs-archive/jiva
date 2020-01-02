@@ -347,17 +347,24 @@ func (r *Replica) Reload() (*Replica, error) {
 	return newReplica, nil
 }
 
-func (r *Replica) UpdateCloneInfo(snapName string) error {
+func (r *Replica) UpdateCloneInfo(snapName, revCount string) error {
 	r.info.Parent = "volume-snap-" + snapName + ".img"
 	if err := r.encodeToFile(&r.info, volumeMetaData); err != nil {
 		return err
 	}
 
-	revisionCount := r.diskData[r.info.Parent].RevisionCounter
-	if err := r.SetRevisionCounter(revisionCount); err != nil {
-		return err
+	revisionCount, err := strconv.ParseInt(revCount, 64, 10)
+	if err != nil {
+		return fmt.Errorf("Failed to parse revision count %v, err: %v", revCount, err)
 	}
+
+	r.diskData[r.info.Parent].RevisionCounter = revisionCount
+	if err := r.SetRevisionCounter(revisionCount); err != nil {
+		return fmt.Errorf("Failed to set revision counter, err: %v", err)
+	}
+
 	r.diskData[r.info.Head].Parent = r.info.Parent
+	r.diskData[r.info.Head].RevisionCounter = revisionCount
 	return r.encodeToFile(r.diskData[r.info.Head], r.info.Head+metadataSuffix)
 }
 

@@ -146,8 +146,9 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 		if err != nil {
 			return fmt.Errorf("Failed to create client of the clone replica, error: %s", err.Error())
 		}
+		snapshotName := "volume-snap-" + snapName + ".img"
 		for i, name := range chain {
-			if name == "volume-snap-"+snapName+".img" {
+			if name == snapshotName {
 				snapFound = true
 				chain = chain[i:]
 				break
@@ -164,8 +165,10 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 			time.Sleep(2 * time.Second)
 			continue
 		}
-		toClient.UpdateCloneInfo(snapName)
 
+		if _, err := toClient.UpdateCloneInfo(snapName, repl.RevisionCounter); err != nil {
+			return fmt.Errorf("Failed to update clone info, err: %v", err)
+		}
 		_, err = toClient.ReloadReplica()
 		if err != nil {
 			return fmt.Errorf("Failed to reload clone replica, error: %s", err.Error())
