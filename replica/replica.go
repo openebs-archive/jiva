@@ -352,6 +352,11 @@ func (r *Replica) UpdateCloneInfo(snapName string) error {
 	if err := r.encodeToFile(&r.info, volumeMetaData); err != nil {
 		return err
 	}
+
+	revisionCount := r.diskData[r.info.Parent].RevisionCounter
+	if err := r.SetRevisionCounter(revisionCount); err != nil {
+		return err
+	}
 	r.diskData[r.info.Head].Parent = r.info.Parent
 	return r.encodeToFile(r.diskData[r.info.Head], r.info.Head+metadataSuffix)
 }
