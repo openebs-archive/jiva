@@ -364,7 +364,6 @@ func isRevisionCountSame(fromClient, toClient *replicaClient.ReplicaClient, disk
 
 	}
 
-	logrus.Infof("Cur replica: %v, rw Replica: %v", curReplica, rwReplica)
 	if rwReplica.Disks[disk].RevisionCounter != curReplica.Disks[disk].RevisionCounter {
 		logrus.Warningf("Revision count not same for snap: %v, cur: %v, RW: %v",
 			disk, curReplica.Disks[disk].RevisionCounter, rwReplica.Disks[disk].RevisionCounter)
