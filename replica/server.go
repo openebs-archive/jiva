@@ -267,6 +267,18 @@ func (s *Server) Stats() *types.Stats {
 	return stats1
 }
 
+// GetRevisionCounter reads the revison counter
+func (s *Server) GetRevisionCounter() (int64, error) {
+	tmpReplica := Replica{
+		dir: Dir,
+	}
+	err := tmpReplica.initRevisionCounter()
+	if err != nil {
+		return 0, err
+	}
+	return tmpReplica.revisionCache, nil
+}
+
 func (s *Server) GetUsage() (*types.VolUsage, error) {
 	if s.r != nil {
 		return s.r.GetUsage()

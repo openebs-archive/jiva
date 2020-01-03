@@ -299,16 +299,19 @@ func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.R
 	if err != nil {
 		return false, err
 	}
-
+	logrus.Infof("RevisionCount of RW replica (%v): %v, Current replica (%v): %v",
+		fromClient.GetAddress(), rwReplica.RevisionCounter, toClient.GetAddress(),
+		curReplica.RevisionCounter)
+	logrus.Infof("RW replica chain: %v, cur replica chain: %v", rwReplica.Chain, curReplica.Chain)
 	if rwReplica.RevisionCounter == curReplica.RevisionCounter {
 		// ignoring Chain[0] since it's head file and it is opened for writing the latest data.
 		if !reflect.DeepEqual(rwReplica.Chain[1:], curReplica.Chain[1:]) {
 			logrus.Warningf("Replica %v's chain not equal to RW replica %v's chain", toClient.GetAddress(), fromClient.GetAddress())
-			logrus.Warningf("RW replica chain: %v, cur replica chain: %v", rwReplica.Chain, curReplica.Chain)
 			return false, nil
 		}
 		return true, nil
 	}
+
 	return false, nil
 }
 
