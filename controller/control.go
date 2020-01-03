@@ -191,6 +191,8 @@ func (c *Controller) hasGreaterRevisionCount(woReplica, newReplica string) (bool
 	if err != nil {
 		return false, err
 	}
+
+	logrus.Infof("Revision count: %v of New Replica: %v, Revision count: %v of WO Replica: %v", newRevCnt, newReplica, woRevCnt, woReplica)
 	if newRevCnt > woRevCnt {
 		return true, nil
 	}
@@ -203,6 +205,7 @@ func (c *Controller) canAdd(address string) (bool, error) {
 		return false, fmt.Errorf("replica: %s is already added", address)
 	}
 	if woReplica, ok := c.hasWOReplica(); ok {
+		logrus.Infof("Check if Replica: %v has greater revision count", address)
 		if ok, err := c.hasGreaterRevisionCount(woReplica, address); ok {
 			// Remove so that replica with greater IO number can take over
 			if err1 := c.RemoveReplicaNoLock(woReplica); err1 != nil {
@@ -210,6 +213,7 @@ func (c *Controller) canAdd(address string) (bool, error) {
 			}
 			goto snap
 		} else if err != nil {
+			logrus.Errorf("Failed to compare revision count of replicas, err: %v", err)
 			return false, err
 		}
 		logrus.Warningf("can have only one WO replica at a time, found WO replica: %s", woReplica)
