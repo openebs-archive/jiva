@@ -3,6 +3,7 @@ package sync
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -146,8 +147,9 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 		if err != nil {
 			return fmt.Errorf("Failed to create client of the clone replica, error: %s", err.Error())
 		}
+		snapshotName := "volume-snap-" + snapName + ".img"
 		for i, name := range chain {
-			if name == "volume-snap-"+snapName+".img" {
+			if name == snapshotName {
 				snapFound = true
 				chain = chain[i:]
 				break
@@ -164,8 +166,11 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 			time.Sleep(2 * time.Second)
 			continue
 		}
-		toClient.UpdateCloneInfo(snapName)
 
+		_, err = toClient.UpdateCloneInfo(snapName, strconv.FormatInt(repl.Disks[snapshotName].RevisionCounter, 10))
+		if err != nil {
+			return fmt.Errorf("Failed to update clone info, err: %v", err)
+		}
 		_, err = toClient.ReloadReplica()
 		if err != nil {
 			return fmt.Errorf("Failed to reload clone replica, error: %s", err.Error())
@@ -299,6 +304,7 @@ func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.R
 		// ignoring Chain[0] since it's head file and it is opened for writing the latest data.
 		if !reflect.DeepEqual(rwReplica.Chain[1:], curReplica.Chain[1:]) {
 			logrus.Warningf("Replica %v's chain not equal to RW replica %v's chain", toClient.GetAddress(), fromClient.GetAddress())
+			logrus.Warningf("RW replica chain: %v, cur replica chain: %v", rwReplica.Chain, curReplica.Chain)
 			return false, nil
 		}
 		return true, nil
@@ -346,21 +352,52 @@ func (t *Task) reloadAndVerify(address string, repClient *replicaClient.ReplicaC
 	return err
 }
 
-func (t *Task) syncFiles(fromClient *replicaClient.ReplicaClient, toClient *replicaClient.ReplicaClient, disks []string) error {
+func isRevisionCountSame(fromClient, toClient *replicaClient.ReplicaClient, disk string) (bool, error) {
+	rwReplica, err := fromClient.GetReplica()
+	if err != nil {
+		return false, fmt.Errorf("Failed to verify isRevisionCountSame, err: %v", err)
+	}
+
+	if rwReplica.Disks[disk].RevisionCounter == 0 {
+		return false, nil
+	}
+
+	curReplica, err := toClient.GetReplica()
+	if err != nil {
+		return false, fmt.Errorf("Failed to verify isRevisionCountSame, err: %v", err)
+
+	}
+
+	if rwReplica.Disks[disk].RevisionCounter != curReplica.Disks[disk].RevisionCounter {
+		logrus.Warningf("Revision count not same for snap: %v, cur: %v, RW: %v",
+			disk, curReplica.Disks[disk].RevisionCounter, rwReplica.Disks[disk].RevisionCounter)
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func (t *Task) syncFiles(fromClient, toClient *replicaClient.ReplicaClient, disks []string) error {
 	for i := range disks {
 		//We are syncing from the oldest snapshots to newer ones
 		disk := disks[len(disks)-1-i]
 		if strings.Contains(disk, "volume-head") {
 			return fmt.Errorf("Disk list shouldn't contain volume-head")
 		}
-		if err := t.syncFile(disk, "", fromClient, toClient); err != nil {
+
+		ok, err := isRevisionCountSame(fromClient, toClient, disk)
+		if err != nil {
 			return err
 		}
 
+		if !ok {
+			if err := t.syncFile(disk, "", fromClient, toClient); err != nil {
+				return err
+			}
+		}
 		if err := t.syncFile(disk+".meta", "", fromClient, toClient); err != nil {
 			return err
 		}
-
 	}
 
 	return nil

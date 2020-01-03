@@ -61,9 +61,11 @@ type SnapshotInput struct {
 	Created     string `json:"created"`
 }
 
+// CloneUpdateInput is input to update clone info of cloned replica
 type CloneUpdateInput struct {
 	client.Resource
-	SnapName string `json:"snapname"`
+	SnapName      string `json:"snapname"`
+	RevisionCount string `json:"revisioncounter"`
 }
 
 type RemoveDiskInput struct {
