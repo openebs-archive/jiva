@@ -1879,6 +1879,7 @@ verify_replica_restart_while_snap_deletion() {
 
         # case 2: Replication factor is not met
         sudo docker stop "$3"
+				sleep 5
         verify_delete_snapshot_failure "$4" "false"
 
         # case 3: Coalesce failed or client timeout exceeded
