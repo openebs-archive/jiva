@@ -358,6 +358,10 @@ func isRevisionCountSame(fromClient, toClient *replicaClient.ReplicaClient, disk
 		return false, fmt.Errorf("Failed to verify isRevisionCountSame, err: %v", err)
 	}
 
+	if rwReplica.Disks[disk].RevisionCounter == 0 {
+		return false, nil
+	}
+
 	curReplica, err := toClient.GetReplica()
 	if err != nil {
 		return false, fmt.Errorf("Failed to verify isRevisionCountSame, err: %v", err)
