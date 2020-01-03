@@ -3,6 +3,7 @@ package sync
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -166,7 +167,7 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 			continue
 		}
 
-		_, err = toClient.UpdateCloneInfo(snapName, repl.RevisionCounter)
+		_, err = toClient.UpdateCloneInfo(snapName, strconv.FormatInt(repl.Disks[snapshotName].RevisionCounter, 10))
 		if err != nil {
 			return fmt.Errorf("Failed to update clone info, err: %v", err)
 		}
@@ -363,9 +364,10 @@ func isRevisionCountSame(fromClient, toClient *replicaClient.ReplicaClient, disk
 
 	}
 
+	logrus.Infof("Cur replica: %v, rw Replica: %v", curReplica, rwReplica)
 	if rwReplica.Disks[disk].RevisionCounter != curReplica.Disks[disk].RevisionCounter {
 		logrus.Warningf("Revision count not same for snap: %v, cur: %v, RW: %v",
-			disk, rwReplica.Disks[disk].RevisionCounter, curReplica.Disks[disk].RevisionCounter)
+			disk, curReplica.Disks[disk].RevisionCounter, rwReplica.Disks[disk].RevisionCounter)
 		return false, nil
 	}
 
