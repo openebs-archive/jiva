@@ -166,7 +166,8 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 			continue
 		}
 
-		if _, err := toClient.UpdateCloneInfo(snapName, repl.RevisionCounter); err != nil {
+		_, err = toClient.UpdateCloneInfo(snapName, repl.RevisionCounter)
+		if err != nil {
 			return fmt.Errorf("Failed to update clone info, err: %v", err)
 		}
 		_, err = toClient.ReloadReplica()

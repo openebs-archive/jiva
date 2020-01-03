@@ -347,19 +347,20 @@ func (r *Replica) Reload() (*Replica, error) {
 	return newReplica, nil
 }
 
+// UpdateCloneInfo update the clone information such as snapshot name and
+// revisionCount
 func (r *Replica) UpdateCloneInfo(snapName, revCount string) error {
 	r.info.Parent = "volume-snap-" + snapName + ".img"
 	if err := r.encodeToFile(&r.info, volumeMetaData); err != nil {
 		return err
 	}
 
-	revisionCount, err := strconv.ParseInt(revCount, 64, 10)
+	revisionCount, err := strconv.ParseInt(revCount, 10, 64)
 	if err != nil {
 		return fmt.Errorf("Failed to parse revision count %v, err: %v", revCount, err)
 	}
 
-	r.diskData[r.info.Parent].RevisionCounter = revisionCount
-	if err := r.SetRevisionCounter(revisionCount); err != nil {
+	if err := r.SetRevisionCounterCloneReplica(revisionCount); err != nil {
 		return fmt.Errorf("Failed to set revision counter, err: %v", err)
 	}
 
@@ -1095,6 +1096,7 @@ func (r *Replica) readDiskData(file string) error {
 	// with 1 initially.
 	if r.diskData[name].RevisionCounter <= 1 {
 		r.diskData[name].RevisionCounter = r.GetRevisionCounter()
+		logrus.Infof("Update revison count: %v of snapshot: %v", r.diskData[name].RevisionCounter, name)
 		if err := r.encodeToFile(r.diskData[name], name+metadataSuffix); err != nil {
 			return err
 		}

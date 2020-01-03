@@ -106,6 +106,19 @@ func (r *Replica) GetRevisionCounter() int64 {
 	return counter
 }
 
+// SetRevisionCounterCloneReplica set revision counter for clone replica
+func (r *Replica) SetRevisionCounterCloneReplica(counter int64) error {
+	r.revisionLock.Lock()
+	defer r.revisionLock.Unlock()
+
+	if err := r.writeRevisionCounter(counter); err != nil {
+		return err
+	}
+
+	r.revisionCache = counter
+	return nil
+}
+
 func (r *Replica) SetRevisionCounter(counter int64) error {
 	r.Lock()
 	if r.mode != types.RW {
