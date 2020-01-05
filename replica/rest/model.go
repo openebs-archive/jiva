@@ -209,7 +209,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 	r.Parent = info.Parent
 	r.SectorSize = info.SectorSize
 	r.Size = strconv.FormatInt(info.Size, 10)
-
+	r.RevisionCounter = strconv.FormatInt(info.RevisionCounter, 10)
 	if rep != nil {
 		r.Chain, _ = rep.DisplayChain()
 		r.Disks = rep.ListDisks()

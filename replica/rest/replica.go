@@ -26,6 +26,7 @@ func (s *Server) Replica(apiContext *api.ApiContext) *Replica {
 	s.s.RLock()
 	defer s.s.RUnlock()
 	state, info := s.s.Status()
+	info.RevisionCounter, _ = s.s.GetRevisionCounter()
 	return NewReplica(apiContext, state, info, s.s.Replica())
 }
 

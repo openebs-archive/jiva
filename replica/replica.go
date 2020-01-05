@@ -86,6 +86,7 @@ type Info struct {
 	BackingFileName string
 	CloneStatus     string
 	BackingFile     *BackingFile `json:"-"`
+	RevisionCounter int64
 }
 
 type disk struct {

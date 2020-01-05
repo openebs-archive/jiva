@@ -208,6 +208,7 @@ func (c *Controller) canAdd(address string) (bool, error) {
 		logrus.Infof("Check if Replica: %v has greater revision count", address)
 		if ok, err := c.hasGreaterRevisionCount(woReplica, address); ok {
 			// Remove so that replica with greater IO number can take over
+			logrus.Infof("Replica %v will takeover", address)
 			if err1 := c.RemoveReplicaNoLock(woReplica); err1 != nil {
 				return false, err1
 			}
