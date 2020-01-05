@@ -11,16 +11,32 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/replica/rest"
 	"github.com/openebs/jiva/sync/agent"
+	"github.com/sirupsen/logrus"
 )
+
+const defaultSleepTime = 250 * time.Millisecond
+const maxSleepTime = 1 * time.Second
+
+func RetrySleep(sleepTime *time.Duration) {
+	time.Sleep(*sleepTime)
+	*sleepTime = (*sleepTime) * 2
+	if *sleepTime > maxSleepTime {
+		*sleepTime = maxSleepTime
+	}
+}
 
 type ReplicaClient struct {
 	address    string
 	syncAgent  string
 	host       string
 	httpClient *http.Client
+}
+
+// GetAddress is used to get the address of replica client
+func (c *ReplicaClient) GetAddress() string {
+	return c.address
 }
 
 func NewReplicaClient(address string) (*ReplicaClient, error) {
@@ -64,6 +80,15 @@ func NewReplicaClient(address string) (*ReplicaClient, error) {
 		syncAgent:  syncAgent,
 		httpClient: client,
 	}, nil
+}
+
+// SetTimeout override the timeout of the client for a request
+// Ignore setting timeout if httpClient is nil as ReplicaClient may not be
+// initialized.
+func (c *ReplicaClient) SetTimeout(timeout time.Duration) {
+	if c.httpClient != nil {
+		c.httpClient.Timeout = timeout
+	}
 }
 
 func (c *ReplicaClient) Create(size string) error {
@@ -134,6 +159,9 @@ func (c *ReplicaClient) RemoveDisk(disk string) error {
 		logrus.Errorf("getReplica in removeDisk failed")
 		return err
 	}
+	if r.ReplicaMode != "RW" {
+		return fmt.Errorf("Replica %s mode is %s", c.address, r.ReplicaMode)
+	}
 
 	return c.post(r.Actions["removedisk"], &rest.RemoveDiskInput{
 		Name: disk,
@@ -144,6 +172,9 @@ func (c *ReplicaClient) ReplaceDisk(target, source string) error {
 	r, err := c.GetReplica()
 	if err != nil {
 		return err
+	}
+	if r.ReplicaMode != "RW" {
+		return fmt.Errorf("Replica %s mode is %s", c.address, r.ReplicaMode)
 	}
 
 	return c.post(r.Actions["replacedisk"], &rest.ReplaceDiskInput{
@@ -159,6 +190,9 @@ func (c *ReplicaClient) PrepareRemoveDisk(disk string) (rest.PrepareRemoveDiskOu
 		return output, err
 	}
 
+	if r.ReplicaMode != "RW" {
+		return output, fmt.Errorf("Replica %s mode is %s", c.address, r.ReplicaMode)
+	}
 	err = c.post(r.Actions["prepareremovedisk"], &rest.PrepareRemoveDiskInput{
 		Name: disk,
 	}, &output)
@@ -188,11 +222,13 @@ func (c *ReplicaClient) ReloadReplica() (rest.Replica, error) {
 	return replica, err
 }
 
-func (c *ReplicaClient) UpdateCloneInfo(snapName string) (rest.Replica, error) {
+// UpdateCloneInfo update the snapname and revision count
+func (c *ReplicaClient) UpdateCloneInfo(snapName, revCount string) (rest.Replica, error) {
 	var replica rest.Replica
 
 	input := &rest.CloneUpdateInput{
-		SnapName: snapName,
+		SnapName:      snapName,
+		RevisionCount: revCount,
 	}
 
 	err := c.post(c.address+"/replicas/1?action=updatecloneinfo", input, &replica)
@@ -213,36 +249,8 @@ func (c *ReplicaClient) LaunchReceiver(toFilePath string) (string, int, error) {
 }
 
 func (c *ReplicaClient) Coalesce(from, to string) error {
-	var running agent.Process
-	err := c.post(c.syncAgent+"/processes", &agent.Process{
-		ProcessType: "fold",
-		SrcFile:     from,
-		DestFile:    to,
-	}, &running)
-	if err != nil {
-		return err
-	}
-
-	start := 250 * time.Millisecond
-	for {
-		err := c.get(running.Links["self"], &running)
-		if err != nil {
-			return err
-		}
-
-		switch running.ExitCode {
-		case -2:
-			time.Sleep(start)
-			start = start * 2
-			if start > 1*time.Second {
-				start = 1 * time.Second
-			}
-		case 0:
-			return nil
-		default:
-			return fmt.Errorf("ExitCode: %d", running.ExitCode)
-		}
-	}
+	var processType = "fold"
+	return c.fileOperation(from, to, processType)
 }
 
 func (c *ReplicaClient) SendFile(from, host string, port int) error {
@@ -258,7 +266,7 @@ func (c *ReplicaClient) SendFile(from, host string, port int) error {
 	}
 
 	successCount := 0
-	start := 250 * time.Millisecond
+	start := defaultSleepTime
 	for {
 		err := c.get(running.Links["self"], &running)
 		if err != nil {
@@ -267,11 +275,7 @@ func (c *ReplicaClient) SendFile(from, host string, port int) error {
 
 		switch running.ExitCode {
 		case -2:
-			time.Sleep(start)
-			start = start * 2
-			if start > 1*time.Second {
-				start = 1 * time.Second
-			}
+			RetrySleep(&start)
 		case 0:
 			/*
 			* During sync process, degraded replica receives exitCode as success
@@ -301,7 +305,7 @@ func (c *ReplicaClient) CreateBackup(snapshot, dest, volume string) (string, err
 		return "", err
 	}
 
-	start := 250 * time.Millisecond
+	start := defaultSleepTime
 	for {
 		err := c.get(running.Links["self"], &running)
 		if err != nil {
@@ -310,11 +314,7 @@ func (c *ReplicaClient) CreateBackup(snapshot, dest, volume string) (string, err
 
 		switch running.ExitCode {
 		case -2:
-			time.Sleep(start)
-			start = start * 2
-			if start > 1*time.Second {
-				start = 1 * time.Second
-			}
+			RetrySleep(&start)
 		case 0:
 			return running.Output, nil
 		default:
@@ -334,7 +334,7 @@ func (c *ReplicaClient) RmBackup(backup string) error {
 		return err
 	}
 
-	start := 250 * time.Millisecond
+	start := defaultSleepTime
 	for {
 		err := c.get(running.Links["self"], &running)
 		if err != nil {
@@ -343,11 +343,7 @@ func (c *ReplicaClient) RmBackup(backup string) error {
 
 		switch running.ExitCode {
 		case -2:
-			time.Sleep(start)
-			start = start * 2
-			if start > 1*time.Second {
-				start = 1 * time.Second
-			}
+			RetrySleep(&start)
 		case 0:
 			return nil
 		default:
@@ -368,7 +364,7 @@ func (c *ReplicaClient) RestoreBackup(backup, snapshotFile string) error {
 		return err
 	}
 
-	start := 250 * time.Millisecond
+	start := defaultSleepTime
 	for {
 		err := c.get(running.Links["self"], &running)
 		if err != nil {
@@ -377,11 +373,7 @@ func (c *ReplicaClient) RestoreBackup(backup, snapshotFile string) error {
 
 		switch running.ExitCode {
 		case -2:
-			time.Sleep(start)
-			start = start * 2
-			if start > 1*time.Second {
-				start = 1 * time.Second
-			}
+			RetrySleep(&start)
 		case 0:
 			return nil
 		default:
@@ -401,7 +393,7 @@ func (c *ReplicaClient) InspectBackup(backup string) (string, error) {
 		return "", err
 	}
 
-	start := 250 * time.Millisecond
+	start := defaultSleepTime
 	for {
 		err := c.get(running.Links["self"], &running)
 		if err != nil {
@@ -410,11 +402,7 @@ func (c *ReplicaClient) InspectBackup(backup string) (string, error) {
 
 		switch running.ExitCode {
 		case -2:
-			time.Sleep(start)
-			start = start * 2
-			if start > 1*time.Second {
-				start = 1 * time.Second
-			}
+			RetrySleep(&start)
 		case 0:
 			return running.Output, nil
 		default:
@@ -435,7 +423,7 @@ func (c *ReplicaClient) ListBackup(destURL, volume string) (string, error) {
 		return "", err
 	}
 
-	start := 250 * time.Millisecond
+	start := defaultSleepTime
 	for {
 		err := c.get(running.Links["self"], &running)
 		if err != nil {
@@ -444,11 +432,7 @@ func (c *ReplicaClient) ListBackup(destURL, volume string) (string, error) {
 
 		switch running.ExitCode {
 		case -2:
-			time.Sleep(start)
-			start = start * 2
-			if start > 1*time.Second {
-				start = 1 * time.Second
-			}
+			RetrySleep(&start)
 		case 0:
 			return running.Output, nil
 		default:
@@ -505,9 +489,14 @@ func (c *ReplicaClient) post(path string, req, resp interface{}) error {
 }
 
 func (c *ReplicaClient) HardLink(from, to string) error {
+	var processType = "hardlink"
+	return c.fileOperation(from, to, processType)
+}
+
+func (c *ReplicaClient) fileOperation(from, to, processType string) error {
 	var running agent.Process
 	err := c.post(c.syncAgent+"/processes", &agent.Process{
-		ProcessType: "hardlink",
+		ProcessType: processType,
 		SrcFile:     from,
 		DestFile:    to,
 	}, &running)
@@ -515,7 +504,7 @@ func (c *ReplicaClient) HardLink(from, to string) error {
 		return err
 	}
 
-	start := 250 * time.Millisecond
+	start := defaultSleepTime
 	for {
 		err := c.get(running.Links["self"], &running)
 		if err != nil {
@@ -524,11 +513,7 @@ func (c *ReplicaClient) HardLink(from, to string) error {
 
 		switch running.ExitCode {
 		case -2:
-			time.Sleep(start)
-			start = start * 2
-			if start > 1*time.Second {
-				start = 1 * time.Second
-			}
+			RetrySleep(&start)
 		case 0:
 			return nil
 		default:

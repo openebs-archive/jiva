@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
+	"github.com/sirupsen/logrus"
 )
 
 func (s *Server) ListVolumes(rw http.ResponseWriter, req *http.Request) error {
@@ -36,13 +37,23 @@ func (s *Server) GetVolume(rw http.ResponseWriter, req *http.Request) error {
 }
 
 func (s *Server) GetVolumeStats(rw http.ResponseWriter, req *http.Request) error {
+	var status string
 	apiContext := api.GetApiContext(req)
 	stats, _ := s.c.Stats()
+	replicas := s.c.ListReplicas()
+
+	if s.c.ReadOnly == true {
+		status = "RO"
+	} else {
+		status = "RW"
+	}
+
 	volumeStats := &VolumeStats{
-		Resource:        client.Resource{Type: "stats"},
-		RevisionCounter: stats.RevisionCounter,
-		ReplicaCounter:  stats.ReplicaCounter,
-		SCSIIOCount:     stats.SCSIIOCount,
+		Resource:          client.Resource{Type: "stats"},
+		RevisionCounter:   stats.RevisionCounter,
+		ReplicaCounter:    len(replicas),
+		SCSIIOCount:       stats.SCSIIOCount,
+		IsClientConnected: stats.IsClientConnected,
 
 		ReadIOPS:            strconv.FormatInt(stats.ReadIOPS, 10),
 		TotalReadTime:       strconv.FormatInt(stats.TotalReadTime, 10),
@@ -56,8 +67,10 @@ func (s *Server) GetVolumeStats(rw http.ResponseWriter, req *http.Request) error
 		UsedBlocks:        strconv.FormatInt(stats.UsedBlocks, 10),
 		SectorSize:        strconv.FormatInt(stats.SectorSize, 10),
 		Size:              strconv.FormatInt(s.c.GetSize(), 10),
-		UpTime:            time.Since(s.c.StartTime).Seconds(),
+		UpTime:            fmt.Sprintf("%f", time.Since(s.c.StartTime).Seconds()),
 		Name:              s.c.Name,
+		Replica:           replicas,
+		ControllerStatus:  status,
 	}
 	apiContext.Write(volumeStats)
 	return nil
@@ -188,5 +201,59 @@ func (s *Server) getVolume(context *api.ApiContext, id string) *Volume {
 			return v
 		}
 	}
+	return nil
+}
+
+// DeleteSnapshot ...
+func (s *Server) DeleteSnapshot(rw http.ResponseWriter, req *http.Request) error {
+	s.c.Lock()
+	if s.c.IsSnapDeletionInProgress {
+		s.c.Unlock()
+		return fmt.Errorf("Snapshot deletion process is in progress, %s is getting deleted", s.c.SnapshotName)
+	}
+
+	apiContext := api.GetApiContext(req)
+	var input SnapshotInput
+	if err := apiContext.Read(&input); err != nil {
+		s.c.Unlock()
+		return err
+	}
+	replicas := s.c.ListReplicas()
+	s.c.SnapshotName = input.Name
+	rf := s.c.ReplicationFactor
+	if len(replicas) != rf {
+		s.c.Unlock()
+		return fmt.Errorf("Can not remove a snapshot because, RF: %v, replica count: %v", rf, len(replicas))
+	}
+
+	for _, rep := range replicas {
+		r := rep // pin it
+		if err := s.c.IsReplicaRW(&r); err != nil {
+			s.c.Unlock()
+			return fmt.Errorf("Can't delete snapshot %s, err: %v", s.c.SnapshotName, err)
+		}
+	}
+	s.c.IsSnapDeletionInProgress = true
+	s.c.Unlock()
+	defer func() {
+		s.c.Lock()
+		s.c.IsSnapDeletionInProgress = false
+		s.c.Unlock()
+	}()
+
+	logrus.Infof("Delete snapshot: %s", input.Name)
+	err := s.c.DeleteSnapshot(replicas)
+	if err != nil {
+		return err
+	}
+
+	msg := fmt.Sprintf("Snapshot: %s deleted successfully", input.Name)
+	apiContext.Write(&SnapshotOutput{
+		client.Resource{
+			Id:   input.Name,
+			Type: "snapshotOutput",
+		},
+		msg,
+	})
 	return nil
 }

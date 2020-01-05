@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
 	"github.com/openebs/jiva/sync/agent"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 )
 
 func SyncAgentCmd() cli.Command {

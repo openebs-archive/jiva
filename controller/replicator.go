@@ -8,9 +8,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/backend/remote"
 	"github.com/openebs/jiva/types"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -25,8 +25,14 @@ type replicator struct {
 	updaterIndex      map[int]string
 	readerIndex       map[int]string
 	readers           []io.ReaderAt
-	writer            io.WriterAt
+	writer            Writer
 	next              int
+}
+
+type Writer interface {
+	io.WriterAt
+	Sync() (int, error)
+	Unmap(int64, int64) (int, error)
 }
 
 type BackendError struct {
@@ -132,6 +138,7 @@ func (r *replicator) ReadAt(buf []byte, off int64) (int, error) {
 		if err == nil {
 			break
 		}
+		//TODO Update this log
 		logrus.Error("Replicator.ReadAt:", index, err)
 		retError.Errors[r.readerIndex[index]] = err
 		index = (index + 1) % readersLen
@@ -162,12 +169,52 @@ func (r *replicator) WriteAt(p []byte, off int64) (int, error) {
 	return n, err
 }
 
+func (r *replicator) Sync() (int, error) {
+	if !r.backendsAvailable {
+		return -1, ErrNoBackend
+	}
+
+	n, err := r.writer.Sync()
+	if err != nil {
+		errors := map[string]error{}
+		if mErr, ok := err.(*MultiWriterError); ok {
+			for index, err := range mErr.ReplicaErrors {
+				if err != nil {
+					errors[r.writerIndex[index]] = err
+				}
+			}
+		}
+		return n, &BackendError{Errors: errors}
+	}
+	return n, err
+}
+
+func (r *replicator) Unmap(offset int64, length int64) (int, error) {
+	if !r.backendsAvailable {
+		return -1, ErrNoBackend
+	}
+
+	n, err := r.writer.Unmap(offset, length)
+	if err != nil {
+		errors := map[string]error{}
+		if mErr, ok := err.(*MultiWriterError); ok {
+			for index, err := range mErr.ReplicaErrors {
+				if err != nil {
+					errors[r.writerIndex[index]] = err
+				}
+			}
+		}
+		return n, &BackendError{Errors: errors}
+	}
+	return n, err
+}
+
 func (r *replicator) buildReadWriters() {
 	r.reset(false)
 
 	readers := []io.ReaderAt{}
-	writers := []io.WriterAt{}
-	updaters := []io.WriterAt{}
+	writers := []Writer{}
+	updaters := []Writer{}
 
 	for address, b := range r.backends {
 		if b.mode != types.ERR {
@@ -264,6 +311,7 @@ func (r *replicator) Snapshot(name string, userCreated bool, created string) err
 	}
 	return nil
 }
+
 func (r *replicator) Resize(name string, size string) error {
 	retErrorLock := sync.Mutex{}
 	retError := &BackendError{
@@ -378,6 +426,21 @@ func (r *replicator) RemainSnapshots() (int, error) {
 			len(r.backends))
 	}
 	return ret, nil
+}
+
+func (r *replicator) SetReplicaMode(address string, mode types.Mode) error {
+	backend, ok := r.backends[address]
+	if !ok {
+		return fmt.Errorf("Cannot find backend %v", address)
+	}
+
+	if err := backend.backend.SetReplicaMode(mode); err != nil {
+		return err
+	}
+
+	logrus.Infof("Set backend %s replica mode to %v", address, mode)
+
+	return nil
 }
 
 func (r *replicator) SetRevisionCounter(address string, counter int64) error {

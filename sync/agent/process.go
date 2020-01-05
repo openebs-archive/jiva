@@ -11,11 +11,11 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/pkg/reexec"
 	"github.com/gorilla/mux"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
+	"github.com/sirupsen/logrus"
 )
 
 type Server struct {
@@ -335,70 +335,14 @@ func (s *Server) launchRestore(p *Process) error {
 	buf := new(bytes.Buffer)
 
 	cmd := reexec.Command("sbackup", "restore", p.SrcFile, "--to", p.DestFile)
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Pdeathsig: syscall.SIGKILL,
-	}
-	cmd.Stdout = buf
-	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
-	logrus.Infof("Running %s %v", cmd.Path, cmd.Args)
-	err := cmd.Wait()
-
-	p.Output = buf.String()
-	fmt.Fprintf(os.Stdout, p.Output)
-	if err != nil {
-		logrus.Infof("Error running %s %v: %v", "sbackup", cmd.Args, err)
-		p.ExitCode = 1
-		if exitError, ok := err.(*exec.ExitError); ok {
-			if waitStatus, ok := exitError.Sys().(syscall.WaitStatus); ok {
-				logrus.Infof("Error running %s %v: %v", "sbackup", cmd.Args, waitStatus.ExitStatus())
-				p.ExitCode = waitStatus.ExitStatus()
-			}
-		}
-		return err
-	}
-
-	p.ExitCode = 0
-	logrus.Infof("Done running %s %v", "sbackup", cmd.Args)
-	return nil
+	return s.launchCommand(p, buf, cmd)
 }
 
 func (s *Server) launchInspectBackup(p *Process) error {
 	buf := new(bytes.Buffer)
 
 	cmd := reexec.Command("sbackup", "inspect", p.SrcFile)
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Pdeathsig: syscall.SIGKILL,
-	}
-	cmd.Stdout = buf
-	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
-	logrus.Infof("Running %s %v", cmd.Path, cmd.Args)
-	err := cmd.Wait()
-
-	p.Output = buf.String()
-	fmt.Fprintf(os.Stdout, p.Output)
-	if err != nil {
-		logrus.Infof("Error running %s %v: %v", "sbackup", cmd.Args, err)
-		p.ExitCode = 1
-		if exitError, ok := err.(*exec.ExitError); ok {
-			if waitStatus, ok := exitError.Sys().(syscall.WaitStatus); ok {
-				logrus.Infof("Error running %s %v: %v", "sbackup", cmd.Args, waitStatus.ExitStatus())
-				p.ExitCode = waitStatus.ExitStatus()
-			}
-		}
-		return err
-	}
-
-	p.ExitCode = 0
-	logrus.Infof("Done running %s %v", "sbackup", cmd.Args)
-	return nil
+	return s.launchCommand(p, buf, cmd)
 }
 
 func (s *Server) launchListBackup(p *Process) error {
@@ -409,6 +353,10 @@ func (s *Server) launchListBackup(p *Process) error {
 		cmdline = append(cmdline, "--volume", p.DestFile)
 	}
 	cmd := reexec.Command(cmdline...)
+	return s.launchCommand(p, buf, cmd)
+}
+
+func (s *Server) launchCommand(p *Process, buf *bytes.Buffer, cmd *exec.Cmd) error {
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Pdeathsig: syscall.SIGKILL,
 	}

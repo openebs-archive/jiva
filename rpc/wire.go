@@ -8,15 +8,16 @@ import (
 	"net"
 	"sync"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 type Wire struct {
-	WriteLock sync.Mutex
-	ReadLock  sync.Mutex
-	conn      net.Conn
-	writer    *bufio.Writer
-	reader    io.Reader
+	WriteLock           sync.Mutex
+	ReadLock            sync.Mutex
+	conn                net.Conn
+	writer              *bufio.Writer
+	reader              io.Reader
+	readExit, writeExit bool
 }
 
 func NewWire(conn net.Conn) *Wire {
@@ -76,7 +77,7 @@ func (w *Wire) Read() (*Message, error) {
 		return nil, err
 	}
 	if msg.MagicVersion != MagicVersion {
-		return nil, fmt.Errorf("Wrong API version received: 0x%x", &msg.MagicVersion)
+		return &msg, fmt.Errorf("Wrong API version received: 0x%x", &msg.MagicVersion)
 	}
 	if err := binary.Read(w.reader, binary.LittleEndian, &msg.Seq); err != nil {
 		logrus.Errorf("Read msg.Seq failed, Error: %v", err)
@@ -101,7 +102,6 @@ func (w *Wire) Read() (*Message, error) {
 		logrus.Errorf("Read length failed, Error: %v", err)
 		return nil, err
 	}
-
 	if length > 0 {
 		msg.Data = make([]byte, length)
 		if _, err := io.ReadFull(w.reader, msg.Data); err != nil {
@@ -113,6 +113,23 @@ func (w *Wire) Read() (*Message, error) {
 	return &msg, nil
 }
 
+func (w *Wire) CloseRead() error {
+	if conn, ok := w.conn.(*net.TCPConn); ok {
+		logrus.Info("Closing read on RPC connection")
+		return conn.CloseRead()
+	}
+	return fmt.Errorf("failed to close read on RPC conn with replica: %v, type assert error", w.conn.RemoteAddr())
+}
+
+func (w *Wire) CloseWrite() error {
+	if conn, ok := w.conn.(*net.TCPConn); ok {
+		logrus.Info("Closing write on RPC connection")
+		return conn.CloseWrite()
+	}
+	return fmt.Errorf("failed to close write on RPC conn with replica: %v, type assert error", w.conn.RemoteAddr())
+}
+
 func (w *Wire) Close() error {
+	logrus.Warning("Closing RPC conn with replica: ", w.conn.RemoteAddr())
 	return w.conn.Close()
 }

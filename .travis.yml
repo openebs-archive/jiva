@@ -1,17 +1,23 @@
 language: go
-dist: trusty
+dist: xenial
 sudo: required
 install: true
+services:
+  - docker
 go:
-  - 1.9.1
+  - 1.13.x
 env:
   global:
-    - GOARCH=amd64
-    - GO_FOR_RELEASE=1.9.1
+    - GOARCH=$(go env GOARCH)
+    - GO_FOR_RELEASE=1.13
+
+addons:
+  apt:
+    update: true
+
 before_install:
-  - sleep 15
-  - sudo apt-get install -y
   - sudo apt-get install -y curl open-iscsi
+  - go get -u golang.org/x/lint/golint
   - go env && pwd
   - mkdir -p $HOME/gopath/bin
 script:
@@ -19,7 +25,7 @@ script:
 notifications:
   email:
     recipients:
-      - kiran.mova@cloudbyte.com
-  webhooks:
-    urls:
-      - https://webhooks.gitter.im/e/d885a0beef16020c3878
+      - kiran.mova@mayadata.io
+      - utkarsh.tripathi@mayadata.io
+      - vitta@mayadata.io
+      - payes.anand@mayadata.io

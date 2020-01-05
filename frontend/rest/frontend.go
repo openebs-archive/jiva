@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/handlers"
 	"github.com/openebs/jiva/types"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -26,7 +26,7 @@ func New() types.Frontend {
 	return &Device{}
 }
 
-func (d *Device) Startup(name string, frontendIP string, clusterIP string, size, sectorSize int64, rw types.ReaderWriterAt) error {
+func (d *Device) Startup(name string, frontendIP string, clusterIP string, size, sectorSize int64, rw types.IOs) error {
 	d.Name = name
 	d.backend = rw
 	d.Size = size

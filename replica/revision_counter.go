@@ -7,8 +7,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/rancher/sparse-tools/sparse"
+	"github.com/openebs/jiva/types"
+
+	"github.com/longhorn/sparse-tools/sparse"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -45,6 +47,7 @@ func (r *Replica) writeRevisionCounter(counter int64) error {
 	if err != nil {
 		return fmt.Errorf("fail to write to revision counter file: %v", err)
 	}
+
 	return nil
 }
 
@@ -67,7 +70,7 @@ func (r *Replica) initRevisionCounter() error {
 			logrus.Errorf("failed to open revision counter file")
 			return err
 		}
-		if err := r.writeRevisionCounter(0); err != nil {
+		if err := r.writeRevisionCounter(1); err != nil {
 			logrus.Errorf("failed to update revision counter")
 			return err
 		}
@@ -103,7 +106,26 @@ func (r *Replica) GetRevisionCounter() int64 {
 	return counter
 }
 
+// SetRevisionCounterCloneReplica set revision counter for clone replica
+func (r *Replica) SetRevisionCounterCloneReplica(counter int64) error {
+	r.revisionLock.Lock()
+	defer r.revisionLock.Unlock()
+
+	if err := r.writeRevisionCounter(counter); err != nil {
+		return err
+	}
+
+	r.revisionCache = counter
+	return nil
+}
+
 func (r *Replica) SetRevisionCounter(counter int64) error {
+	r.Lock()
+	if r.mode != types.RW {
+		r.Unlock()
+		return fmt.Errorf("setting revisioncounter during %v mode is invalid", r.mode)
+	}
+	r.Unlock()
 	r.revisionLock.Lock()
 	defer r.revisionLock.Unlock()
 

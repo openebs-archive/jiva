@@ -7,8 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Sirupsen/logrus"
+	fibmap "github.com/frostschutz/go-fibmap"
 	"github.com/openebs/jiva/types"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -39,13 +40,12 @@ type Server struct {
 	MonitorChannel chan struct{}
 }
 
-func NewServer(dir string, backing *BackingFile, sectorSize int64, serverType string) *Server {
+func NewServer(dir string, sectorSize int64, serverType string) *Server {
 	ActionChannel = make(chan string, 5)
 	Dir = dir
 	StartTime = time.Now()
 	return &Server{
 		dir:               dir,
-		backing:           backing,
 		defaultSectorSize: sectorSize,
 		ServerType:        serverType,
 		MonitorChannel:    make(chan struct{}),
@@ -74,6 +74,58 @@ func (s *Server) getSize(size int64) int64 {
 	return size
 }
 
+func (s *Server) createTempFile(filePath string) (*os.File, error) {
+	var file *os.File
+	_, err := os.Stat(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			file, err = os.Create(filePath)
+			if err != nil {
+				return nil, err
+			}
+			return file, nil
+		}
+		return nil, err
+	}
+	// Open file in case file exists (not removed)
+	file, err = os.OpenFile(filePath, os.O_RDWR|os.O_SYNC, 0600)
+	if err != nil {
+		return nil, err
+	}
+	return file, nil
+}
+
+func (s *Server) isExtentSupported() error {
+	filePath := s.dir + "/tmpFile.tmp"
+	file, err := s.createTempFile(filePath)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		_ = os.Remove(filePath)
+	}()
+
+	_, err = file.WriteString("This is temp file\n")
+	if err != nil {
+		return err
+	}
+
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		return err
+	}
+	fiemapFile := fibmap.NewFibmapFile(file)
+	if _, errno := fiemapFile.Fiemap(uint32(fileInfo.Size())); errno != 0 {
+		// verify is FIBMAP is supported incase FIEMAP failed
+		if _, err := fiemapFile.FibmapExtents(); err != 0 {
+			return fmt.Errorf("failed to find extents, error: %v", err.Error())
+		}
+		return errno
+	}
+	return file.Close()
+}
+
 func (s *Server) Create(size int64) error {
 	s.Lock()
 	defer s.Unlock()
@@ -81,7 +133,7 @@ func (s *Server) Create(size int64) error {
 		logrus.Errorf("failed to create directory: %s", s.dir)
 		return err
 	}
-	if err := isExtentSupported(s.dir); err != nil {
+	if err := s.isExtentSupported(); err != nil {
 		return err
 	}
 	state, _ := s.Status()
@@ -133,10 +185,12 @@ func (s *Server) Reload() error {
 		return nil
 	}
 
+	types.ShouldPunchHoles = true
 	logrus.Infof("Reloading volume")
 	newReplica, err := s.r.Reload()
 	if err != nil {
 		logrus.Errorf("error in Reload")
+		types.ShouldPunchHoles = false
 		return err
 	}
 
@@ -146,7 +200,7 @@ func (s *Server) Reload() error {
 	return nil
 }
 
-func (s *Server) UpdateCloneInfo(snapName string) error {
+func (s *Server) UpdateCloneInfo(snapName, revCount string) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -155,7 +209,7 @@ func (s *Server) UpdateCloneInfo(snapName string) error {
 	}
 
 	logrus.Infof("Update Clone Info")
-	return s.r.UpdateCloneInfo(snapName)
+	return s.r.UpdateCloneInfo(snapName, revCount)
 }
 
 func (s *Server) Status() (State, Info) {
@@ -367,28 +421,49 @@ func (s *Server) DeleteAll() error {
 	return err
 }
 
-func (s *Server) Close(signalMonitor bool) error {
+// Close drain the data from HoleCreatorChan and close
+// all the associated files with the replica instance.
+func (s *Server) Close() error {
 	logrus.Infof("Closing replica")
 	s.Lock()
 
+	defer s.Unlock()
 	if s.r == nil {
-		logrus.Infof("Close replica failed, s.r not set")
-		s.Unlock()
+		logrus.Infof("Skip closing replica, s.r not set")
 		return nil
 	}
 
+	// r.holeDrainer is initialized at construct
+	// function in replica.go
+	s.r.holeDrainer()
+
 	if err := s.r.Close(); err != nil {
-		s.Unlock()
 		return err
 	}
 
 	s.r = nil
-	s.Unlock()
-	if signalMonitor {
-		logrus.Infof("Signal MonitorChannel")
-		s.MonitorChannel <- struct{}{}
-	}
 	return nil
+}
+
+func (s *Server) Sync() (int, error) {
+	s.RLock()
+	defer s.RUnlock()
+
+	if s.r == nil {
+		return -1, fmt.Errorf("Volume no longer exist")
+	}
+	n, err := s.r.Sync()
+	return n, err
+}
+func (s *Server) Unmap(offset int64, length int64) (int, error) {
+	s.RLock()
+	defer s.RUnlock()
+
+	if s.r == nil {
+		return -1, fmt.Errorf("Volume no longer exist")
+	}
+	n, err := s.r.Unmap(offset, length)
+	return n, err
 }
 
 func (s *Server) WriteAt(buf []byte, offset int64) (int, error) {
@@ -411,6 +486,18 @@ func (s *Server) ReadAt(buf []byte, offset int64) (int, error) {
 	}
 	i, err := s.r.ReadAt(buf, offset)
 	return i, err
+}
+
+// SetReplicaMode ...
+func (s *Server) SetReplicaMode(mode string) error {
+	s.Lock()
+	defer s.Unlock()
+
+	if s.r == nil {
+		logrus.Infof("s.r is nil during setReplicaMode")
+		return nil
+	}
+	return s.r.SetReplicaMode(mode)
 }
 
 func (s *Server) SetRevisionCounter(counter int64) error {

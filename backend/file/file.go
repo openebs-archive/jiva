@@ -3,8 +3,8 @@ package file
 import (
 	"os"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/types"
+	"github.com/sirupsen/logrus"
 )
 
 func New() types.BackendFactory {
@@ -55,6 +55,11 @@ func (f *Wrapper) GetVolUsage() (types.VolUsage, error) {
 	return types.VolUsage{}, nil
 }
 
+// SetReplicaMode ...
+func (f *Wrapper) SetReplicaMode(mode types.Mode) error {
+	return nil
+}
+
 func (f *Wrapper) SetRevisionCounter(counter int64) error {
 	return nil
 }
@@ -91,4 +96,12 @@ func (f *Wrapper) PingResponse() error {
 }
 
 func (f *Wrapper) StopMonitoring() {
+}
+
+func (f *Wrapper) Sync() (int, error) {
+	return 0, nil
+}
+
+func (f *Wrapper) Unmap(offset int64, length int64) (int, error) {
+	return 0, nil
 }

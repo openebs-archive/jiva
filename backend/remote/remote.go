@@ -10,12 +10,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/replica/rest"
 	"github.com/openebs/jiva/rpc"
 	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -32,7 +32,7 @@ type Factory struct {
 }
 
 type Remote struct {
-	types.ReaderWriterAt
+	types.IOs
 	Name        string
 	pingURL     string
 	replicaURL  string
@@ -96,10 +96,20 @@ func (r *Remote) doAction(action string, obj interface{}) error {
 		req.Header.Add("Content-Type", "application/json")
 	}
 
-	resp, err := r.httpClient.Do(req)
+	client := r.httpClient
+	// timeout of zero means there is no timeout
+	// Since preload can take time while opening
+	// replica, we don't know the exact time elapsed
+	// to complete the request.
+	if action == "open" {
+		client.Timeout = 0
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -176,11 +186,26 @@ func (r *Remote) GetVolUsage() (types.VolUsage, error) {
 	}
 
 	err = json.NewDecoder(resp.Body).Decode(&Details)
+	volUsage.RevisionCounter, _ = strconv.ParseInt(Details.RevisionCounter, 10, 64)
 	volUsage.UsedLogicalBlocks, _ = strconv.ParseInt(Details.UsedLogicalBlocks, 10, 64)
 	volUsage.UsedBlocks, _ = strconv.ParseInt(Details.UsedBlocks, 10, 64)
 	volUsage.SectorSize, _ = strconv.ParseInt(Details.SectorSize, 10, 64)
 
 	return volUsage, err
+}
+
+// SetReplicaMode ...
+func (r *Remote) SetReplicaMode(mode types.Mode) error {
+	var m string
+	logrus.Infof("Set replica mode of %s to : %v", r.Name, mode)
+	if mode == types.RW {
+		m = "RW"
+	} else if mode == types.WO {
+		m = "WO"
+	} else {
+		return fmt.Errorf("invalid mode string %v", mode)
+	}
+	return r.doAction("setreplicamode", &map[string]string{"mode": m})
 }
 
 func (r *Remote) SetRevisionCounter(counter int64) error {
@@ -248,14 +273,16 @@ func (rf *Factory) Create(address string) (types.Backend, error) {
 		return nil, err
 	}
 
-	rpc := rpc.NewClient(conn, r.closeChan)
-	r.ReaderWriterAt = rpc
+	remote := rpc.NewClient(conn, r.closeChan)
+	r.IOs = remote
 
 	if err := r.open(); err != nil {
+		logrus.Errorf("Failed to open replica, error: %v", err)
+		remote.Close()
 		return nil, err
 	}
 
-	go r.monitorPing(rpc)
+	go r.monitorPing(remote)
 
 	return r, nil
 }

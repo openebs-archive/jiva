@@ -1,0 +1,64 @@
+stages:
+  - build
+  - baseline
+  - cleanup
+
+build-jiva:
+   stage: build
+   only:
+     refs:
+       - /^(v[0-9][.][0-9][.]x|master)?$/
+   before_script:
+     - export COMMIT=${CI_COMMIT_SHORT_SHA}
+     - sudo apt-get install -y
+     - sudo apt-get install -y curl open-iscsi
+     - export GOPATH=$HOME/go
+     - export PATH=$HOME/go/bin:$PATH
+     - mkdir -p $HOME/go/src/github.com/openebs/maya
+     - rsync -az --delete ${CI_PROJECT_DIR}/ ${HOME}/go/src/github.com/openebs/jiva/ #CI_PROJECT_DIR is full path where project is cloned
+     - cd ${HOME}/go/src/github.com/openebs/jiva
+   script: 
+    - echo "Building-Jiva"
+    - echo $COMMIT
+    - make build_gitlab
+baseline-image:
+  stage: baseline
+  only:
+    refs:
+      - /^(v[0-9][.][0-9][.]x|master)?$/
+  script:
+     - pwd
+     - export BRANCH=${CI_COMMIT_REF_NAME}
+     - echo $BRANCH
+     - export COMMIT=${CI_COMMIT_SHA:0:7}
+     - echo $COMMIT
+     - git clone https://github.com/openebs/e2e-infrastructure.git
+     - git checkout $BRANCH
+     - cd e2e-infrastructure/baseline
+     - ansible-playbook commit-writer.yml --extra-vars "branch=$BRANCH repo=$CI_PROJECT_NAME commit=$COMMIT"
+     - git status
+     - git add baseline
+     - git status
+     - git commit -m "updated $CI_PROJECT_NAME commit:$COMMIT"
+     - git push  https://$user:$pass@github.com/openebs/e2e-infrastructure.git --all
+     - cat baseline
+     - echo "##############################################################################################"
+     - echo "JIVA-IMAGE Pushed to DOCKER is $COMMIT"
+     - echo "##############################################################################################"
+     - echo "###############################################################################################" 
+     - echo "Started E2E-PIPELINE"
+     - echo "###############################################################################################"
+     - curl -X POST -F variables[INFRA_BRANCH]=$BRANCH -F token=$PACKET -F ref=k8s-ultimate https://gitlab.openebs.ci/api/v4/projects/27/trigger/pipeline
+     - curl -X POST -F variables[INFRA_BRANCH]=$BRANCH -F token=$PACKET -F ref=k8s-penultimate https://gitlab.openebs.ci/api/v4/projects/27/trigger/pipeline
+     - curl -X POST -F variables[INFRA_BRANCH]=$BRANCH -F token=$PACKET -F ref=k8s-antepenultimate https://gitlab.openebs.ci/api/v4/projects/27/trigger/pipeline
+
+cleanup:
+  when: always
+  stage: cleanup
+  only:
+    refs:
+      - /^(v[0-9][.][0-9][.]x|master)?$/  
+  script:
+     - sudo rm -r ~/go
+     - sudo docker images 
+     - sudo docker image prune -a --force

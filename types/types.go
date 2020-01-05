@@ -6,17 +6,34 @@ import (
 )
 
 const (
-	WO  = Mode("WO")
-	RW  = Mode("RW")
-	ERR = Mode("ERR")
+	WO     = Mode("WO")
+	RW     = Mode("RW")
+	ERR    = Mode("ERR")
+	INIT   = Mode("INIT")
+	CLOSED = Mode("CLOSED")
 
 	StateUp   = State("Up")
 	StateDown = State("Down")
 )
 
+const (
+	// DrainStart flag is used to notify CreateHoles goroutine
+	// for draining the data in HoleCreatorChan
+	DrainStart HoleChannelOps = iota + 1
+	// DrainDone flag is used to notify the s.Close that data
+	// from HoleCreatorChan has been flushed
+	DrainDone
+)
+
 type ReaderWriterAt interface {
 	io.ReaderAt
 	io.WriterAt
+}
+
+type IOs interface {
+	ReaderWriterAt
+	Sync() (int, error)
+	Unmap(int64, int64) (int, error)
 }
 
 type DiffDisk interface {
@@ -27,8 +44,23 @@ type DiffDisk interface {
 
 type MonitorChannel chan error
 
+// HoleChannelOps is the operation that has to be performed
+// on HoleCreatorChan such as DrainStart, DrainDone for draining
+// the chan and notify the caller if drain is done.
+type HoleChannelOps int
+
+// DrainOps is flag used for various operations on HoleCreatorChan
+var DrainOps HoleChannelOps
+var MaxChainLength int
+
+var (
+	// ShouldPunchHoles is a flag used to verify if
+	// we should punch holes.
+	ShouldPunchHoles bool
+)
+
 type Backend interface {
-	ReaderWriterAt
+	IOs
 	io.Closer
 	Snapshot(name string, userCreated bool, created string) error
 	Resize(name string, size string) error
@@ -38,6 +70,7 @@ type Backend interface {
 	GetRevisionCounter() (int64, error)
 	GetCloneStatus() (string, error)
 	GetVolUsage() (VolUsage, error)
+	SetReplicaMode(mode Mode) error
 	SetRevisionCounter(counter int64) error
 	SetRebuilding(rebuilding bool) error
 	GetMonitorChannel() MonitorChannel
@@ -50,6 +83,7 @@ type BackendFactory interface {
 }
 
 type VolUsage struct {
+	RevisionCounter   int64
 	UsedLogicalBlocks int64
 	UsedBlocks        int64
 	SectorSize        int64
@@ -74,8 +108,8 @@ type Mode string
 type State string
 
 type Replica struct {
-	Address string
-	Mode    Mode
+	Address string `json:"Address"`
+	Mode    Mode   `json:"Mode"`
 }
 
 type RegReplica struct {
@@ -94,9 +128,10 @@ type IOStats struct {
 }
 
 type Stats struct {
-	RevisionCounter int64
-	ReplicaCounter  int64
-	SCSIIOCount     map[int]int64
+	IsClientConnected bool
+	RevisionCounter   int64
+	ReplicaCounter    int64
+	SCSIIOCount       map[int]int64
 
 	ReadIOPS            int64
 	TotalReadTime       int64
@@ -119,15 +154,21 @@ type PeerDetails struct {
 }
 
 type Frontend interface {
-	Startup(name string, frontendIP string, clusterIP string, size, sectorSize int64, rw ReaderWriterAt) error
+	Startup(name string, frontendIP string, clusterIP string, size, sectorSize int64, rw IOs) error
 	Shutdown() error
 	State() State
 	Stats() Stats
 	Resize(uint64) error
 }
 
+// Target ...
+type Target struct {
+	ClusterIP  string
+	FrontendIP string
+}
+
 type DataProcessor interface {
-	ReaderWriterAt
+	IOs
 	PingResponse() error
 	//Update() error
 }

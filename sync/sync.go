@@ -2,14 +2,18 @@ package sync
 
 import (
 	"fmt"
+	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/controller/client"
 	"github.com/openebs/jiva/controller/rest"
+	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/replica"
 	replicaClient "github.com/openebs/jiva/replica/client"
+	"github.com/openebs/jiva/types"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -27,54 +31,7 @@ func NewTask(controller string) *Task {
 }
 
 func (t *Task) DeleteSnapshot(snapshot string) error {
-	var err error
-
-	replicas, err := t.client.ListReplicas()
-	if err != nil {
-		return err
-	}
-
-	for _, r := range replicas {
-		if ok, err := t.isRebuilding(&r); err != nil {
-			return err
-		} else if ok {
-			return fmt.Errorf("Can not remove a snapshot because %s is rebuilding", r.Address)
-		}
-	}
-
-	ops := make(map[string][]replica.PrepareRemoveAction)
-	for _, replica := range replicas {
-		ops[replica.Address], err = t.prepareRemoveSnapshot(&replica, snapshot)
-		if err != nil {
-			return err
-		}
-	}
-
-	for _, replica := range replicas {
-		if err := t.processRemoveSnapshot(&replica, snapshot, ops[replica.Address]); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (t *Task) rmDisk(replicaInController *rest.Replica, disk string) error {
-	repClient, err := replicaClient.NewReplicaClient(replicaInController.Address)
-	if err != nil {
-		return err
-	}
-
-	return repClient.RemoveDisk(disk)
-}
-
-func (t *Task) replaceDisk(replicaInController *rest.Replica, target, source string) error {
-	repClient, err := replicaClient.NewReplicaClient(replicaInController.Address)
-	if err != nil {
-		return err
-	}
-
-	return repClient.ReplaceDisk(target, source)
+	return t.client.DeleteSnapshot(snapshot)
 }
 
 func getNameAndIndex(chain []string, snapshot string) (string, int) {
@@ -103,63 +60,6 @@ func (t *Task) isRebuilding(replicaInController *rest.Replica) (bool, error) {
 	}
 
 	return replica.Rebuilding, nil
-}
-
-func (t *Task) prepareRemoveSnapshot(replicaInController *rest.Replica, snapshot string) ([]replica.PrepareRemoveAction, error) {
-	if replicaInController.Mode != "RW" {
-		return nil, fmt.Errorf("Can only removed snapshot from replica in mode RW, got %s", replicaInController.Mode)
-	}
-
-	repClient, err := replicaClient.NewReplicaClient(replicaInController.Address)
-	if err != nil {
-		return nil, err
-	}
-
-	output, err := repClient.PrepareRemoveDisk(snapshot)
-	if err != nil {
-		return nil, err
-	}
-
-	return output.Operations, nil
-}
-
-func (t *Task) processRemoveSnapshot(replicaInController *rest.Replica, snapshot string, ops []replica.PrepareRemoveAction) error {
-	if len(ops) == 0 {
-		return nil
-	}
-
-	if replicaInController.Mode != "RW" {
-		return fmt.Errorf("Can only removed snapshot from replica in mode RW, got %s", replicaInController.Mode)
-	}
-
-	repClient, err := replicaClient.NewReplicaClient(replicaInController.Address)
-	if err != nil {
-		return err
-	}
-
-	for _, op := range ops {
-		switch op.Action {
-		case replica.OpRemove:
-			logrus.Infof("Removing %s on %s", op.Source, replicaInController.Address)
-			if err := t.rmDisk(replicaInController, op.Source); err != nil {
-				return err
-			}
-		case replica.OpCoalesce:
-			logrus.Infof("Coalescing %v to %v on %v", op.Target, op.Source, replicaInController.Address)
-			if err = repClient.Coalesce(op.Target, op.Source); err != nil {
-				logrus.Errorf("Failed to coalesce %s on %s: %v", snapshot, replicaInController.Address, err)
-				return err
-			}
-		case replica.OpReplace:
-			logrus.Infof("Replace %v with %v on %v", op.Target, op.Source, replicaInController.Address)
-			if err = t.replaceDisk(replicaInController, op.Target, op.Source); err != nil {
-				logrus.Errorf("Failed to replace %v with %v on %v", op.Target, op.Source, replicaInController.Address)
-				return err
-			}
-		}
-	}
-
-	return nil
 }
 
 func find(list []string, item string) int {
@@ -247,8 +147,9 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 		if err != nil {
 			return fmt.Errorf("Failed to create client of the clone replica, error: %s", err.Error())
 		}
+		snapshotName := "volume-snap-" + snapName + ".img"
 		for i, name := range chain {
-			if name == "volume-snap-"+snapName+".img" {
+			if name == snapshotName {
 				snapFound = true
 				chain = chain[i:]
 				break
@@ -265,8 +166,11 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 			time.Sleep(2 * time.Second)
 			continue
 		}
-		toClient.UpdateCloneInfo(snapName)
 
+		_, err = toClient.UpdateCloneInfo(snapName, strconv.FormatInt(repl.Disks[snapshotName].RevisionCounter, 10))
+		if err != nil {
+			return fmt.Errorf("Failed to update clone info, err: %v", err)
+		}
 		_, err = toClient.ReloadReplica()
 		if err != nil {
 			return fmt.Errorf("Failed to reload clone replica, error: %s", err.Error())
@@ -284,6 +188,7 @@ func (t *Task) AddReplica(replicaAddress string, s *replica.Server) error {
 	if s == nil {
 		return fmt.Errorf("Server not present for %v, Add replica using CLI not supported", replicaAddress)
 	}
+	types.ShouldPunchHoles = false
 	logrus.Infof("Addreplica %v", replicaAddress)
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
@@ -315,14 +220,19 @@ Register:
 		}
 		select {
 		case <-ticker.C:
-			logrus.Infof("TimedOut waiting for response from controller")
+			logrus.Info("Timed out waiting for response from controller, will retry")
 			goto Register
 		case action = <-replica.ActionChannel:
 		}
 	}
 	if action == "start" {
 		logrus.Infof("Received start from controller")
-		return t.client.Start(replicaAddress)
+		types.ShouldPunchHoles = true
+		if err := t.client.Start(replicaAddress); err != nil {
+			types.ShouldPunchHoles = false
+			return err
+		}
+		return nil
 	}
 	logrus.Infof("CheckAndResetFailedRebuild %v", replicaAddress)
 	if err := t.checkAndResetFailedRebuild(replicaAddress, s); err != nil {
@@ -332,6 +242,16 @@ Register:
 	logrus.Infof("Adding replica %s in WO mode", replicaAddress)
 	_, err = t.client.CreateReplica(replicaAddress)
 	if err != nil {
+		logrus.Errorf("Failed to create replica, error: %v", err)
+		// cases for above failure:
+		// - controller is not reachable
+		// - replica is already added (remove replica in progress)
+		// - error while creating snapshot, to start fresh
+		// - replica might be in errored state
+		// - other replica might be in WO mode, and
+		// we can only have one WO replica at a time
+		// Adding sleep so that, it doesn't get restart very frequently
+		time.Sleep(5 * time.Second)
 		return err
 	}
 
@@ -341,7 +261,7 @@ Register:
 		return fmt.Errorf("failed to get transfer clients, error: %s", err.Error())
 	}
 
-	logrus.Infof("SetRebuilding %v", replicaAddress)
+	logrus.Infof("SetRebuilding to true in %v", replicaAddress)
 	if err := toClient.SetRebuilding(true); err != nil {
 		return fmt.Errorf("failed to set rebuilding: true, error: %s", err.Error())
 	}
@@ -351,17 +271,53 @@ Register:
 	if err != nil {
 		return fmt.Errorf("failed to prepare rebuild, error: %s", err.Error())
 	}
+	inject.PanicAfterPrepareRebuild()
 
-	logrus.Infof("syncFiles from:%v to:%v", fromClient, toClient)
-	if err = t.syncFiles(fromClient, toClient, output.Disks); err != nil {
+	ok, err := t.isRevisionCountAndChainSame(fromClient, toClient)
+	if err != nil {
 		return err
+	}
+
+	if !ok {
+		logrus.Infof("syncFiles from:%v to:%v", fromClient, toClient)
+		if err = t.syncFiles(fromClient, toClient, output.Disks); err != nil {
+			return err
+		}
 	}
 
 	logrus.Infof("reloadAndVerify %v", replicaAddress)
 	return t.reloadAndVerify(replicaAddress, toClient)
-
 }
 
+func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.ReplicaClient) (bool, error) {
+	rwReplica, err := fromClient.GetReplica()
+	if err != nil {
+		return false, err
+	}
+
+	curReplica, err := toClient.GetReplica()
+	if err != nil {
+		return false, err
+	}
+	logrus.Infof("RevisionCount of RW replica (%v): %v, Current replica (%v): %v",
+		fromClient.GetAddress(), rwReplica.RevisionCounter, toClient.GetAddress(),
+		curReplica.RevisionCounter)
+	logrus.Infof("RW replica chain: %v, cur replica chain: %v", rwReplica.Chain, curReplica.Chain)
+	if rwReplica.RevisionCounter == curReplica.RevisionCounter {
+		// ignoring Chain[0] since it's head file and it is opened for writing the latest data.
+		if !reflect.DeepEqual(rwReplica.Chain[1:], curReplica.Chain[1:]) {
+			logrus.Warningf("Replica %v's chain not equal to RW replica %v's chain", toClient.GetAddress(), fromClient.GetAddress())
+			return false, nil
+		}
+		return true, nil
+	}
+
+	return false, nil
+}
+
+// checkAndResetFailedRebuild set the rebuilding to false if
+// it is true.This is required since volume.meta files
+// may not be updated with it's correct rebuilding state.
 func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server) error {
 
 	state, info := server.Status()
@@ -371,15 +327,12 @@ func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server
 			logrus.Errorf("Error during open in checkAndResetFailedRebuild")
 			return err
 		}
-
 		if err := server.SetRebuilding(false); err != nil {
 			logrus.Errorf("Error during setRebuilding in checkAndResetFailedRebuild")
 			return err
 		}
-
-		return server.Close(false)
+		return server.Close()
 	}
-
 	return nil
 }
 
@@ -398,23 +351,56 @@ func (t *Task) reloadAndVerify(address string, repClient *replicaClient.ReplicaC
 	if err = repClient.SetRebuilding(false); err != nil {
 		logrus.Errorf("Error in setRebuilding %s", address)
 	}
+
 	return err
 }
 
-func (t *Task) syncFiles(fromClient *replicaClient.ReplicaClient, toClient *replicaClient.ReplicaClient, disks []string) error {
+func isRevisionCountSame(fromClient, toClient *replicaClient.ReplicaClient, disk string) (bool, error) {
+	rwReplica, err := fromClient.GetReplica()
+	if err != nil {
+		return false, fmt.Errorf("Failed to verify isRevisionCountSame, err: %v", err)
+	}
+
+	if rwReplica.Disks[disk].RevisionCounter == 0 {
+		return false, nil
+	}
+
+	curReplica, err := toClient.GetReplica()
+	if err != nil {
+		return false, fmt.Errorf("Failed to verify isRevisionCountSame, err: %v", err)
+
+	}
+
+	if rwReplica.Disks[disk].RevisionCounter != curReplica.Disks[disk].RevisionCounter {
+		logrus.Warningf("Revision count not same for snap: %v, cur: %v, RW: %v",
+			disk, curReplica.Disks[disk].RevisionCounter, rwReplica.Disks[disk].RevisionCounter)
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func (t *Task) syncFiles(fromClient, toClient *replicaClient.ReplicaClient, disks []string) error {
 	for i := range disks {
+		//We are syncing from the oldest snapshots to newer ones
 		disk := disks[len(disks)-1-i]
 		if strings.Contains(disk, "volume-head") {
 			return fmt.Errorf("Disk list shouldn't contain volume-head")
 		}
-		if err := t.syncFile(disk, "", fromClient, toClient); err != nil {
+
+		ok, err := isRevisionCountSame(fromClient, toClient, disk)
+		if err != nil {
 			return err
 		}
 
+		if !ok {
+			if err := t.syncFile(disk, "", fromClient, toClient); err != nil {
+				return err
+			}
+		}
 		if err := t.syncFile(disk+".meta", "", fromClient, toClient); err != nil {
 			return err
 		}
-
 	}
 
 	return nil
@@ -444,7 +430,7 @@ func (t *Task) syncFile(from, to string, fromClient *replicaClient.ReplicaClient
 func (t *Task) getTransferClients(address string) (*replicaClient.ReplicaClient, *replicaClient.ReplicaClient, error) {
 	from, err := t.getFromReplica()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("Failed to get source replica for rebuild, err: %v", err)
 	}
 	logrus.Infof("Using replica %s as the source for rebuild ", from.Address)
 

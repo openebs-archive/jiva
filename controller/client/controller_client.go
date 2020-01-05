@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/openebs/jiva/controller/rest"
+	"github.com/sirupsen/logrus"
 )
 
 type ControllerClient struct {
@@ -115,6 +115,17 @@ func (c *ControllerClient) CreateQuorumReplica(address string) (*rest.Replica, e
 	return &resp, err
 }
 
+// DeleteSnapshot ...
+func (c *ControllerClient) DeleteSnapshot(name string) error {
+	volume, err := c.GetVolume()
+	if err != nil {
+		return err
+	}
+	return c.delete(volume.Actions["deleteSnapshot"], &rest.SnapshotInput{
+		Name: name,
+	}, nil)
+}
+
 func (c *ControllerClient) DeleteReplica(address string) (*rest.Replica, error) {
 	reps, err := c.ListReplicas()
 	if err != nil {
@@ -208,6 +219,10 @@ func (c *ControllerClient) post(path string, req, resp interface{}) error {
 
 func (c *ControllerClient) put(path string, req, resp interface{}) error {
 	return c.do("PUT", path, req, resp)
+}
+
+func (c *ControllerClient) delete(path string, req, resp interface{}) error {
+	return c.do("DELETE", path, req, resp)
 }
 
 func (c *ControllerClient) do(method, path string, req, resp interface{}) error {

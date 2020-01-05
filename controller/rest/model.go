@@ -12,13 +12,15 @@ import (
 
 type Timeout struct {
 	client.Resource
-	Timeout string `json:"timeout"`
+	Timeout        string `json:"timeout"`
+	RPCPingTimeout string `json:"rpcPingTimeout"`
 }
 
 type DeleteReplicaOutput struct {
 	client.Resource
 	DeletedReplicas
 }
+
 type Replica struct {
 	client.Resource
 	Address string `json:"address"`
@@ -59,9 +61,10 @@ type SnapshotOutput struct {
 
 type VolumeStats struct {
 	client.Resource
-	RevisionCounter int64         `json:"RevisionCounter"`
-	ReplicaCounter  int64         `json:"ReplicaCounter"`
-	SCSIIOCount     map[int]int64 `json:"SCSIIOCount"`
+	IsClientConnected bool          `json:"IsClientConnected"`
+	RevisionCounter   int64         `json:"RevisionCounter"`
+	ReplicaCounter    int           `json:"ReplicaCounter"`
+	SCSIIOCount       map[int]int64 `json:"SCSIIOCount"`
 
 	ReadIOPS            string `json:"ReadIOPS"`
 	TotalReadTime       string `json:"TotalReadTime"`
@@ -69,14 +72,16 @@ type VolumeStats struct {
 
 	WriteIOPS            string `json:"WriteIOPS"`
 	TotalWriteTime       string `json:"TotalWriteTime"`
-	TotalWriteBlockCount string `json:"TotatWriteBlockCount"`
+	TotalWriteBlockCount string `json:"TotalWriteBlockCount"`
 
-	UsedLogicalBlocks string  `json:"UsedLogicalBlocks"`
-	UsedBlocks        string  `json:"UsedBlocks"`
-	SectorSize        string  `json:"SectorSize"`
-	Size              string  `json:"Size"`
-	UpTime            float64 `json:"UpTime"`
-	Name              string  `json:"Name"`
+	UsedLogicalBlocks string          `json:"UsedLogicalBlocks"`
+	UsedBlocks        string          `json:"UsedBlocks"`
+	SectorSize        string          `json:"SectorSize"`
+	Size              string          `json:"Size"`
+	UpTime            string          `json:"UpTime"`
+	Name              string          `json:"Name"`
+	Replica           []types.Replica `json:"Replicas"`
+	ControllerStatus  string          `json:"Status"`
 }
 
 type SnapshotInput struct {
@@ -114,6 +119,7 @@ type RegReplica struct {
 	UpTime   time.Duration `json:"UpTime"`
 }
 
+// NewVolume ...
 func NewVolume(context *api.ApiContext, name string, readOnly bool, replicas int) *Volume {
 	var ReadOnly string
 	if readOnly {
@@ -138,19 +144,21 @@ func NewVolume(context *api.ApiContext, name string, readOnly bool, replicas int
 		v.Actions["shutdown"] = context.UrlBuilder.ActionLink(v.Resource, "shutdown")
 		v.Actions["snapshot"] = context.UrlBuilder.ActionLink(v.Resource, "snapshot")
 		v.Actions["revert"] = context.UrlBuilder.ActionLink(v.Resource, "revert")
+		v.Actions["deleteSnapshot"] = context.UrlBuilder.ActionLink(v.Resource, "deleteSnapshot")
 	}
 	return v
 }
 
-func NewReplica(context *api.ApiContext, address string, mode types.Mode) *Replica {
+// NewReplica ...
+func NewReplica(context *api.ApiContext, rep types.Replica) *Replica {
 	r := &Replica{
 		Resource: client.Resource{
-			Id:      EncodeID(address),
+			Id:      EncodeID(rep.Address),
 			Type:    "replica",
 			Actions: map[string]string{},
 		},
-		Address: address,
-		Mode:    string(mode),
+		Address: rep.Address,
+		Mode:    string(rep.Mode),
 	}
 	r.Actions["preparerebuild"] = context.UrlBuilder.ActionLink(r.Resource, "preparerebuild")
 	r.Actions["verifyrebuild"] = context.UrlBuilder.ActionLink(r.Resource, "verifyrebuild")
@@ -176,8 +184,8 @@ func NewSchema() *client.Schemas {
 	schemas.AddType("apiVersion", client.Resource{})
 	schemas.AddType("schema", client.Schema{})
 	schemas.AddType("startInput", StartInput{})
-	schemas.AddType("snapshotOutput", SnapshotOutput{})
 	schemas.AddType("snapshotInput", SnapshotInput{})
+	schemas.AddType("snapshotOutput", SnapshotOutput{})
 	schemas.AddType("revertInput", RevertInput{})
 	schemas.AddType("journalInput", JournalInput{})
 	schemas.AddType("prepareRebuildOutput", PrepareRebuildOutput{})
@@ -221,7 +229,11 @@ func NewSchema() *client.Schemas {
 			Input:  "snapshotInput",
 			Output: "snapshotOutput",
 		},
+		"deleteSnapshot": {
+			Input: "snapshotInput",
+		},
 	}
+
 	deleteReplica := schemas.AddType("delete", DeleteReplicaOutput{})
 	deleteReplica.ResourceMethods = []string{"POST"}
 	timeout := schemas.AddType("timeout", Timeout{})

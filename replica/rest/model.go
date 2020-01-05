@@ -20,6 +20,7 @@ type Replica struct {
 	Chain             []string                    `json:"chain"`
 	Disks             map[string]replica.DiskInfo `json:"disks"`
 	RemainSnapshots   int                         `json:"remainsnapshots"`
+	ReplicaMode       string                      `json:"replicamode"`
 	RevisionCounter   string                      `json:"revisioncounter"`
 	ReplicaCounter    int64                       `json:"replicacounter"`
 	UsedLogicalBlocks string                      `json:"usedlogicalblocks"`
@@ -60,9 +61,11 @@ type SnapshotInput struct {
 	Created     string `json:"created"`
 }
 
+// CloneUpdateInput is input to update clone info of cloned replica
 type CloneUpdateInput struct {
 	client.Resource
-	SnapName string `json:"snapname"`
+	SnapName      string `json:"snapname"`
+	RevisionCount string `json:"revisioncounter"`
 }
 
 type RemoveDiskInput struct {
@@ -72,6 +75,7 @@ type RemoveDiskInput struct {
 
 type VolUsage struct {
 	client.Resource
+	RevisionCounter   string `json:"revisioncounter"`
 	UsedLogicalBlocks string `json:"usedlogicalblocks"`
 	UsedBlocks        string `json:"usedblocks"`
 	SectorSize        string `json:"sectorSize"`
@@ -97,6 +101,12 @@ type PrepareRemoveDiskInput struct {
 type PrepareRemoveDiskOutput struct {
 	client.Resource
 	Operations []replica.PrepareRemoveAction `json:"operations"`
+}
+
+// ReplicaMode ...
+type ReplicaMode struct {
+	client.Resource
+	Mode string `json:"mode"`
 }
 
 type RevisionCounter struct {
@@ -137,6 +147,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["start"] = true
 		actions["resize"] = true
 		actions["close"] = true
+		actions["updatediskmode"] = true
 		actions["resize"] = true
 		actions["setrebuilding"] = true
 		actions["snapshot"] = true
@@ -145,6 +156,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["replacedisk"] = true
 		actions["revert"] = true
 		actions["prepareremovedisk"] = true
+		actions["setreplicamode"] = true
 		actions["setrevisioncounter"] = true
 		actions["updatecloneinfo"] = true
 		actions["setreplicacounter"] = true
@@ -167,7 +179,9 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["reload"] = true
 		actions["removedisk"] = true
 		actions["replacedisk"] = true
+		actions["updatediskmode"] = true
 		actions["revert"] = true
+		actions["setreplicamode"] = true
 		actions["prepareremovedisk"] = true
 		actions["setreplicacounter"] = true
 		actions["updatecloneinfo"] = true
@@ -178,6 +192,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["setrebuilding"] = true
 		actions["close"] = true
 		actions["reload"] = true
+		actions["setreplicamode"] = true
 		actions["setrevisioncounter"] = true
 		actions["setreplicacounter"] = true
 		actions["updatecloneinfo"] = true
@@ -200,6 +215,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		r.Disks = rep.ListDisks()
 		r.RemainSnapshots = rep.GetRemainSnapshotCounts()
 		r.RevisionCounter = strconv.FormatInt(rep.GetRevisionCounter(), 10)
+		r.ReplicaMode = rep.GetReplicaMode()
 		r.CloneStatus = rep.GetCloneStatus()
 	}
 	return r
@@ -240,6 +256,9 @@ func setReplicaResourceActions(replica *client.Schema) {
 			Input:  "prepareRemoveDiskInput",
 			Output: "prepareRemoveDiskOutput",
 		},
+		"setreplicamode": {
+			Input: "replicaMode",
+		},
 		"setrevisioncounter": {
 			Input: "revisionCounter",
 		},
@@ -266,6 +285,7 @@ func NewSchema() *client.Schemas {
 	schemas.AddType("revertInput", RevertInput{})
 	schemas.AddType("prepareRemoveDiskInput", PrepareRemoveDiskInput{})
 	schemas.AddType("prepareRemoveDiskOutput", PrepareRemoveDiskOutput{})
+	schemas.AddType("replicaMode", ReplicaMode{})
 	schemas.AddType("revisionCounter", RevisionCounter{})
 	schemas.AddType("replicaCounter", ReplicaCounter{})
 	schemas.AddType("replacediskInput", ReplaceDiskInput{})

@@ -3,13 +3,17 @@ package controller
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"sync"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	units "github.com/docker/go-units"
+	"github.com/openebs/jiva/alertlog"
+	"github.com/openebs/jiva/replica"
+	replicaClient "github.com/openebs/jiva/replica/client"
 	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
+	"github.com/sirupsen/logrus"
 )
 
 type Controller struct {
@@ -20,7 +24,7 @@ type Controller struct {
 	size                     int64
 	sectorSize               int64
 	replicas                 []types.Replica
-	replicaCount             int
+	ReplicationFactor        int
 	quorumReplicas           []types.Replica
 	quorumReplicaCount       int
 	factory                  types.BackendFactory
@@ -32,6 +36,9 @@ type Controller struct {
 	StartTime                time.Time
 	StartSignalled           bool
 	ReadOnly                 bool
+	SnapshotName             string
+	IsSnapDeletionInProgress bool
+	StartAutoSnapDeletion    chan bool
 }
 
 func max(x int, y int) int {
@@ -51,18 +58,57 @@ func (c *Controller) GetSize() int64 {
 	return c.size
 }
 
-func NewController(name string, frontendIP string, clusterIP string, factory types.BackendFactory, frontend types.Frontend, replicationFactor int) *Controller {
+// BuildOpts is used for passing various args to NewController
+type BuildOpts func(*Controller)
+
+// WithFrontend initialize frontend(gotgt) for controller
+func WithFrontend(frontend types.Frontend, frontendIP string) BuildOpts {
+	return func(c *Controller) {
+		c.frontend = frontend
+		c.frontendIP = frontendIP
+	}
+}
+
+// WithBackend initialize backend for controller (remote R/W)
+func WithBackend(factory types.BackendFactory) BuildOpts {
+	return func(c *Controller) {
+		c.factory = factory
+	}
+}
+
+// WithRF set the replication factor in controller
+func WithRF(rf int) BuildOpts {
+	return func(c *Controller) {
+		c.ReplicationFactor = rf
+	}
+}
+
+// WithName set the volume name
+func WithName(name string) BuildOpts {
+	return func(c *Controller) {
+		c.Name = name
+	}
+}
+
+// WithClusterIP set the clusterIP
+func WithClusterIP(ip string) BuildOpts {
+	return func(c *Controller) {
+		c.clusterIP = ip
+	}
+}
+
+// NewController instantiates a new Controller
+func NewController(ch chan bool, opts ...BuildOpts) *Controller {
 	c := &Controller{
-		factory:                  factory,
-		Name:                     name,
-		frontend:                 frontend,
-		frontendIP:               frontendIP,
-		clusterIP:                clusterIP,
 		RegisteredReplicas:       map[string]types.RegReplica{},
 		RegisteredQuorumReplicas: map[string]types.RegReplica{},
 		StartTime:                time.Now(),
 		ReadOnly:                 true,
-		replicaCount:             replicationFactor,
+		StartAutoSnapDeletion:    ch,
+	}
+
+	for _, o := range opts {
+		o(c)
 	}
 	c.reset()
 	return c
@@ -76,19 +122,21 @@ func (c *Controller) UpdateVolStatus() {
 			rwReplicaCount++
 		}
 	}
+
 	for _, replica := range c.quorumReplicas {
 		if replica.Mode == "RW" {
 			rwReplicaCount++
 		}
 	}
-	if rwReplicaCount >= (((c.replicaCount + c.quorumReplicaCount) / 2) + 1) {
+
+	if rwReplicaCount >= (((c.ReplicationFactor + c.quorumReplicaCount) / 2) + 1) {
 		c.ReadOnly = false
 	} else {
 		c.ReadOnly = true
 	}
-	logrus.Infof("controller readonly p:%v c:%v rcount:%v rw_count:%v",
-		prev, c.ReadOnly, len(c.replicas), rwReplicaCount)
-	logrus.Infof("backends len: %d", len(c.backend.backends))
+
+	logrus.Infof("Previously Volume RO: %v, Currently: %v,  Total Replicas: %v,  RW replicas: %v, Total backends: %v",
+		prev, c.ReadOnly, len(c.replicas), rwReplicaCount, len(c.backend.backends))
 }
 
 func (c *Controller) AddQuorumReplica(address string) error {
@@ -113,15 +161,73 @@ func (c *Controller) hasWOReplica() (string, bool) {
 	return "", false
 }
 
+func (c *Controller) hasGreaterRevisionCount(woReplica, newReplica string) (bool, error) {
+	var (
+		woRevCnt int64
+		err      error
+	)
+
+	if _, ok := c.RegisteredReplicas[woReplica]; !ok {
+		woRevCnt, err = c.backend.GetRevisionCounter(woReplica)
+		if err != nil {
+			return false, err
+		}
+	} else {
+		woRevCnt = c.RegisteredReplicas[woReplica].RevCount
+	}
+
+	repClient, err := replicaClient.NewReplicaClient(newReplica)
+	if err != nil {
+		return false, err
+	}
+
+	repClient.SetTimeout(5 * time.Second)
+	replica, err := repClient.GetReplica()
+	if err != nil {
+		return false, err
+	}
+
+	newRevCnt, err := strconv.ParseInt(replica.RevisionCounter, 10, 64)
+	if err != nil {
+		return false, err
+	}
+
+	logrus.Infof("Revision count: %v of New Replica: %v, Revision count: %v of WO Replica: %v", newRevCnt, newReplica, woRevCnt, woReplica)
+	if newRevCnt > woRevCnt {
+		return true, nil
+	}
+	return false, nil
+}
+
 func (c *Controller) canAdd(address string) (bool, error) {
 	if c.hasReplica(address) {
-		logrus.Warning("replica %s is already added with this controller instance", address)
+		logrus.Warningf("replica %s is already added with this controller instance", address)
 		return false, fmt.Errorf("replica: %s is already added", address)
 	}
 	if woReplica, ok := c.hasWOReplica(); ok {
-		logrus.Warning("can have only one WO replica at a time, found WO replica: %s", woReplica)
+		logrus.Infof("Check if Replica: %v has greater revision count", address)
+		if ok, err := c.hasGreaterRevisionCount(woReplica, address); ok {
+			// Remove so that replica with greater IO number can take over
+			if err1 := c.RemoveReplicaNoLock(woReplica); err1 != nil {
+				return false, err1
+			}
+			goto snap
+		} else if err != nil {
+			logrus.Errorf("Failed to compare revision count of replicas, err: %v", err)
+			return false, err
+		}
+		logrus.Warningf("can have only one WO replica at a time, found WO replica: %s", woReplica)
 		return false, fmt.Errorf("can only have one WO replica at a time, found WO Replica: %s",
 			woReplica)
+	}
+
+snap:
+	// returning error if snap deletion is in progress to avoid the case
+	// where data may be overwritten with the holes while syncing from
+	// a healthy replica where snapshot was not deleted successfully.
+	if c.IsSnapDeletionInProgress {
+		logrus.Warningf("snapshot deletion is in progress")
+		return false, fmt.Errorf("snapshot deletion is in progress")
 	}
 	return true, nil
 }
@@ -269,20 +375,20 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 		logrus.Infof("There are already some replicas attached")
 		return nil
 	}
+
 	if c.StartSignalled == true {
 		if c.MaxRevReplica == register.Address {
-			logrus.Infof("Replica %v signalled to start again %d:%d", c.MaxRevReplica,
-				len(c.RegisteredReplicas), c.replicaCount)
+			logrus.Infof("Replica %v signalled to start again, registered replicas: %#v", c.MaxRevReplica, c.RegisteredReplicas)
 			if err := c.signalReplica(); err != nil {
-				c.StartSignalled = false
 				return err
 			}
 		} else {
-			logrus.Infof("Can signal only to %s ,can't signal to %s, no of registered replicas are %d and replica count is %d",
-				c.MaxRevReplica, register.Address, len(c.RegisteredReplicas), c.replicaCount)
-			return nil
+			logrus.Infof("Can signal only to %s , can't signal to %s, no of registered replicas are %d and replication factor is %d",
+				c.MaxRevReplica, register.Address, len(c.RegisteredReplicas), c.ReplicationFactor)
 		}
+		return nil
 	}
+
 	if register.RepState == "rebuilding" {
 		logrus.Errorf("Cannot add replica in rebuilding state, addr: %v", register.Address)
 		return nil
@@ -296,18 +402,16 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 		c.MaxRevReplica = register.Address
 	}
 
-	if (len(c.RegisteredReplicas) >= ((c.replicaCount / 2) + 1)) &&
-		((len(c.RegisteredReplicas) + len(c.RegisteredQuorumReplicas)) >= (((c.quorumReplicaCount + c.replicaCount) / 2) + 1)) {
-		logrus.Infof("Replica %v signalled to start, no of registered replicas are %d and replica count is %d", c.MaxRevReplica,
-			len(c.RegisteredReplicas), c.replicaCount)
+	if (len(c.RegisteredReplicas) >= ((c.ReplicationFactor / 2) + 1)) &&
+		((len(c.RegisteredReplicas) + len(c.RegisteredQuorumReplicas)) >= (((c.quorumReplicaCount + c.ReplicationFactor) / 2) + 1)) {
+		logrus.Infof("Replica %v signalled to start, registered replicas: %#v", c.MaxRevReplica, c.RegisteredReplicas)
 		if err := c.signalReplica(); err != nil {
 			return err
 		}
-		c.StartSignalled = true
 		return nil
 	}
 
-	logrus.Warning("No of yet to be registered replicas are less than ", c.replicaCount,
+	logrus.Warning("No of yet to be registered replicas are less than ", c.ReplicationFactor,
 		" , No of registered replicas: ", len(c.RegisteredReplicas))
 	return nil
 }
@@ -322,8 +426,10 @@ func (c *Controller) signalReplica() error {
 			c.MaxRevReplica, err.Error())
 		delete(c.RegisteredReplicas, c.MaxRevReplica)
 		c.MaxRevReplica = ""
+		c.StartSignalled = false
 		return err
 	}
+	c.StartSignalled = true
 	return nil
 }
 
@@ -357,7 +463,7 @@ func (c *Controller) Snapshot(name string) (string, error) {
 	if remain, err := c.backend.RemainSnapshots(); err != nil {
 		return "", err
 	} else if remain <= 0 {
-		return "", fmt.Errorf("Too many snapshots created")
+		return "", fmt.Errorf("Too many snapshots created, remaining snapshots are: %v", remain)
 	}
 
 	replica, err := c.getRWReplica()
@@ -470,7 +576,7 @@ func (c *Controller) addReplicaNoLock(newBackend types.Backend, address string, 
 		if remain, err = c.backend.RemainSnapshots(); err != nil {
 			return err
 		} else if remain <= 0 {
-			return fmt.Errorf("Too many %v snapshots created", remain)
+			return fmt.Errorf("Too many snapshots created, remaining snapshots are: %v ", remain)
 		}
 
 		if err = c.backend.Snapshot(uuid, false, created); err != nil {
@@ -482,6 +588,10 @@ func (c *Controller) addReplicaNoLock(newBackend types.Backend, address string, 
 			newBackend.Close()
 			return err
 		}
+	}
+
+	if err := newBackend.SetReplicaMode(types.WO); err != nil {
+		return fmt.Errorf("Fail to set replica mode for %v: %v", address, err)
 	}
 
 	c.replicas = append(c.replicas, types.Replica{
@@ -509,6 +619,13 @@ func (c *Controller) hasReplica(address string) bool {
 		}
 	}
 	return false
+}
+
+func (c *Controller) rmReplicaFromRegisteredReplicas(address string) {
+	logrus.Infof("Remove replica %s from register replica map", address)
+	delete(c.RegisteredReplicas, address)
+	c.StartSignalled = false
+	c.MaxRevReplica = ""
 }
 
 func (c *Controller) RemoveReplicaNoLock(address string) error {
@@ -668,16 +785,19 @@ func (c *Controller) addReplicaDuringStartNoLock(address string) error {
 	)
 	newBackend, err := c.factory.Create(address)
 	if err != nil {
+		c.rmReplicaFromRegisteredReplicas(address)
 		return err
 	}
 
 	newSize, err := newBackend.Size()
 	if err != nil {
+		c.rmReplicaFromRegisteredReplicas(address)
 		return err
 	}
 
 	newSectorSize, err := newBackend.SectorSize()
 	if err != nil {
+		c.rmReplicaFromRegisteredReplicas(address)
 		return err
 	}
 
@@ -687,16 +807,20 @@ func (c *Controller) addReplicaDuringStartNoLock(address string) error {
 	}
 
 	if c.size != newSize {
+		c.rmReplicaFromRegisteredReplicas(address)
 		return fmt.Errorf("Backend sizes do not match %d != %d", c.size, newSize)
 	} else if c.sectorSize != newSectorSize {
+		c.rmReplicaFromRegisteredReplicas(address)
 		return fmt.Errorf("Backend sizes do not match %d != %d", c.sectorSize, newSectorSize)
 	}
 
 	if err := c.addReplicaNoLock(newBackend, address, false); err != nil {
+		c.rmReplicaFromRegisteredReplicas(address)
 		return err
 	}
 getCloneStatus:
 	if status, err1 = c.backend.GetCloneStatus(address); err1 != nil {
+		_ = c.RemoveReplicaNoLock(address)
 		return err1
 	}
 	if status == "" || status == "inProgress" {
@@ -704,8 +828,15 @@ getCloneStatus:
 		time.Sleep(2 * time.Second)
 		goto getCloneStatus
 	} else if status == "error" {
+		_ = c.RemoveReplicaNoLock(address)
 		return fmt.Errorf("Replica clone status returned error %s", address)
 	}
+
+	if err := c.backend.SetReplicaMode(address, types.RW); err != nil {
+		_ = c.RemoveReplicaNoLock(address)
+		return fmt.Errorf("Fail to set replica mode for %v: %v", address, err)
+	}
+
 	c.setReplicaModeNoLock(address, types.RW)
 	return nil
 }
@@ -819,7 +950,7 @@ func (c *Controller) WriteAt(b []byte, off int64) (int, error) {
 		if bErr, ok := err.(*BackendError); ok {
 			if len(bErr.Errors) > 0 {
 				for address := range bErr.Errors {
-					c.RemoveReplicaNoLock(address)
+					_ = c.RemoveReplicaNoLock(address)
 				}
 			}
 		}
@@ -829,6 +960,60 @@ func (c *Controller) WriteAt(b []byte, off int64) (int, error) {
 		return n, errh
 	}
 	return n, err
+}
+
+func (c *Controller) Sync() (int, error) {
+	c.Lock()
+	if c.ReadOnly == true {
+		err := fmt.Errorf("Mode: ReadOnly")
+		c.Unlock()
+		time.Sleep(1 * time.Second)
+		return -1, err
+	}
+	defer c.Unlock()
+	n, err := c.backend.Sync()
+	if err != nil {
+		errh := c.handleErrorNoLock(err)
+		if bErr, ok := err.(*BackendError); ok {
+			if len(bErr.Errors) > 0 {
+				for address := range bErr.Errors {
+					_ = c.RemoveReplicaNoLock(address)
+				}
+			}
+		}
+		if n == -1 {
+			return -1, fmt.Errorf("Sync Failed")
+		}
+		return 0, errh
+	}
+	return 0, err
+}
+
+func (c *Controller) Unmap(offset int64, length int64) (int, error) {
+	c.Lock()
+	if c.ReadOnly == true {
+		err := fmt.Errorf("Mode: ReadOnly")
+		c.Unlock()
+		time.Sleep(1 * time.Second)
+		return -1, err
+	}
+	defer c.Unlock()
+	n, err := c.backend.Unmap(offset, length)
+	if err != nil {
+		errh := c.handleErrorNoLock(err)
+		if bErr, ok := err.(*BackendError); ok {
+			if len(bErr.Errors) > 0 {
+				for address := range bErr.Errors {
+					_ = c.RemoveReplicaNoLock(address)
+				}
+			}
+		}
+		if n == -1 {
+			return -1, fmt.Errorf("Unmap Failed")
+		}
+		return 0, errh
+	}
+	return 0, err
 }
 
 func (c *Controller) ReadAt(b []byte, off int64) (int, error) {
@@ -854,7 +1039,7 @@ func (c *Controller) ReadAt(b []byte, off int64) (int, error) {
 		if bErr, ok := err.(*BackendError); ok {
 			if len(bErr.Errors) > 0 {
 				for address := range bErr.Errors {
-					c.RemoveReplicaNoLock(address)
+					_ = c.RemoveReplicaNoLock(address)
 				}
 			}
 		}
@@ -923,6 +1108,7 @@ func (c *Controller) Stats() (types.Stats, error) {
 	if c.frontend != nil {
 		stats := (types.Stats)(c.frontend.Stats())
 		volUsage, err := c.backend.GetVolUsage()
+		stats.RevisionCounter = volUsage.RevisionCounter
 		stats.UsedLogicalBlocks = volUsage.UsedLogicalBlocks
 		stats.UsedBlocks = volUsage.UsedBlocks
 		stats.SectorSize = volUsage.SectorSize
@@ -942,18 +1128,37 @@ func (c *Controller) shutdownBackend() error {
 }
 
 func (c *Controller) Shutdown() error {
+
+	alertlog.Logger.Infow("",
+		"eventcode", "jiva.volume.replica.shutdown",
+		"msg", "Shutting down Jiva volume replica",
+		"rname", c.Name,
+	)
+
 	/*
 		Need to shutdown frontend first because it will write
 		the final piece of data to backend
 	*/
+	logrus.Info("Stopping controller")
 	err := c.shutdownFrontend()
 	if err != nil {
 		logrus.Error("Error when shutting down frontend:", err)
+		alertlog.Logger.Warnw("",
+			"eventcode", "jiva.volume.replica.frontend.shutdown.failure",
+			"msg", "Failed to shut down Jiva volume replica frontend",
+			"rname", c.Name,
+		)
 	}
 	err = c.shutdownBackend()
 	if err != nil {
 		logrus.Error("Error when shutting down backend:", err)
+		alertlog.Logger.Warnw("",
+			"eventcode", "jiva.volume.replica.backend.shutdown.failure",
+			"msg", "Failed to shut down Jiva volume replica backend",
+			"rname", c.Name,
+		)
 	}
+
 	return nil
 }
 
@@ -978,5 +1183,116 @@ func (c *Controller) monitoring(address string, backend types.Backend) {
 		c.setReplicaModeNoLock(address, types.ERR)
 	}
 	logrus.Infof("Monitoring stopped %v", address)
-	c.RemoveReplicaNoLock(address)
+	_ = c.RemoveReplicaNoLock(address)
+}
+
+func (c *Controller) IsReplicaRW(replicaInController *types.Replica) error {
+	repClient, err := replicaClient.NewReplicaClient(replicaInController.Address)
+	if err != nil {
+		return err
+	}
+
+	replica, err := repClient.GetReplica()
+	if err != nil {
+		return err
+	}
+
+	if replica.ReplicaMode != "RW" {
+		return fmt.Errorf("Replica %s mode is %s", replicaInController.Address, replica.ReplicaMode)
+	}
+
+	return nil
+}
+
+// DeleteSnapshot ...
+func (c *Controller) DeleteSnapshot(replicas []types.Replica) error {
+	var err error
+
+	ops := make(map[string][]replica.PrepareRemoveAction)
+	for _, r := range replicas {
+		replica := r // pin it
+		ops[replica.Address], err = c.prepareRemoveSnapshot(&replica, c.SnapshotName)
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, rep := range replicas {
+		replica := rep // pin it
+		if err := c.processRemoveSnapshot(&replica, c.SnapshotName, ops[replica.Address]); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *Controller) rmDisk(replicaInController *types.Replica, disk string) error {
+	repClient, err := replicaClient.NewReplicaClient(replicaInController.Address)
+	if err != nil {
+		return err
+	}
+
+	return repClient.RemoveDisk(disk)
+}
+
+func (c *Controller) replaceDisk(replicaInController *types.Replica, target, source string) error {
+	repClient, err := replicaClient.NewReplicaClient(replicaInController.Address)
+	if err != nil {
+		return err
+	}
+
+	return repClient.ReplaceDisk(target, source)
+}
+
+func (c *Controller) prepareRemoveSnapshot(replicaInController *types.Replica, snapshot string) ([]replica.PrepareRemoveAction, error) {
+	repClient, err := replicaClient.NewReplicaClient(replicaInController.Address)
+	if err != nil {
+		return nil, err
+	}
+
+	output, err := repClient.PrepareRemoveDisk(snapshot)
+	if err != nil {
+		return nil, err
+	}
+
+	return output.Operations, nil
+}
+
+func (c *Controller) processRemoveSnapshot(replicaInController *types.Replica, snapshot string, ops []replica.PrepareRemoveAction) error {
+	if len(ops) == 0 {
+		return nil
+	}
+
+	repClient, err := replicaClient.NewReplicaClient(replicaInController.Address)
+	if err != nil {
+		return err
+	}
+
+	for _, op := range ops {
+		switch op.Action {
+		case replica.OpRemove:
+			logrus.Infof("Removing %s on %s", op.Source, replicaInController.Address)
+			if err := c.rmDisk(replicaInController, op.Source); err != nil {
+				logrus.Errorf("Failed to remove %s on %s: %v", op.Source, replicaInController.Address, err)
+				return fmt.Errorf("Failed to remove %s on %s: %v", op.Source, replicaInController.Address, err)
+
+			}
+		case replica.OpCoalesce:
+			logrus.Infof("Coalescing %v to %v on %v", op.Target, op.Source, replicaInController.Address)
+			if err = repClient.Coalesce(op.Target, op.Source); err != nil {
+				logrus.Errorf("Failed to coalesce %s on %s: %v", snapshot, replicaInController.Address, err)
+				return fmt.Errorf("Failed to coalesce %s on %s: %v", snapshot, replicaInController.Address, err)
+			}
+		case replica.OpReplace:
+			logrus.Infof("Replace %v with %v on %v", op.Target, op.Source, replicaInController.Address)
+			if err = c.replaceDisk(replicaInController, op.Target, op.Source); err != nil {
+				logrus.Errorf("Failed to replace %v with %v on %v", op.Target, op.Source, replicaInController.Address)
+				return fmt.Errorf("Failed to replace %v with %v on %v", op.Target, op.Source, replicaInController.Address)
+
+			}
+		}
+	}
+
+	return nil
 }

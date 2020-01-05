@@ -3,32 +3,59 @@ package app
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/openebs/jiva/alertlog"
 	"os"
 	"strings"
 	"text/tabwriter"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
+	"github.com/openebs/jiva/controller/rest"
 	"github.com/openebs/jiva/replica"
 	replicaClient "github.com/openebs/jiva/replica/client"
 	"github.com/openebs/jiva/sync"
 	"github.com/openebs/jiva/util"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 )
 
 const VolumeHeadName = "volume-head"
+
+var validSubCommands = map[string]bool{"ls": true, "rm": true, "info": true}
+
+func isValidSubCommand(c *cli.Context) bool {
+	args := c.Args()
+	if len(args) < 1 {
+		return true
+	}
+	ok, _ := validSubCommands[args[0]]
+	if ok {
+		return true
+	}
+	return false
+}
+
+func listSubCommands() []string {
+	var cmds []string
+	for k := range validSubCommands {
+		cmds = append(cmds, k)
+	}
+	return cmds
+}
 
 func SnapshotCmd() cli.Command {
 	return cli.Command{
 		Name:      "snapshots",
 		ShortName: "snapshot",
 		Subcommands: []cli.Command{
-			SnapshotCreateCmd(),
-			SnapshotRevertCmd(),
+			//			SnapshotCreateCmd(),
+			//		SnapshotRevertCmd(),
 			SnapshotLsCmd(),
 			SnapshotRmCmd(),
 			SnapshotInfoCmd(),
 		},
 		Action: func(c *cli.Context) {
+			if !isValidSubCommand(c) {
+				logrus.Fatalf("Error running snapshot command, invalid sub command: %v, supported sub commands are: %v", c.Args(), listSubCommands())
+			}
 			if err := lsSnapshot(c); err != nil {
 				logrus.Fatalf("Error running snapshot command: %v", err)
 			}
@@ -100,10 +127,20 @@ func createSnapshot(c *cli.Context) error {
 	}
 	id, err := cli.Snapshot(name)
 	if err != nil {
+		alertlog.Logger.Errorw("",
+			"eventcode", "jiva.snapshot.create.failure",
+			"msg", "Failed to create Jiva snapshot",
+			"rname", name,
+		)
 		return err
 	}
 
 	fmt.Println(id)
+	alertlog.Logger.Infow("",
+		"eventcode", "jiva.snapshot.create.success",
+		"msg", "Successfully created Jiva snapshot",
+		"rname", name,
+	)
 	return nil
 }
 
@@ -117,9 +154,18 @@ func revertSnapshot(c *cli.Context) error {
 
 	err := cli.RevertSnapshot(name)
 	if err != nil {
+		alertlog.Logger.Errorw("",
+			"eventcode", "jiva.snapshot.revert.failure",
+			"msg", "Failed to revert Jiva snapshot",
+			"rname", name,
+		)
 		return err
 	}
-
+	alertlog.Logger.Infow("",
+		"eventcode", "jiva.snapshot.create.success",
+		"msg", "Successfully reverted Jiva snapshot",
+		"rname", name,
+	)
 	return nil
 }
 
@@ -127,27 +173,32 @@ func rmSnapshot(c *cli.Context) error {
 	var lastErr error
 	url := c.GlobalString("url")
 	task := sync.NewTask(url)
-
+	if len(c.Args()) < 1 {
+		return fmt.Errorf("snapshot name is empty")
+	}
 	for _, name := range c.Args() {
 		if err := task.DeleteSnapshot(name); err == nil {
-			fmt.Printf("deleted %s\n", name)
+			fmt.Printf("deleted snapshot: %s\n", name)
+			alertlog.Logger.Infow("",
+				"eventcode", "jiva.snapshot.remove.success",
+				"msg", "Successfully removed Jiva snapshot",
+				"rname", name,
+			)
 		} else {
 			lastErr = err
-			fmt.Fprintf(os.Stderr, "Failed to delete %s: %v\n", name, err)
+			fmt.Fprintf(os.Stderr, "Failed to delete snapshot: %s, error: %v\n", name, err)
+			alertlog.Logger.Errorw("",
+				"eventcode", "jiva.snapshot.remove.failure",
+				"msg", "Failed to remove Jiva snapshot",
+				"rname", name,
+			)
 		}
 	}
 
 	return lastErr
 }
 
-func lsSnapshot(c *cli.Context) error {
-	cli := getCli(c)
-
-	replicas, err := cli.ListReplicas()
-	if err != nil {
-		return err
-	}
-
+func getCommonSnapshots(replicas []rest.Replica) ([]string, error) {
 	first := true
 	snapshots := []string{}
 	for _, r := range replicas {
@@ -159,7 +210,7 @@ func lsSnapshot(c *cli.Context) error {
 			first = false
 			chain, err := getChain(r.Address)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			// Replica can just started and haven't prepare the head
 			// file yet
@@ -172,12 +223,28 @@ func lsSnapshot(c *cli.Context) error {
 
 		chain, err := getChain(r.Address)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		snapshots = util.Filter(snapshots, func(i string) bool {
 			return util.Contains(chain, i)
 		})
+	}
+	return snapshots, nil
+}
+
+func lsSnapshot(c *cli.Context) error {
+	cli := getCli(c)
+
+	replicas, err := cli.ListReplicas()
+	if err != nil {
+		return err
+	}
+
+	snapshots := []string{}
+	snapshots, err = getCommonSnapshots(replicas)
+	if err != nil {
+		return err
 	}
 
 	format := "%s\n"

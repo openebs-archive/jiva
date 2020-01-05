@@ -8,20 +8,18 @@ import (
 	"runtime/debug"
 	"runtime/pprof"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
 	"github.com/docker/docker/pkg/reexec"
+	"github.com/longhorn/sparse-tools/cli/sfold"
+	"github.com/longhorn/sparse-tools/cli/ssync"
 	"github.com/openebs/jiva/app"
-	"github.com/openebs/jiva/backup"
-	"github.com/rancher/sparse-tools/cli/sfold"
-	"github.com/rancher/sparse-tools/cli/ssync"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 )
 
 func main() {
 	defer cleanup()
 	reexec.Register("ssync", ssync.Main)
 	reexec.Register("sfold", sfold.Main)
-	reexec.Register("sbackup", backup.Main)
 
 	if !reexec.Init() {
 		longhornCli()

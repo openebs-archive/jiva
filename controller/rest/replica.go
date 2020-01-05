@@ -7,12 +7,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/openebs/jiva/types"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -49,12 +49,11 @@ func init() {
 }
 
 func (s *Server) ListReplicas(rw http.ResponseWriter, req *http.Request) error {
-	logrus.Infof("List Replicas")
 	apiContext := api.GetApiContext(req)
 	resp := client.GenericCollection{}
 	s.c.Lock()
 	for _, r := range s.c.ListReplicas() {
-		resp.Data = append(resp.Data, NewReplica(apiContext, r.Address, r.Mode))
+		resp.Data = append(resp.Data, NewReplica(apiContext, r))
 	}
 	s.c.Unlock()
 
@@ -76,7 +75,6 @@ func (s *Server) GetReplica(rw http.ResponseWriter, req *http.Request) error {
 		rw.WriteHeader(http.StatusNotFound)
 		return nil
 	}
-	logrus.Infof("Get Replica for id %v", id)
 
 	r := s.getReplica(apiContext, id)
 	if r == nil {
@@ -104,7 +102,6 @@ func (s *Server) RegisterReplica(rw http.ResponseWriter, req *http.Request) erro
 		logrus.Errorf("read in RegReplica failed %v", err)
 		return err
 	}
-	logrus.Infof("Register Replica for address %v", regReplica.Address)
 
 	localRevCount, _ = strconv.ParseInt(regReplica.RevCount, 10, 64)
 	local := types.RegReplica{
@@ -188,7 +185,7 @@ func (s *Server) getReplica(context *api.ApiContext, id string) *Replica {
 	defer s.c.Unlock()
 	for _, r := range s.c.ListReplicas() {
 		if r.Address == id {
-			return NewReplica(context, r.Address, r.Mode)
+			return NewReplica(context, r)
 		}
 	}
 	return nil
@@ -199,7 +196,7 @@ func (s *Server) getQuorumReplica(context *api.ApiContext, id string) *Replica {
 	defer s.c.Unlock()
 	for _, r := range s.c.ListQuorumReplicas() {
 		if r.Address == id {
-			return NewReplica(context, r.Address, r.Mode)
+			return NewReplica(context, r)
 		}
 	}
 	return nil
