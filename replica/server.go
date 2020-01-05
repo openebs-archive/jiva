@@ -200,7 +200,7 @@ func (s *Server) Reload() error {
 	return nil
 }
 
-func (s *Server) UpdateCloneInfo(snapName string) error {
+func (s *Server) UpdateCloneInfo(snapName, revCount string) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -209,7 +209,7 @@ func (s *Server) UpdateCloneInfo(snapName string) error {
 	}
 
 	logrus.Infof("Update Clone Info")
-	return s.r.UpdateCloneInfo(snapName)
+	return s.r.UpdateCloneInfo(snapName, revCount)
 }
 
 func (s *Server) Status() (State, Info) {

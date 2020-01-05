@@ -107,7 +107,7 @@ func (c *Controller) VerifyRebuildReplica(address string) error {
 	if err := c.backend.SetRevisionCounter(address, counter); err != nil {
 		return fmt.Errorf("Fail to set revision counter for %v: %v", address, err)
 	}
-	logrus.Debugf("WO replica %v's chain verified, update mode to RW", address)
+	logrus.Infof("WO replica %v's chain verified, update replica mode to RW", address)
 	c.setReplicaModeNoLock(address, types.RW)
 	if len(c.quorumReplicas) > c.quorumReplicaCount {
 		c.quorumReplicaCount = len(c.quorumReplicas)

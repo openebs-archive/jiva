@@ -261,7 +261,7 @@ func (s *Server) UpdateCloneInfo(rw http.ResponseWriter, req *http.Request) erro
 		return err
 	}
 	logrus.Infof("Update Clone Info for snap %v", input.SnapName)
-	return s.doOp(req, s.s.UpdateCloneInfo(input.SnapName))
+	return s.doOp(req, s.s.UpdateCloneInfo(input.SnapName, input.RevisionCount))
 }
 
 func (s *Server) CloseReplica(rw http.ResponseWriter, req *http.Request) error {

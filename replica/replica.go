@@ -89,11 +89,12 @@ type Info struct {
 }
 
 type disk struct {
-	Name        string
-	Parent      string
-	Removed     bool
-	UserCreated bool
-	Created     string
+	Name            string
+	Parent          string
+	Removed         bool
+	UserCreated     bool
+	Created         string
+	RevisionCounter int64
 }
 
 type BackingFile struct {
@@ -110,13 +111,14 @@ type PrepareRemoveAction struct {
 }
 
 type DiskInfo struct {
-	Name        string   `json:"name"`
-	Parent      string   `json:"parent"`
-	Children    []string `json:"children"`
-	Removed     bool     `json:"removed"`
-	UserCreated bool     `json:"usercreated"`
-	Created     string   `json:"created"`
-	Size        string   `json:"size"`
+	Name            string   `json:"name"`
+	Parent          string   `json:"parent"`
+	Children        []string `json:"children"`
+	Removed         bool     `json:"removed"`
+	UserCreated     bool     `json:"usercreated"`
+	Created         string   `json:"created"`
+	Size            string   `json:"size"`
+	RevisionCounter int64    `json:"revisionCount"`
 }
 
 const (
@@ -193,15 +195,15 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 	}
 	r.volume.sectorSize = defaultSectorSize
 
+	if err := r.initRevisionCounter(); err != nil {
+		return nil, err
+	}
+
 	// Scan all the disks to build the disk map
 	exists, err := r.readMetadata()
 	if err != nil {
 		return nil, err
 	}
-	if err := r.initRevisionCounter(); err != nil {
-		return nil, err
-	}
-
 	// Reference r.info.Size because it may have changed from reading
 	// metadata
 	locationSize := r.info.Size / r.volume.sectorSize
@@ -345,12 +347,25 @@ func (r *Replica) Reload() (*Replica, error) {
 	return newReplica, nil
 }
 
-func (r *Replica) UpdateCloneInfo(snapName string) error {
+// UpdateCloneInfo update the clone information such as snapshot name and
+// revisionCount
+func (r *Replica) UpdateCloneInfo(snapName, revCount string) error {
 	r.info.Parent = "volume-snap-" + snapName + ".img"
 	if err := r.encodeToFile(&r.info, volumeMetaData); err != nil {
 		return err
 	}
+
+	revisionCount, err := strconv.ParseInt(revCount, 10, 64)
+	if err != nil {
+		return fmt.Errorf("Failed to parse revision count %v, err: %v", revCount, err)
+	}
+
+	if err := r.SetRevisionCounterCloneReplica(revisionCount); err != nil {
+		return fmt.Errorf("Failed to set revision counter, err: %v", err)
+	}
+
 	r.diskData[r.info.Head].Parent = r.info.Parent
+	r.diskData[r.info.Head].RevisionCounter = revisionCount
 	return r.encodeToFile(r.diskData[r.info.Head], r.info.Head+metadataSuffix)
 }
 
@@ -772,11 +787,12 @@ func (r *Replica) createNewHead(oldHead, parent, created string) (types.DiffDisk
 	}
 
 	newDisk := disk{
-		Parent:      parent,
-		Name:        newHeadName,
-		Removed:     false,
-		UserCreated: false,
-		Created:     created,
+		Parent:          parent,
+		Name:            newHeadName,
+		Removed:         false,
+		UserCreated:     false,
+		Created:         created,
+		RevisionCounter: r.GetRevisionCounter(),
 	}
 	err = r.encodeToFile(&newDisk, newHeadName+metadataSuffix)
 	return f, newDisk, err
@@ -918,6 +934,7 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 		r.diskData[newSnapName] = r.diskData[oldHead]
 		r.diskData[newSnapName].UserCreated = userCreated
 		r.diskData[newSnapName].Created = created
+		r.diskData[newSnapName].RevisionCounter = r.GetRevisionCounter()
 		if err := r.encodeToFile(r.diskData[newSnapName], newSnapName+metadataSuffix); err != nil {
 			return err
 		}
@@ -1071,6 +1088,19 @@ func (r *Replica) readDiskData(file string) error {
 	name := file[:len(file)-len(metadataSuffix)]
 	data.Name = name
 	r.diskData[name] = &data
+	// we are updating the revision count of snapshot with the latest
+	// revision count. This is done to know how many io's have been served
+	// if replica has been restarted multiple times and new snapshots have
+	// been created with no data.
+	// This is compared with 1 since revision.counter is initialized
+	// with 1 initially.
+	if r.diskData[name].RevisionCounter <= 1 {
+		r.diskData[name].RevisionCounter = r.GetRevisionCounter()
+		logrus.Infof("Update revison count: %v of snapshot: %v", r.diskData[name].RevisionCounter, name)
+		if err := r.encodeToFile(r.diskData[name], name+metadataSuffix); err != nil {
+			return err
+		}
+	}
 	if data.Parent != "" {
 		r.addChildDisk(data.Parent, data.Name)
 	}
@@ -1225,12 +1255,13 @@ func (r *Replica) ListDisks() map[string]DiskInfo {
 	for _, disk := range r.diskData {
 		diskSize := strconv.FormatInt(r.getDiskSize(disk.Name), 10)
 		diskInfo := DiskInfo{
-			Name:        disk.Name,
-			Parent:      disk.Parent,
-			Removed:     disk.Removed,
-			UserCreated: disk.UserCreated,
-			Created:     disk.Created,
-			Size:        diskSize,
+			Name:            disk.Name,
+			Parent:          disk.Parent,
+			Removed:         disk.Removed,
+			UserCreated:     disk.UserCreated,
+			Created:         disk.Created,
+			Size:            diskSize,
+			RevisionCounter: disk.RevisionCounter,
 		}
 		children := []string{}
 		for child := range r.diskChildrenMap[disk.Name] {

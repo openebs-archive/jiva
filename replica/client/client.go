@@ -82,6 +82,15 @@ func NewReplicaClient(address string) (*ReplicaClient, error) {
 	}, nil
 }
 
+// SetTimeout override the timeout of the client for a request
+// Ignore setting timeout if httpClient is nil as ReplicaClient may not be
+// initialized.
+func (c *ReplicaClient) SetTimeout(timeout time.Duration) {
+	if c.httpClient != nil {
+		c.httpClient.Timeout = timeout
+	}
+}
+
 func (c *ReplicaClient) Create(size string) error {
 	r, err := c.GetReplica()
 	if err != nil {
@@ -213,11 +222,13 @@ func (c *ReplicaClient) ReloadReplica() (rest.Replica, error) {
 	return replica, err
 }
 
-func (c *ReplicaClient) UpdateCloneInfo(snapName string) (rest.Replica, error) {
+// UpdateCloneInfo update the snapname and revision count
+func (c *ReplicaClient) UpdateCloneInfo(snapName, revCount string) (rest.Replica, error) {
 	var replica rest.Replica
 
 	input := &rest.CloneUpdateInput{
-		SnapName: snapName,
+		SnapName:      snapName,
+		RevisionCount: revCount,
 	}
 
 	err := c.post(c.address+"/replicas/1?action=updatecloneinfo", input, &replica)
