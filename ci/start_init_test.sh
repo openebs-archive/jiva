@@ -1,3 +1,4 @@
+
 #!/bin/bash
 #set -x
 PS4='${LINENO}: '
@@ -25,9 +26,9 @@ collect_logs_and_exit() {
 	curl http://$REPLICA_IP3:9502/v1/replicas | jq
 
 	#Take system output
-	ps -auxwww
-	top -n 10 -b
-	netstat -nap
+	#ps -auxwww
+	#top -n 10 -b
+	#netstat -nap
 
 #	i=0
 #	while [ "$i" != 10 ]; do
@@ -50,7 +51,7 @@ collect_logs_and_exit() {
 	echo "ls VOL3>>"
 	ls -ltr /tmp/vol3/
 	#Below is to get stack traces of longhorn processes
-	kill -SIGABRT $(ps -auxwww | grep -w longhorn | grep -v grep | awk '{print $2}')
+	#kill -SIGABRT $(ps -auxwww | grep -w longhorn | grep -v grep | awk '{print $2}')
 
 	echo "--------------------------ORIGINAL CONTROLLER LOGS ------------------------"
 	docker logs $orig_controller_id
@@ -1770,7 +1771,7 @@ copy_files_into_mnt_dir() {
 
 verify_delete_snapshot_failure() {
 	echo "-------------Verify delete snapshots failure---------------"
-        declare -a errors=("Failed to coalesce" "Replica tcp://"$1":9502 mode is" "Snapshot deletion process is in progress" "Can not remove a snapshot because, RF: 3, replica count: 2" "Client.Timeout exceeded while awaiting headers")
+        declare -a errors=("Failed to coalesce" "Replica tcp://"$1":9502 mode is" "Snapshot deletion process is in progress" "Can not remove a snapshot because, RF: 3, replica count: 2" "Client.Timeout exceeded while awaiting headers", "Failed to replace")
         local i=""
         local cnt=0
         local snap=""
