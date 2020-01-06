@@ -824,6 +824,7 @@ getCloneStatus:
 		_ = c.RemoveReplicaNoLock(address)
 		return err1
 	}
+
 	if status == "" || status == "inProgress" {
 		logrus.Errorf("Waiting for replica to update CloneStatus to Completed/NA, retry after 2s")
 		time.Sleep(2 * time.Second)

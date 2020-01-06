@@ -151,9 +151,7 @@ func (r *Remote) GetRevisionCounter() (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	if replica.State != "open" && replica.State != "dirty" && replica.State != "rebuilding" {
-		return 0, fmt.Errorf("Invalid state %v for getting revision counter", replica.State)
-	}
+
 	counter, _ := strconv.ParseInt(replica.RevisionCounter, 10, 64)
 	return counter, nil
 }

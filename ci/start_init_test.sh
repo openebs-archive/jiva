@@ -45,13 +45,13 @@ collect_logs_and_exit() {
 
 	echo "ls VOL1>>"
 	ls -ltr /tmp/vol1/
-  cat $(ls /tmp/vol1/*.meta)
+       cat $(ls /tmp/vol1/*.meta)
 	echo "ls VOL2>>"
 	ls -ltr /tmp/vol2/
-  cat $(ls /tmp/vol2/*.meta)
+       cat $(ls /tmp/vol2/*.meta)
 	echo "ls VOL3>>"
 	ls -ltr /tmp/vol3/
-  cat $(ls /tmp/vol3/*.meta)
+       cat $(ls /tmp/vol3/*.meta)
 	#Below is to get stack traces of longhorn processes
 	kill -SIGABRT $(ps -auxwww | grep -w longhorn | grep -v grep | awk '{print $2}')
 
