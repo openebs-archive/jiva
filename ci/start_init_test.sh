@@ -1283,18 +1283,24 @@ test_extent_support_file_system() {
 }
 
 upgrade_controller() {
+       echo "--------------------- Upgrade Controller --------------------"
+       docker logs $orig_controller_id
        docker stop $orig_controller_id
        docker rm $orig_controller_id
        orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
 }
 
 upgrade_replicas() {
+       echo "--------------------- Upgrade Replica --------------------"
+       docker logs $replica1_id
        docker stop $replica1_id
        docker rm $replica1_id
        replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+       docker logs $replica2_id
        docker stop $replica2_id
        docker rm $replica2_id
        replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+       docker logs $replica3_id
        docker stop $replica3_id
        docker rm $replica3_id
        replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
@@ -1962,7 +1968,37 @@ test_replica_restart_while_snap_deletion() {
         cleanup
 }
 
+test_replica_restart_optimization() {
+        echo "------------Test replica restart optimization---------------"
+        orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+        replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+        replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+        replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+
+        run_ios 100K 0 &
+        sleep 10
+        docker stop $replica3_id
+        wait
+        docker stop $replica2_id
+        docker stop $replica1_id
+        sleep 5
+        docker start $replica3_id
+        docker start $replica2_id
+        sleep 3
+        docker start $replica1_id
+        verify_replica_cnt "3" "Thre replica count test"
+        count=$(docker logs $orig_controller_id 2>&1 | grep -c "Replica tcp://172.18.0.3:9502 will takeover")
+        if [ "$count" -eq 0  ]; then
+           echo "replica restart optimization test failed"
+           collect_logs_and_exit
+        fi
+           echo "replica restart optimization test --passed"
+
+        cleanup
+}
+
 prepare_test_env
+test_replica_restart_optimization
 test_delete_snapshot
 test_replica_restart_while_snap_deletion
 test_duplicate_data_delete
