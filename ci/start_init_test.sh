@@ -1,6 +1,6 @@
 
 #!/bin/bash
-#set -x
+set -x
 PS4='${LINENO}: '
 CONTROLLER_IP="172.18.0.2"
 REPLICA_IP1="172.18.0.3"
@@ -101,8 +101,8 @@ prepare_test_env() {
 
 verify_replica_cnt() {
 	echo "-------------------Verify Replica count--------------------"
-	i=0
-	replica_cnt=""
+	local i=0
+	local replica_cnt=""
 	while [ "$replica_cnt" != "$1" ]; do
 		replica_cnt=`curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
 		i=`expr $i + 1`
@@ -140,7 +140,7 @@ verify_rw_status() {
 	i=0
 	rw_status=""
 	while [ "$rw_status" != "$1" ]; do
-		ro_status=`curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
+		ro_status=$(curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"')
 		if [ "$ro_status" == "true" ]; then
 			rw_status="RO"
 		elif [ "$ro_status" == "false" ]; then
@@ -174,12 +174,17 @@ verify_rw_rep_count() {
 
 #returns number of replicas connected to controller in RW mode
 get_rw_rep_count() {
-	rep_index=0
-	rw_count=0
+	local rep_index=0
+	local rw_count=0
+	local rep_cnt=0
 	rep_cnt=$(curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount' | tr -d '"')
+	if [[ -z "$rep_cnt" ]]; then
+		rep_cnt=0
+	fi
 	while [ $rep_index -lt $rep_cnt ]; do
+		local mode=""
 		mode=$(curl -s http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].mode' | tr -d '"')
-		if [ "$mode" == "RW" ]; then
+		if [[ "$mode" == "RW" ]]; then
 			rw_count=`expr $rw_count + 1`
 		fi
 		rep_index=`expr $rep_index + 1`
@@ -202,15 +207,15 @@ verify_controller_quorum() {
 	while [ "$i" != 5 ]; do
 		date
 		rw_count=$(get_rw_rep_count)
-		ro_status=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
+		ro_status=$(curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"')
 		# volume RO status is true
-		if [ "$ro_status" == "true" ]; then
+		if [[ "$ro_status" == "true" ]]; then
 			# CF is not met
-			if [ "$rw_count" -lt "$cf" ]; then
+			if [[ "$rw_count" -lt "$cf" ]]; then
 				echo $2 " -- passed1"
 			else
 				# if CF is met, volume should be in rw
-				ro_status=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
+				ro_status=$(curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"')
 				if [ "$ro_status" == "false" ]; then
 					echo $2 " -- passed2"
 				else
@@ -226,7 +231,7 @@ verify_controller_quorum() {
 				echo $2 " -- passed3"
 			else
 				# if CF is not met, volume should be in RO
-				ro_status=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
+				ro_status=$(curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"')
 				if [ "$ro_status" == "true" ]; then
 					echo $2 " -- passed4"
 				else
@@ -245,7 +250,7 @@ verify_controller_quorum() {
 verify_go_routine_leak() {
 	echo "---------------------Verify goroutine leak-------------------------"
 	i=0
-	no_of_goroutine=`curl http://$2:9502/debug/pprof/goroutine?debug=1 | grep goroutine | awk '{ print $4}'`
+	no_of_goroutine=$(curl http://$2:9502/debug/pprof/goroutine?debug=1 | grep goroutine | awk '{ print $4}')
 	passed=0
 	req_cnt=0
 	while [ "$i" != 30 ]; do
@@ -254,7 +259,7 @@ verify_go_routine_leak() {
 		sleep 2
 	done
 	wait
-	new_no_of_goroutine=`curl http://$2:9502/debug/pprof/goroutine?debug=1 | grep goroutine | awk '{ print $4}'`
+	new_no_of_goroutine=$(curl http://$2:9502/debug/pprof/goroutine?debug=1 | grep goroutine | awk '{ print $4}')
 	old=`expr $no_of_goroutine + 3`
 	if [ $new_no_of_goroutine -lt $old ]; then
 		echo $1 --passed
@@ -269,7 +274,7 @@ verify_vol_status() {
 	i=0
 	rw_status=""
 	while [ "$rw_status" != "$1" ]; do
-		ro_status=`curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
+		ro_status=$(curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"')
 		if [ "$ro_status" == "true" ]; then
 			rw_status="RO"
 		elif [ "$ro_status" == "false" ]; then
@@ -291,7 +296,7 @@ verify_replica_mode() {
 	passed=0
 	while [ "$i" != 50 ]; do
 		date
-		rep_mode=`curl -s http://$3:9502/v1/replicas | jq '.data[0].replicamode' | tr -d '"'`
+		rep_mode=$(curl -s http://$3:9502/v1/replicas | jq '.data[0].replicamode' | tr -d '"')
 		if [ "$rep_mode" == "$4" ]; then
 			passed=`expr $passed + 1`
 		fi
@@ -319,27 +324,32 @@ verify_rep_state() {
 	echo "------------------------Verify Replica state--------------------------"
 	i=0
 	rep_state=""
+	local rep_cnt=0
+	replica_cnt=0
 	while [ "$i" != 50 ]; do
 		date
-		rep_cnt=`curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
+		rep_cnt=$(curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount')
+		if [[ -z "$rep_cnt" ]]; then
+			rep_cnt=0
+		fi
 		replica_cnt=`expr $rep_cnt`
 		passed=0
 		#if [ "$replica_cnt" == 0 ]; then
-		rep_state=`curl -s http://$3:9502/v1/replicas | jq '.data[0].state' | tr -d '"'`
+		rep_state=$(curl -s http://$3:9502/v1/replicas | jq '.data[0].state' | tr -d '"')
 		if [ "$rep_state" == "closed" ]; then
 			passed=`expr $passed + 1`
 		fi
 		if [ "$5" != "" ]; then
-			rep_state=`curl -s http://$5:9502/v1/replicas | jq '.data[0].state' | tr -d '"'`
+			rep_state=$(curl -s http://$5:9502/v1/replicas | jq '.data[0].state' | tr -d '"')
 			if [ "$rep_state" == "closed" ]; then
 				passed=`expr $passed + 1`
 			fi
 		fi
 		#fi
-		rep_index=0
+		local rep_index=0
 		while [ $rep_index -lt $replica_cnt ]; do
-			address=`curl -s http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].address' | tr -d '"'`
-			mode=`curl -s http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].mode' | tr -d '"'`
+			address=$(curl -s http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].address' | tr -d '"')
+			mode=$(curl -s http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].mode' | tr -d '"')
 
 			if [ $address == "tcp://"$3":9502" ]; then
 				if [ "$mode" == "$4" ]; then
@@ -369,14 +379,18 @@ verify_controller_rep_state() {
 	echo "--------------------Verify controller and replica state------------------"
 	i=0
 	rep_state=""
+	local rep_cnt=0
 	while [ "$i" != 50 ]; do
 		date
-		rep_cnt=`curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
+		rep_cnt=$(curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount')
+		if [[ -z "$rep_cnt" ]]; then
+			rep_cnt=0
+		fi
 		replica_cnt=`expr $rep_cnt`
 		rep_index=0
 		while [ $rep_index -lt $replica_cnt ]; do
-			address=`curl -s http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].address' | tr -d '"'`
-			mode=`curl -s http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].mode' | tr -d '"'`
+			address=$(curl -s http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].address' | tr -d '"')
+			mode=$(curl -s http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].mode' | tr -d '"')
 
 			if [ $address == "tcp://"$1":9502" ]; then
 				if [ "$mode" == "$2" ]; then
@@ -437,7 +451,10 @@ start_cloned_replica() {
 
 # get_replica_count CONTROLLER_IP
 get_replica_count() {
-	replicaCount=`curl -s http://"$1":9501/v1/volumes | jq '.data[0].replicaCount'`
+	local replicaCount=$(curl -s http://"$1":9501/v1/volumes | jq '.data[0].replicaCount')
+	if [[ -z "$replicaCount" ]]; then
+		replicaCount=0
+	fi
 	echo "$replicaCount"
 }
 
@@ -445,9 +462,9 @@ get_replica_count() {
 #the replicas will not be deleted and error will be returned that replica
 #count is not equal to the RF.
 verify_delete_replica_unsuccess() {
-	expected_error="Error deleting replica"
-	error=$(curl -X "POST" http://$CONTROLLER_IP:9501/v1/delete | jq '.replicas[0].msg' | tr -d '"')
-	if [ "$error" != "$expected_error" ]; then
+	local expected_error="Error deleting replica"
+	local error=$(curl -X "POST" http://$CONTROLLER_IP:9501/v1/delete | jq '.replicas[0].msg' | tr -d '"')
+	if [[ "$error" != "$expected_error" ]]; then
 		echo $2"  --failed"
 		collect_logs_and_exit
 	fi
@@ -1143,8 +1160,8 @@ run_data_integrity_test_with_fs_creation() {
 # As a part of negative test we are trying to create the snapshot with the
 # same name which returns snapshot_exists.
 create_snapshot() {
-	message=`curl -H "Content-Type: application/json" -X POST -d '{"name":"'$2'"}' http://$CONTROLLER_IP:9501/v1/volumes/$1?action=snapshot | jq '.message' | tr -d '"'`
-	if [ "$message" == "$3" ] ;
+	message=$(curl -H "Content-Type: application/json" -X POST -d '{"name":"'$2'"}' http://$CONTROLLER_IP:9501/v1/volumes/$1?action=snapshot | jq '.message' | tr -d '"')
+	if [[ "$message" == "$3" ]] ;
 	then
 		echo "create snapshot test passed"
 	else
@@ -1159,7 +1176,7 @@ test_duplicate_snapshot_failure() {
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
 	verify_rw_rep_count "2"
-	id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
+	id=$(curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"')
 	create_snapshot $id "snap1" "Snapshot: snap1 created successfully"
 	create_snapshot $id "snap1" "Snapshot: snap1 already exists"
 	create_snapshot $id "snap2" "Snapshot: snap2 created successfully"
@@ -1170,7 +1187,7 @@ test_duplicate_snapshot_failure() {
 
 test_clone_feature() {
 	echo "-----------------------Test_clone_feature-------------------------"
-	id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
+	id=$(curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"')
 	create_snapshot $id "snap3" "Snapshot: snap3 created successfully"
 	cloned_controller_id=$(start_controller "$CLONED_CONTROLLER_IP" "store2" "1")
 	start_cloned_replica "$CONTROLLER_IP"  "$CLONED_CONTROLLER_IP" "$CLONED_REPLICA_IP" "vol4"
@@ -1205,11 +1222,11 @@ test_clone_feature() {
 }
 
 verify_clone_status() {
-	i=0
-	clonestatus=""
+	local i=0
+	local clonestatus=""
 	while [ "$clonestatus" != "$1" ]; do
 		sleep 5
-		clonestatus=`curl -s http://$CLONED_REPLICA_IP:9502/v1/replicas/1 | jq '.clonestatus' | tr -d '"'`
+		clonestatus=$(curl -s http://$CLONED_REPLICA_IP:9502/v1/replicas/1 | jq '.clonestatus' | tr -d '"')
 		i=`expr $i + 1`
 		if [ $i -eq 20 ]; then
 			echo "1"
@@ -1224,7 +1241,7 @@ verify_clone_status() {
 create_device() {
 	# losetup is used to associate block device
 	# get the free device
-	device=$(sudo losetup -f)
+	local device=$(sudo losetup -f)
 	echo $device
 }
 
@@ -1412,15 +1429,15 @@ test_volume_resize() {
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
 	verify_rw_rep_count "2"
-	id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
+	id=$(curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"')
 	curl -H "Content-Type: application/json" -X POST -d '{"name":"store1", "size": "10G"}' http://$CONTROLLER_IP:9501/v1/volumes/$id?action=resize
 
 	upgraded_size=$((10*1024*1024*1024))
-	size=`curl http://$REPLICA_IP1:9502/v1/replicas/1 | jq '.size' | tr -d '"'`
+	size=$(curl http://$REPLICA_IP1:9502/v1/replicas/1 | jq '.size' | tr -d '"')
 	if [[ $size != $upgraded_size ]]; then
 		echo "Resize test failed"
 	fi
-	size=`curl http://$REPLICA_IP2:9502/v1/replicas/1 | jq '.size' | tr -d '"'`
+	size=$(curl http://$REPLICA_IP2:9502/v1/replicas/1 | jq '.size' | tr -d '"')
 	if [[ $size != $upgraded_size ]]; then
 		echo "Resize test failed"
 	fi
@@ -1454,7 +1471,7 @@ create_auto_generated_snapshot() {
 
 create_manual_snapshot() {
 	snaplist_initial=`ls /tmp/vol1 | grep .img | grep -v meta | grep  -v head`
-	id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
+	id=$(curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"')
 	create_snapshot $id $1 "Snapshot: $1 created successfully"
 	snaplist_final=`ls /tmp/vol1 | grep .img | grep -v meta | grep  -v head`
 	snaps[$snapIndx]=`echo ${snaplist_initial[@]} ${snaplist_final[@]} | tr ' ' '\n' | sort | uniq -u`
