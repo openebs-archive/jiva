@@ -1417,7 +1417,7 @@ test_replica_controller_continuous_stop_start() {
 	di_test_on_raw_disk "1K"
 	docker stop $orig_controller_id
 	docker start $orig_controller_id
-	verify_rw_rep_count "2"
+	verify_rw_rep_count "1"
 	di_test_on_raw_disk "1K"
 	cleanup
 	echo "Test_replica_controller_continuous_stop_start passed"
