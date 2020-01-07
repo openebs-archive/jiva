@@ -167,7 +167,7 @@ verify_rw_rep_count() {
 			echo "verify_rw_rep_count -- failed"
 			collect_logs_and_exit
 		fi
-		sleep 2
+		sleep 5
 	done
 	echo "Verify RW Replica status test -- passed"
 }
@@ -1287,18 +1287,22 @@ test_extent_support_file_system() {
 }
 
 upgrade_controller() {
+	docker logs $orig_controller_id
 	docker stop $orig_controller_id
 	docker rm $orig_controller_id
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
 }
 
 upgrade_replicas() {
+	docker logs $replica1_id
 	docker stop $replica1_id
 	docker rm $replica1_id
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	docker logs $replica1_id
 	docker stop $replica2_id
 	docker rm $replica2_id
 	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	docker logs $replica1_id
 	docker stop $replica3_id
 	docker rm $replica3_id
 	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
@@ -1396,7 +1400,7 @@ test_replica_controller_continuous_stop_start() {
 	di_test_on_raw_disk "1K"
 	docker stop $orig_controller_id
 	docker start $orig_controller_id
-	verify_rw_rep_count "1"
+	verify_rw_rep_count "2"
 	di_test_on_raw_disk "1K"
 	cleanup
 	echo "Test_replica_controller_continuous_stop_start passed"
@@ -1952,32 +1956,32 @@ test_replica_restart_while_snap_deletion() {
 }
 
 test_replica_restart_optimization() {
-        echo "------------Test replica restart optimization---------------"
-        orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
-        replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
-        replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
-        replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+	echo "------------Test replica restart optimization---------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
 
-        run_ios 100K 0 &
-        sleep 10
-        docker stop $replica3_id
-        wait
-        docker stop $replica2_id
-        docker stop $replica1_id
-        sleep 5
-        docker start $replica3_id
-        docker start $replica2_id
-        sleep 3
-        docker start $replica1_id
-        verify_replica_cnt "3" "Thre replica count test"
-        count=$(docker logs $orig_controller_id 2>&1 | grep -c "Replica tcp://172.18.0.3:9502 will takeover")
-        if [ "$count" -eq 0  ]; then
-           echo "replica restart optimization test failed"
-           collect_logs_and_exit
-        fi
-           echo "replica restart optimization test --passed"
+	run_ios 100K 0 &
+	sleep 10
+	docker stop $replica3_id
+	wait
+	docker stop $replica2_id
+	docker stop $replica1_id
+	sleep 5
+	docker start $replica3_id
+	docker start $replica2_id
+	sleep 3
+	docker start $replica1_id
+	verify_replica_cnt "3" "Thre replica count test"
+	count=$(docker logs $orig_controller_id 2>&1 | grep -c "Replica tcp://172.18.0.3:9502 will takeover")
+	if [ "$count" -eq 0  ]; then
+		echo "replica restart optimization test failed"
+		collect_logs_and_exit
+	fi
+	echo "replica restart optimization test --passed"
 
-        cleanup
+	cleanup
 }
 
 prepare_test_env
