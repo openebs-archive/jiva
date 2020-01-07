@@ -1,6 +1,6 @@
 
 #!/bin/bash
-set -x
+#set -x
 PS4='${LINENO}: '
 CONTROLLER_IP="172.18.0.2"
 REPLICA_IP1="172.18.0.3"
@@ -50,7 +50,7 @@ collect_logs_and_exit() {
 	echo "ls VOL3>>"
 	ls -ltr /tmp/vol3/
 	#Below is to get stack traces of longhorn processes
-	#kill -SIGABRT $(ps -auxwww | grep -w longhorn | grep -v grep | awk '{print $2}')
+	kill -SIGABRT $(ps -auxwww | grep -w longhorn | grep -v grep | awk '{print $2}')
 
 	echo "--------------------------ORIGINAL CONTROLLER LOGS ------------------------"
 	docker logs $orig_controller_id
