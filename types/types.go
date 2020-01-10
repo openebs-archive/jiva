@@ -72,6 +72,7 @@ type Backend interface {
 	GetVolUsage() (VolUsage, error)
 	SetReplicaMode(mode Mode) error
 	SetRevisionCounter(counter int64) error
+	SetSyncCounter(counter int64) error
 	SetRebuilding(rebuilding bool) error
 	GetMonitorChannel() MonitorChannel
 	StopMonitoring()
@@ -113,11 +114,12 @@ type Replica struct {
 }
 
 type RegReplica struct {
-	Address  string
-	UpTime   time.Duration
-	RevCount int64
-	RepType  string
-	RepState string
+	Address   string
+	UpTime    time.Duration
+	RevCount  int64
+	RepType   string
+	RepState  string
+	SyncCount int64
 }
 
 type IOStats struct {

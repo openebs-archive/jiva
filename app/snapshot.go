@@ -3,10 +3,11 @@ package app
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/openebs/jiva/alertlog"
 	"os"
 	"strings"
 	"text/tabwriter"
+
+	"github.com/openebs/jiva/alertlog"
 
 	"github.com/openebs/jiva/controller/rest"
 	"github.com/openebs/jiva/replica"
@@ -172,7 +173,7 @@ func revertSnapshot(c *cli.Context) error {
 func rmSnapshot(c *cli.Context) error {
 	var lastErr error
 	url := c.GlobalString("url")
-	task := sync.NewTask(url)
+	task := sync.NewTask(url, false)
 	if len(c.Args()) < 1 {
 		return fmt.Errorf("snapshot name is empty")
 	}

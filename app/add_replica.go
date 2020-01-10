@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+
 	"github.com/openebs/jiva/alertlog"
 
 	"github.com/openebs/jiva/replica"
@@ -29,13 +30,13 @@ func addReplica(c *cli.Context) error {
 	replica := c.Args()[0]
 
 	url := c.GlobalString("url")
-	task := sync.NewTask(url)
+	task := sync.NewTask(url, c.Bool("buffered-io"))
 	return task.AddReplica(replica, nil)
 }
 func AutoAddReplica(s *replica.Server, frontendIP string, replica string, replicaType string) error {
 	var err error
 	url := "http://" + frontendIP + ":9501"
-	task := sync.NewTask(url)
+	task := sync.NewTask(url, s.Bufio)
 	if replicaType == "quorum" {
 		err = task.AddQuorumReplica(replica, s)
 	} else {

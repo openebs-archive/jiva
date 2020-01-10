@@ -64,6 +64,10 @@ func (f *Wrapper) SetRevisionCounter(counter int64) error {
 	return nil
 }
 
+func (f *Wrapper) SetSyncCounter(counter int64) error {
+	return nil
+}
+
 func (f *Wrapper) SetRebuilding(rebuilding bool) error {
 	return nil
 }

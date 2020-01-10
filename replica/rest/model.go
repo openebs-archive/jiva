@@ -22,6 +22,7 @@ type Replica struct {
 	RemainSnapshots   int                         `json:"remainsnapshots"`
 	ReplicaMode       string                      `json:"replicamode"`
 	RevisionCounter   string                      `json:"revisioncounter"`
+	SyncCounter       string                      `json:"syncCounter"`
 	ReplicaCounter    int64                       `json:"replicacounter"`
 	UsedLogicalBlocks string                      `json:"usedlogicalblocks"`
 	UsedBlocks        string                      `json:"usedblocks"`
@@ -66,6 +67,7 @@ type CloneUpdateInput struct {
 	client.Resource
 	SnapName      string `json:"snapname"`
 	RevisionCount string `json:"revisioncounter"`
+	SyncCount     string `json:"synccounter"`
 }
 
 type RemoveDiskInput struct {
@@ -114,6 +116,12 @@ type RevisionCounter struct {
 	Counter string `json:"counter"`
 }
 
+// SyncCounter is the count of sync operation done on replica from the target
+type SyncCounter struct {
+	client.Resource
+	Counter string `json:"counter"`
+}
+
 type ReplicaCounter struct {
 	client.Resource
 	Counter int64 `json:"counter"`
@@ -158,6 +166,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["prepareremovedisk"] = true
 		actions["setreplicamode"] = true
 		actions["setrevisioncounter"] = true
+		actions["setsynccounter"] = true
 		actions["updatecloneinfo"] = true
 		actions["setreplicacounter"] = true
 	case replica.Closed:
@@ -194,6 +203,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["reload"] = true
 		actions["setreplicamode"] = true
 		actions["setrevisioncounter"] = true
+		actions["setsynccounter"] = true
 		actions["setreplicacounter"] = true
 		actions["updatecloneinfo"] = true
 	case replica.Error:
@@ -210,11 +220,13 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 	r.SectorSize = info.SectorSize
 	r.Size = strconv.FormatInt(info.Size, 10)
 	r.RevisionCounter = strconv.FormatInt(info.RevisionCounter, 10)
+	r.SyncCounter = strconv.FormatInt(info.SyncCounter, 10)
 	if rep != nil {
 		r.Chain, _ = rep.DisplayChain()
 		r.Disks = rep.ListDisks()
 		r.RemainSnapshots = rep.GetRemainSnapshotCounts()
 		r.RevisionCounter = strconv.FormatInt(rep.GetRevisionCounter(), 10)
+		r.SyncCounter = strconv.FormatInt(info.SyncCounter, 10)
 		r.ReplicaMode = rep.GetReplicaMode()
 		r.CloneStatus = rep.GetCloneStatus()
 	}
@@ -262,6 +274,9 @@ func setReplicaResourceActions(replica *client.Schema) {
 		"setrevisioncounter": {
 			Input: "revisionCounter",
 		},
+		"setsynccounter": {
+			Input: "syncCounter",
+		},
 		"setreplicacounter": {
 			Input: "replicaCounter",
 		},
@@ -287,6 +302,7 @@ func NewSchema() *client.Schemas {
 	schemas.AddType("prepareRemoveDiskOutput", PrepareRemoveDiskOutput{})
 	schemas.AddType("replicaMode", ReplicaMode{})
 	schemas.AddType("revisionCounter", RevisionCounter{})
+	schemas.AddType("syncCounter", SyncCounter{})
 	schemas.AddType("replicaCounter", ReplicaCounter{})
 	schemas.AddType("replacediskInput", ReplaceDiskInput{})
 

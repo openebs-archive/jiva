@@ -34,6 +34,7 @@ type Server struct {
 	dir               string
 	defaultSectorSize int64
 	backing           *BackingFile
+	Bufio             bool
 	//This channel is used to montitor the IO connection
 	//between controller and replica. If the connection is broken,
 	//the replica attempts to connect back to controller
@@ -126,9 +127,12 @@ func (s *Server) isExtentSupported() error {
 	return file.Close()
 }
 
-func (s *Server) Create(size int64) error {
+// Create initializes Replica instance when replica started for the first time
+// or returns nil if it was closed.
+func (s *Server) Create(size int64, bufio bool) error {
 	s.Lock()
 	defer s.Unlock()
+	s.Bufio = bufio
 	if err := os.Mkdir(s.dir, 0700); err != nil && !os.IsExist(err) {
 		logrus.Errorf("failed to create directory: %s", s.dir)
 		return err
@@ -147,7 +151,14 @@ func (s *Server) Create(size int64) error {
 	sectorSize := s.getSectorSize()
 
 	logrus.Infof("Creating volume %s, size %d/%d", s.dir, size, sectorSize)
-	r, err := New(size, sectorSize, s.dir, s.backing, s.ServerType)
+	r, err := New(options{
+		size:        size,
+		sectorSize:  sectorSize,
+		dir:         s.dir,
+		backingFile: s.backing,
+		replicaType: s.ServerType,
+		bufio:       bufio,
+	})
 	if err != nil {
 		return err
 	}
@@ -167,7 +178,14 @@ func (s *Server) Open() error {
 	size := s.getSize(info.Size)
 	sectorSize := s.getSectorSize()
 	logrus.Infof("Opening volume %s, size %d/%d", s.dir, size, sectorSize)
-	r, err := New(size, sectorSize, s.dir, s.backing, s.ServerType)
+	r, err := New(options{
+		size:        size,
+		sectorSize:  sectorSize,
+		dir:         s.dir,
+		backingFile: s.backing,
+		replicaType: s.ServerType,
+		bufio:       s.Bufio,
+	})
 	if err != nil {
 		logrus.Errorf("Error %v during open", err)
 		return err
@@ -200,7 +218,8 @@ func (s *Server) Reload() error {
 	return nil
 }
 
-func (s *Server) UpdateCloneInfo(snapName, revCount string) error {
+// UpdateCloneInfo update the clone info
+func (s *Server) UpdateCloneInfo(snapName, revCount, syncCount string) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -209,7 +228,7 @@ func (s *Server) UpdateCloneInfo(snapName, revCount string) error {
 	}
 
 	logrus.Infof("Update Clone Info")
-	return s.r.UpdateCloneInfo(snapName, revCount)
+	return s.r.UpdateCloneInfo(snapName, revCount, syncCount)
 }
 
 func (s *Server) Status() (State, Info) {
@@ -277,6 +296,18 @@ func (s *Server) GetRevisionCounter() (int64, error) {
 		return 0, err
 	}
 	return tmpReplica.revisionCache, nil
+}
+
+// GetSyncCounter reads the revison counter
+func (s *Server) GetSyncCounter() (int64, error) {
+	tmpReplica := Replica{
+		dir: Dir,
+	}
+	err := tmpReplica.initSyncCounter()
+	if err != nil {
+		return 0, err
+	}
+	return tmpReplica.syncCache, nil
 }
 
 // GetUsage returns the used size of volume
@@ -522,6 +553,18 @@ func (s *Server) SetRevisionCounter(counter int64) error {
 		return nil
 	}
 	return s.r.SetRevisionCounter(counter)
+}
+
+func (s *Server) SetSyncCounter(counter int64) error {
+	s.Lock()
+	defer s.Unlock()
+
+	if s.r == nil {
+		logrus.Infof("s.r is nil during setRevisionCounter")
+		return nil
+	}
+
+	return s.r.SetSyncCounter(counter)
 }
 
 func (s *Server) PingResponse() error {

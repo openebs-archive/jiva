@@ -119,6 +119,19 @@ func (r *Replica) SetRevisionCounterCloneReplica(counter int64) error {
 	return nil
 }
 
+// SetSyncCounterCloneReplica set revision counter for clone replica
+func (r *Replica) SetSyncCounterCloneReplica(counter int64) error {
+	r.syncLock.Lock()
+	defer r.syncLock.Unlock()
+
+	if err := r.writeSyncCounter(counter); err != nil {
+		return err
+	}
+
+	r.syncCache = counter
+	return nil
+}
+
 func (r *Replica) SetRevisionCounter(counter int64) error {
 	r.Lock()
 	if r.mode != types.RW {

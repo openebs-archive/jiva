@@ -458,6 +458,21 @@ func (r *replicator) SetRevisionCounter(address string, counter int64) error {
 	return nil
 }
 
+func (r *replicator) SetSyncCounter(address string, counter int64) error {
+	backend, ok := r.backends[address]
+	if !ok {
+		return fmt.Errorf("Cannot find backend %v", address)
+	}
+
+	if err := backend.backend.SetSyncCounter(counter); err != nil {
+		return err
+	}
+
+	logrus.Infof("Set backend %s sync counter to %v", address, counter)
+
+	return nil
+}
+
 func (r *replicator) SetQuorumRevisionCounter(address string, counter int64) error {
 	backend, ok := r.quorumBackends[address]
 	if !ok {

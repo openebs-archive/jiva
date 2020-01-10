@@ -22,11 +22,13 @@ var (
 
 type Task struct {
 	client *client.ControllerClient
+	bufio  bool
 }
 
-func NewTask(controller string) *Task {
+func NewTask(controller string, bufio bool) *Task {
 	return &Task{
 		client: client.NewControllerClient(controller),
+		bufio:  bufio,
 	}
 }
 
@@ -81,8 +83,8 @@ Register:
 	}
 	addr := strings.Split(replicaAddress, "://")
 	parts := strings.Split(addr[1], ":")
-	Replica, _ := replica.CreateTempReplica()
-	server, _ := replica.CreateTempServer()
+	Replica, _ := replica.CreateTempReplica(false)
+	server, _ := replica.CreateTempServer(false)
 
 	if volume.ReplicaCount == 0 {
 		revisionCount := Replica.GetRevisionCounter()
@@ -167,7 +169,9 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 			continue
 		}
 
-		_, err = toClient.UpdateCloneInfo(snapName, strconv.FormatInt(repl.Disks[snapshotName].RevisionCounter, 10))
+		_, err = toClient.UpdateCloneInfo(snapName,
+			strconv.FormatInt(repl.Disks[snapshotName].RevisionCounter, 10),
+			strconv.FormatInt(repl.Disks[snapshotName].SyncCounter, 10))
 		if err != nil {
 			return fmt.Errorf("Failed to update clone info, err: %v", err)
 		}
@@ -192,11 +196,11 @@ func (t *Task) AddReplica(replicaAddress string, s *replica.Server) error {
 	logrus.Infof("Addreplica %v", replicaAddress)
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
-	Replica, err := replica.CreateTempReplica()
+	Replica, err := replica.CreateTempReplica(s.Bufio)
 	if err != nil {
 		return fmt.Errorf("failed to create temp replica, error: %s", err.Error())
 	}
-	server, err := replica.CreateTempServer()
+	server, err := replica.CreateTempServer(s.Bufio)
 	if err != nil {
 		return fmt.Errorf("failed to create temp server, error: %s", err.Error())
 	}
@@ -304,6 +308,14 @@ func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.R
 		curReplica.RevisionCounter)
 	logrus.Infof("RW replica chain: %v, cur replica chain: %v", rwReplica.Chain, curReplica.Chain)
 	if rwReplica.RevisionCounter == curReplica.RevisionCounter {
+		if t.bufio {
+			logrus.Infof("SyncCount of RW replica (%v): %v, Current replica (%v): %v",
+				fromClient.GetAddress(), rwReplica.SyncCounter, toClient.GetAddress(),
+				curReplica.SyncCounter)
+			if rwReplica.SyncCounter != curReplica.SyncCounter {
+				return false, nil
+			}
+		}
 		// ignoring Chain[0] since it's head file and it is opened for writing the latest data.
 		if !reflect.DeepEqual(rwReplica.Chain[1:], curReplica.Chain[1:]) {
 			logrus.Warningf("Replica %v's chain not equal to RW replica %v's chain", toClient.GetAddress(), fromClient.GetAddress())
@@ -355,7 +367,7 @@ func (t *Task) reloadAndVerify(address string, repClient *replicaClient.ReplicaC
 	return err
 }
 
-func isRevisionCountSame(fromClient, toClient *replicaClient.ReplicaClient, disk string) (bool, error) {
+func (t *Task) isRevisionCountSame(fromClient, toClient *replicaClient.ReplicaClient, disk string) (bool, error) {
 	rwReplica, err := fromClient.GetReplica()
 	if err != nil {
 		return false, fmt.Errorf("Failed to verify isRevisionCountSame, err: %v", err)
@@ -377,6 +389,13 @@ func isRevisionCountSame(fromClient, toClient *replicaClient.ReplicaClient, disk
 		return false, nil
 	}
 
+	if t.bufio {
+		if rwReplica.Disks[disk].SyncCounter != curReplica.Disks[disk].SyncCounter {
+			logrus.Warningf("Sync count not same for snap: %v, cur: %v, RW: %v",
+				disk, curReplica.Disks[disk].SyncCounter, rwReplica.Disks[disk].SyncCounter)
+			return false, nil
+		}
+	}
 	return true, nil
 }
 
@@ -388,7 +407,7 @@ func (t *Task) syncFiles(fromClient, toClient *replicaClient.ReplicaClient, disk
 			return fmt.Errorf("Disk list shouldn't contain volume-head")
 		}
 
-		ok, err := isRevisionCountSame(fromClient, toClient, disk)
+		ok, err := t.isRevisionCountSame(fromClient, toClient, disk)
 		if err != nil {
 			return err
 		}

@@ -222,13 +222,14 @@ func (c *ReplicaClient) ReloadReplica() (rest.Replica, error) {
 	return replica, err
 }
 
-// UpdateCloneInfo update the snapname and revision count
-func (c *ReplicaClient) UpdateCloneInfo(snapName, revCount string) (rest.Replica, error) {
+// UpdateCloneInfo update the snapname, revision count, sync count
+func (c *ReplicaClient) UpdateCloneInfo(snapName, revCount, syncCount string) (rest.Replica, error) {
 	var replica rest.Replica
 
 	input := &rest.CloneUpdateInput{
 		SnapName:      snapName,
 		RevisionCount: revCount,
+		SyncCount:     syncCount,
 	}
 
 	err := c.post(c.address+"/replicas/1?action=updatecloneinfo", input, &replica)

@@ -27,6 +27,9 @@ func (s *Server) Replica(apiContext *api.ApiContext) *Replica {
 	defer s.s.RUnlock()
 	state, info := s.s.Status()
 	info.RevisionCounter, _ = s.s.GetRevisionCounter()
+	if s.s.Bufio {
+		info.SyncCounter, _ = s.s.GetSyncCounter()
+	}
 	return NewReplica(apiContext, state, info, s.s.Replica())
 }
 
@@ -137,7 +140,7 @@ func (s *Server) Create(rw http.ResponseWriter, req *http.Request) error {
 	}
 	logrus.Infof("Create for size %v", size)
 
-	return s.doOp(req, s.s.Create(size))
+	return s.doOp(req, s.s.Create(size, s.s.Bufio))
 }
 
 func (s *Server) OpenReplica(rw http.ResponseWriter, req *http.Request) error {
@@ -262,7 +265,7 @@ func (s *Server) UpdateCloneInfo(rw http.ResponseWriter, req *http.Request) erro
 		return err
 	}
 	logrus.Infof("Update Clone Info for snap %v", input.SnapName)
-	return s.doOp(req, s.s.UpdateCloneInfo(input.SnapName, input.RevisionCount))
+	return s.doOp(req, s.s.UpdateCloneInfo(input.SnapName, input.RevisionCount, input.SyncCount))
 }
 
 func (s *Server) CloseReplica(rw http.ResponseWriter, req *http.Request) error {
@@ -308,4 +311,22 @@ func (s *Server) SetRevisionCounter(rw http.ResponseWriter, req *http.Request) e
 	counter, _ := strconv.ParseInt(input.Counter, 10, 64)
 	logrus.Infof("SetRevisionCounter to %v", counter)
 	return s.doOp(req, s.s.SetRevisionCounter(counter))
+}
+
+// SetSyncCounter set the sync count
+func (s *Server) SetSyncCounter(rw http.ResponseWriter, req *http.Request) error {
+	var input SyncCounter
+	apiContext := api.GetApiContext(req)
+	if err := apiContext.Read(&input); err != nil && err != io.EOF {
+		logrus.Errorf("Err %v during read in setRevisionCounter", err)
+		return err
+	}
+
+	if s.s.Bufio {
+		counter, _ := strconv.ParseInt(input.Counter, 10, 64)
+		logrus.Infof("SetSyncCounter to %v", counter)
+		return s.doOp(req, s.s.SetSyncCounter(counter))
+	}
+	logrus.Infof("Ignore setting sync counter as bufio is not enabled")
+	return s.doOp(req, nil)
 }

@@ -44,6 +44,10 @@ func ControllerCmd() cli.Command {
 				Name:  "clusterIP",
 				Value: "",
 			},
+			cli.BoolFlag{
+				Name:  "buffered-io",
+				Usage: "if set true io's will be buffered, recommended for db's where data sync happens at intervals",
+			},
 			cli.StringSliceFlag{
 				Name:  "enable-backend",
 				Value: (*cli.StringSlice)(&[]string{"tcp"}),
@@ -118,7 +122,7 @@ func startController(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	logrus.Infof("Starting controller with frontendIP: %v, and clusterIP: %v", tgt.FrontendIP, tgt.ClusterIP)
+	logrus.Infof("Starting controller with frontendIP: %v, and clusterIP: %v, bufio enabled: %v", tgt.FrontendIP, tgt.ClusterIP, c.Bool("buffered-io"))
 
 	startAutoSnapDeletion := make(chan bool)
 	control := controller.
@@ -128,6 +132,7 @@ func startController(c *cli.Context) error {
 			controller.WithClusterIP(tgt.ClusterIP),
 			controller.WithBackend(dynamic.New(
 				initializeBackend(c))),
+			controller.WithBufferedIO(c.Bool("buffered-io")),
 			controller.WithFrontend(frontend, tgt.FrontendIP),
 			controller.WithRF(int(rf)))
 	server := rest.NewServer(control)

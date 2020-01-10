@@ -40,6 +40,13 @@ var (
 	diskPattern = regexp.MustCompile(`volume-head-(\d)+.img`)
 )
 
+type options struct {
+	size, sectorSize       int64
+	dir, replicaType, head string
+	readOnly, bufio        bool
+	backingFile            *BackingFile
+}
+
 type Replica struct {
 	sync.RWMutex
 	volume           diffDisk
@@ -65,13 +72,14 @@ type Replica struct {
 	revisionCache int64
 	revisionFile  *sparse.DirectFileIoProcessor
 
-	peerLock  sync.Mutex
-	peerCache types.PeerDetails
-	peerFile  *sparse.DirectFileIoProcessor
+	syncLock  sync.Mutex
+	syncCache int64
+	syncFile  *sparse.DirectFileIoProcessor
 
 	cloneStatus   string
 	CloneSnapName string
 	Clone         bool
+	bufio         bool
 	// used for draining the HoleCreatorChan also useful for mocking
 	holeDrainer func()
 }
@@ -87,6 +95,7 @@ type Info struct {
 	CloneStatus     string
 	BackingFile     *BackingFile `json:"-"`
 	RevisionCounter int64
+	SyncCounter     int64
 }
 
 type disk struct {
@@ -96,6 +105,7 @@ type disk struct {
 	UserCreated     bool
 	Created         string
 	RevisionCounter int64
+	SyncCounter     int64
 }
 
 type BackingFile struct {
@@ -120,6 +130,7 @@ type DiskInfo struct {
 	Created         string   `json:"created"`
 	Size            string   `json:"size"`
 	RevisionCounter int64    `json:"revisionCount"`
+	SyncCounter     int64    `json:"syncCount"`
 }
 
 const (
@@ -128,7 +139,7 @@ const (
 	OpReplace  = "replace"
 )
 
-func CreateTempReplica() (*Replica, error) {
+func CreateTempReplica(bufio bool) (*Replica, error) {
 	if err := os.Mkdir(Dir, 0700); err != nil && !os.IsExist(err) {
 		return nil, err
 	}
@@ -142,12 +153,19 @@ func CreateTempReplica() (*Replica, error) {
 		logrus.Errorf("Error in initializing revision counter while creating temp replica")
 		return nil, err
 	}
+
+	if bufio {
+		if err := r.initSyncCounter(); err != nil {
+			return nil, err
+		}
+	}
 	return r, nil
 }
 
-func CreateTempServer() (*Server, error) {
+func CreateTempServer(bufio bool) (*Server, error) {
 	return &Server{
-		dir: Dir,
+		dir:   Dir,
+		Bufio: bufio,
 	}, nil
 }
 
@@ -157,58 +175,75 @@ func ReadInfo(dir string) (Info, error) {
 	return info, err
 }
 
-func New(size, sectorSize int64, dir string, backingFile *BackingFile, replicaType string) (*Replica, error) {
-	return construct(false, size, sectorSize, dir, "", backingFile, replicaType)
+// New returns new instance of Replica
+func New(opts options) (*Replica, error) {
+	return construct(opts)
 }
 
+// NewReadOnly returns new instance of read only Replica
 func NewReadOnly(dir, head string, backingFile *BackingFile) (*Replica, error) {
 	// size and sectorSize don't matter because they will be read from metadata
-	return construct(true, 0, 512, dir, head, backingFile, "")
+	opts := options{
+		readOnly:    true,
+		size:        0,
+		sectorSize:  512,
+		dir:         dir,
+		head:        head,
+		backingFile: backingFile,
+		replicaType: "",
+	}
+	return construct(opts)
 }
 
-func construct(readonly bool, size, sectorSize int64, dir, head string, backingFile *BackingFile, replicaType string) (*Replica, error) {
-	if size%sectorSize != 0 {
-		return nil, fmt.Errorf("Size %d not a multiple of sector size %d", size, sectorSize)
-	}
-
-	if err := os.Mkdir(dir, 0700); err != nil && !os.IsExist(err) {
-		logrus.Errorf("failed to create directory: %s", dir)
-		return nil, err
-	}
-
+func initReplica(opts options) (*Replica, error) {
 	r := &Replica{
-		dir:             dir,
+		dir:             opts.dir,
 		activeDiskData:  make([]*disk, 1),
 		diskData:        make(map[string]*disk),
 		diskChildrenMap: map[string]map[string]bool{},
 		mode:            types.INIT,
+		bufio:           opts.bufio,
 		holeDrainer: func() {
 			// this is just initializing function,
 			// actual excution will be done by r.holeDrainer()
 			holeDrainer()
 		},
 	}
-	r.info.Size = size
-	r.info.SectorSize = sectorSize
-	r.info.BackingFile = backingFile
-	if backingFile != nil {
-		r.info.BackingFileName = backingFile.Name
+	r.info.Size = opts.size
+	r.info.SectorSize = opts.sectorSize
+	r.info.BackingFile = opts.backingFile
+	if opts.backingFile != nil {
+		r.info.BackingFileName = opts.backingFile.Name
 	}
 	r.volume.sectorSize = defaultSectorSize
-
 	if err := r.initRevisionCounter(); err != nil {
 		return nil, err
 	}
 
+	if opts.bufio {
+		if err := r.initSyncCounter(); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := r.initVolume(opts); err != nil {
+		return nil, err
+	}
+
+	return r, nil
+}
+
+func (r *Replica) initVolume(opts options) error {
 	// Scan all the disks to build the disk map
 	exists, err := r.readMetadata()
 	if err != nil {
-		return nil, err
+		return err
 	}
+
 	// Reference r.info.Size because it may have changed from reading
 	// metadata
 	locationSize := r.info.Size / r.volume.sectorSize
-	if size%defaultSectorSize != 0 {
+	if opts.size%defaultSectorSize != 0 {
 		locationSize++
 	}
 	r.volume.location = make([]uint16, locationSize)
@@ -216,28 +251,46 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 	r.volume.UserCreatedSnap = []bool{false}
 
 	if r.readOnly && !exists {
-		return nil, os.ErrNotExist
+		return os.ErrNotExist
 	}
 
-	if head != "" {
-		r.info.Head = head
+	if opts.head != "" {
+		r.info.Head = opts.head
 	}
 
 	if exists {
 		if err := r.openLiveChain(); err != nil {
-			return nil, err
+			return err
 		}
-	} else if size <= 0 {
-		return nil, os.ErrNotExist
+	} else if opts.size <= 0 {
+		return os.ErrNotExist
 	} else {
 		if err := r.createDisk("000", false, util.Now()); err != nil {
-			return nil, err
+			return err
 		}
 	}
 	r.info.Parent = r.diskData[r.info.Head].Parent
 
+	return nil
+}
+
+func construct(opts options) (*Replica, error) {
+	if opts.size%opts.sectorSize != 0 {
+		return nil, fmt.Errorf("Size %d not a multiple of sector size %d", opts.size, opts.sectorSize)
+	}
+
+	if err := os.Mkdir(opts.dir, 0700); err != nil && !os.IsExist(err) {
+		logrus.Errorf("failed to create directory: %s", opts.dir)
+		return nil, err
+	}
+
+	r, err := initReplica(opts)
+	if err != nil {
+		return nil, err
+	}
+
 	r.insertBackingFile()
-	r.ReplicaType = replicaType
+	r.ReplicaType = opts.replicaType
 	inject.AddPreloadTimeout()
 	logrus.Info("Start reading extents")
 	if err := PreloadLunMap(&r.volume); err != nil {
@@ -339,7 +392,14 @@ func (r *Replica) Resize(obj interface{}) error {
 }
 
 func (r *Replica) Reload() (*Replica, error) {
-	newReplica, err := New(r.info.Size, r.info.SectorSize, r.dir, r.info.BackingFile, r.ReplicaType)
+	newReplica, err := New(options{
+		size:        r.info.Size,
+		sectorSize:  r.info.SectorSize,
+		dir:         r.dir,
+		backingFile: r.info.BackingFile,
+		replicaType: r.ReplicaType,
+		bufio:       r.bufio,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -350,7 +410,7 @@ func (r *Replica) Reload() (*Replica, error) {
 
 // UpdateCloneInfo update the clone information such as snapshot name and
 // revisionCount
-func (r *Replica) UpdateCloneInfo(snapName, revCount string) error {
+func (r *Replica) UpdateCloneInfo(snapName, revCount, syncCount string) error {
 	r.info.Parent = "volume-snap-" + snapName + ".img"
 	if err := r.encodeToFile(&r.info, volumeMetaData); err != nil {
 		return err
@@ -363,6 +423,18 @@ func (r *Replica) UpdateCloneInfo(snapName, revCount string) error {
 
 	if err := r.SetRevisionCounterCloneReplica(revisionCount); err != nil {
 		return fmt.Errorf("Failed to set revision counter, err: %v", err)
+	}
+
+	if r.bufio {
+		syncCount, err := strconv.ParseInt(revCount, 10, 64)
+		if err != nil {
+			return fmt.Errorf("Failed to parse revision count %v, err: %v", revCount, err)
+		}
+
+		if err := r.SetSyncCounterCloneReplica(syncCount); err != nil {
+			return fmt.Errorf("Failed to set revision counter, err: %v", err)
+		}
+		r.diskData[r.info.Head].SyncCounter = syncCount
 	}
 
 	r.diskData[r.info.Head].Parent = r.info.Parent
@@ -766,6 +838,9 @@ func (r *Replica) nextFile(parsePattern *regexp.Regexp, pattern, parent string) 
 }
 
 func (r *Replica) openFile(name string, flag int) (types.DiffDisk, error) {
+	if r.bufio {
+		return sparse.NewBufferedFileIoProcessor(r.diskPath(name), os.O_RDWR|flag, 06666, true)
+	}
 	return sparse.NewDirectFileIoProcessor(r.diskPath(name), os.O_RDWR|flag, 06666, true)
 }
 
@@ -794,6 +869,7 @@ func (r *Replica) createNewHead(oldHead, parent, created string) (types.DiffDisk
 		UserCreated:     false,
 		Created:         created,
 		RevisionCounter: r.GetRevisionCounter(),
+		SyncCounter:     r.GetSyncCounter(),
 	}
 	err = r.encodeToFile(&newDisk, newHeadName+metadataSuffix)
 	return f, newDisk, err
@@ -936,6 +1012,7 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 		r.diskData[newSnapName].UserCreated = userCreated
 		r.diskData[newSnapName].Created = created
 		r.diskData[newSnapName].RevisionCounter = r.GetRevisionCounter()
+		r.diskData[newSnapName].SyncCounter = r.GetSyncCounter()
 		if err := r.encodeToFile(r.diskData[newSnapName], newSnapName+metadataSuffix); err != nil {
 			return err
 		}
@@ -1074,9 +1151,43 @@ func (r *Replica) readMetadata() (bool, error) {
 		}
 	}
 
-	r.volume.UsedBlocks += 2 // One each for peer.details and revision.counter
+	r.volume.UsedBlocks++ // for revision.counter
+	if r.bufio {
+		r.volume.UsedBlocks++ // for sync.counter
+	}
 
 	return len(r.diskData) > 0, nil
+}
+
+// we are updating the revision count of snapshot with the latest
+// revision count. This is done to know how many io's have been served
+// if replica has been restarted multiple times and new snapshots have
+// been created with no data.
+// This is compared with 1 since revision.counter is initialized
+// with 1 initially.
+func (r *Replica) updateRevisionCount(name string) error {
+	if r.diskData[name].RevisionCounter <= 1 {
+		r.diskData[name].RevisionCounter = r.GetRevisionCounter()
+		logrus.Infof("Update revison count: %v of snapshot: %v", r.diskData[name].RevisionCounter, name)
+		if err := r.encodeToFile(r.diskData[name], name+metadataSuffix); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Replica) updateSyncCount(name string) error {
+	if !r.bufio {
+		return nil
+	}
+	if r.diskData[name].SyncCounter <= 1 {
+		r.diskData[name].SyncCounter = r.GetSyncCounter()
+		logrus.Infof("Update sync count: %v of snapshot: %v", r.diskData[name].SyncCounter, name)
+		if err := r.encodeToFile(r.diskData[name], name+metadataSuffix); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *Replica) readDiskData(file string) error {
@@ -1089,19 +1200,14 @@ func (r *Replica) readDiskData(file string) error {
 	name := file[:len(file)-len(metadataSuffix)]
 	data.Name = name
 	r.diskData[name] = &data
-	// we are updating the revision count of snapshot with the latest
-	// revision count. This is done to know how many io's have been served
-	// if replica has been restarted multiple times and new snapshots have
-	// been created with no data.
-	// This is compared with 1 since revision.counter is initialized
-	// with 1 initially.
-	if r.diskData[name].RevisionCounter <= 1 {
-		r.diskData[name].RevisionCounter = r.GetRevisionCounter()
-		logrus.Infof("Update revison count: %v of snapshot: %v", r.diskData[name].RevisionCounter, name)
-		if err := r.encodeToFile(r.diskData[name], name+metadataSuffix); err != nil {
-			return err
-		}
+	if err := r.updateRevisionCount(name); err != nil {
+		return err
 	}
+
+	if err := r.updateSyncCount(name); err != nil {
+		return err
+	}
+
 	if data.Parent != "" {
 		r.addChildDisk(data.Parent, data.Name)
 	}
@@ -1184,15 +1290,27 @@ func (r *Replica) Sync() (int, error) {
 		return -1, fmt.Errorf("Can not sync on read-only replica")
 	}
 
+	var (
+		err error
+		n   int
+	)
+
 	if r.ReplicaType != "quorum" {
 		r.RLock()
 		r.info.Dirty = true
-		n, err := r.volume.Sync()
+		n, err = r.volume.Sync()
 		r.RUnlock()
 		if err != nil {
 			return n, err
 		}
 	}
+
+	if r.mode == types.RW && r.bufio {
+		if err := r.increaseSyncCounter(); err != nil {
+			return n, err
+		}
+	}
+
 	return 0, nil
 }
 func (r *Replica) Unmap(offset int64, length int64) (int, error) {

@@ -66,6 +66,10 @@ _run_ci:
 	@echo "INFO:\tRun ci over jiva image"
 	sudo bash ./ci/start_init_test.sh
 
+_run_ci_buf:
+	@echo "INFO:\tRun ci over jiva image with buffered-io enabled"
+	sudo bash ./ci/start_init_test.sh --buffered-io=true
+
 build_image:
 	@echo "INFO:\tRun unit tests and build image"
 	bash ./scripts/ci
@@ -90,6 +94,7 @@ endif
 	$(shell golint $(shell find . -maxdepth 1 -type d \( ! -iname ".git" ! -iname "vendor" \)) )
 
 build: deps build_image _run_ci _push_image
+build_buf: deps build_image _run_ci_buf
 build_gitlab: deps build_image _push_image
 
 #

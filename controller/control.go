@@ -39,6 +39,7 @@ type Controller struct {
 	SnapshotName             string
 	IsSnapDeletionInProgress bool
 	StartAutoSnapDeletion    chan bool
+	Bufio                    bool
 }
 
 func max(x int, y int) int {
@@ -94,6 +95,12 @@ func WithName(name string) BuildOpts {
 func WithClusterIP(ip string) BuildOpts {
 	return func(c *Controller) {
 		c.clusterIP = ip
+	}
+}
+
+func WithBufferedIO(bufio bool) BuildOpts {
+	return func(c *Controller) {
+		c.Bufio = bufio
 	}
 }
 
@@ -163,9 +170,38 @@ func (c *Controller) hasWOReplica() (string, bool) {
 
 func (c *Controller) hasGreaterRevisionCount(woReplica, newReplica string) (bool, error) {
 	var (
-		woRevCnt int64
-		err      error
+		woRevCnt, woSyncCnt int64
+		err                 error
 	)
+
+	if c.Bufio {
+		if _, ok := c.RegisteredReplicas[woReplica]; !ok {
+			woClient, err := replicaClient.NewReplicaClient(woReplica)
+			if err != nil {
+				return false, err
+			}
+
+			woClient.SetTimeout(5 * time.Second)
+			woRep, err := woClient.GetReplica()
+			if err != nil {
+				return false, err
+			}
+
+			woRevCnt, err = strconv.ParseInt(woRep.RevisionCounter, 10, 64)
+			if err != nil {
+				return false, err
+			}
+
+			woSyncCnt, err = strconv.ParseInt(woRep.SyncCounter, 10, 64)
+			if err != nil {
+				return false, err
+			}
+		} else {
+			woRevCnt = c.RegisteredReplicas[woReplica].RevCount
+			woSyncCnt = c.RegisteredReplicas[woReplica].SyncCount
+		}
+		goto newRep
+	}
 
 	if _, ok := c.RegisteredReplicas[woReplica]; !ok {
 		woRevCnt, err = c.backend.GetRevisionCounter(woReplica)
@@ -176,6 +212,7 @@ func (c *Controller) hasGreaterRevisionCount(woReplica, newReplica string) (bool
 		woRevCnt = c.RegisteredReplicas[woReplica].RevCount
 	}
 
+newRep:
 	repClient, err := replicaClient.NewReplicaClient(newReplica)
 	if err != nil {
 		return false, err
@@ -193,9 +230,24 @@ func (c *Controller) hasGreaterRevisionCount(woReplica, newReplica string) (bool
 	}
 
 	logrus.Infof("Revision count: %v of New Replica: %v, Revision count: %v of WO Replica: %v", newRevCnt, newReplica, woRevCnt, woReplica)
+
 	if newRevCnt > woRevCnt {
 		return true, nil
 	}
+
+	if c.Bufio {
+		if newRevCnt == woRevCnt {
+			newSyncCnt, err := strconv.ParseInt(replica.SyncCounter, 10, 64)
+			if err != nil {
+				return false, err
+			}
+			logrus.Infof("Sync count: %v of New Replica: %v, Sync count: %v of WO Replica: %v", newSyncCnt, newReplica, woSyncCnt, woReplica)
+			if newSyncCnt > woSyncCnt {
+				return true, nil
+			}
+		}
+	}
+
 	return false, nil
 }
 
@@ -401,6 +453,14 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 
 	if c.RegisteredReplicas[c.MaxRevReplica].RevCount < register.RevCount {
 		c.MaxRevReplica = register.Address
+	}
+
+	if c.Bufio {
+		if c.RegisteredReplicas[c.MaxRevReplica].RevCount == register.RevCount {
+			if c.RegisteredReplicas[c.MaxRevReplica].SyncCount < register.SyncCount {
+				c.MaxRevReplica = register.Address
+			}
+		}
 	}
 
 	if (len(c.RegisteredReplicas) >= ((c.ReplicationFactor / 2) + 1)) &&

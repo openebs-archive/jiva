@@ -10,6 +10,10 @@ CLONED_CONTROLLER_IP="172.18.0.6"
 CLONED_REPLICA_IP="172.18.0.7"
 
 snapIndx=1
+bufio=$1
+if [[ -z $bufio ]]; then
+	bufio="--buffered-io=false"
+fi
 
 collect_logs_and_exit() {
 	echo "--------------------------docker ps -a-------------------------------------"
@@ -50,7 +54,7 @@ collect_logs_and_exit() {
 	echo "ls VOL3>>"
 	ls -ltr /tmp/vol3/
 	#Below is to get stack traces of longhorn processes
-	kill -SIGABRT $(ps -auxwww | grep -w longhorn | grep -v grep | awk '{print $2}')
+	kill -SIGABRT $(pgrep longhorn)
 
 	echo "--------------------------ORIGINAL CONTROLLER LOGS ------------------------"
 	docker logs $orig_controller_id
@@ -410,41 +414,48 @@ verify_controller_rep_state() {
 
 # start_controller CONTROLLER_IP
 start_controller() {
-	controller_id=$(docker run -d --net stg-net --ip $1 -P --expose 3260 --expose 9501 --expose 9502-9504 $JI \
-		env REPLICATION_FACTOR="$3" launch controller --frontend gotgt --frontendIP "$1" "$2")
+	controller_id=$(docker run -d --net stg-net --ip $1 -P --expose 3260 \
+	--expose 9501 --expose 9502-9504 $JI  env REPLICATION_FACTOR="$3" \
+	launch controller --frontend gotgt --frontendIP "$1" "$2" \
+	$bufio)
 
 	echo "$controller_id"
 }
 
 # start_replica CONTROLLER_IP REPLICA_IP folder_name
 start_replica() {
-	replica_id=$(docker run --restart unless-stopped -d --net stg-net --ip "$2" -P --expose 9502-9504 -v /tmp/"$3":/"$3" $JI \
-		launch replica --frontendIP "$1" --listen "$2":9502 --size 2g /"$3")
+	replica_id=$(docker run --restart unless-stopped -d --net stg-net --ip "$2" \
+		-P --expose 9502-9504 -v /tmp/"$3":/"$3" $JI launch replica \
+		--frontendIP "$1" --listen "$2":9502 --size 2g /"$3" $bufio)
 
 	echo "$replica_id"
-
 }
 
 # start_replica CONTROLLER_IP REPLICA_IP folder_name
 start_debug_replica() {
-	replica_id=$(docker run --restart unless-stopped -d --net stg-net --ip "$2" -P --expose 9502-9504 -v /tmp/"$3":/"$3" $JI_DEBUG \
-		env $4=$5  $6=$7 launch replica --frontendIP "$1" --listen "$2":9502 --size 2g /"$3")
-
+	replica_id=$(docker run --restart unless-stopped -d --net stg-net --ip "$2" \
+		-P --expose 9502-9504 -v /tmp/"$3":/"$3" $JI_DEBUG env $4=$5  $6=$7 \
+		launch replica --frontendIP "$1" --listen "$2":9502 --size 2g /"$3" \
+		$bufio)
 	echo "$replica_id"
 }
 
 # start_controller CONTROLLER_IP (debug build)
 start_debug_controller() {
-	controller_id=$(docker run -d --net stg-net --ip $1 -P --expose 3260 --expose 9501 --expose 9502-9504 $JI_DEBUG \
-		env REPLICATION_FACTOR="$3" "$4"="$5" launch controller --frontend gotgt --frontendIP "$1" "$2")
+	controller_id=$(docker run -d --net stg-net --ip $1 -P --expose 3260 \
+		--expose 9501 --expose 9502-9504 $JI_DEBUG env REPLICATION_FACTOR="$3" \
+		"$4"="$5" launch controller --frontend gotgt --frontendIP "$1" "$2" \
+		$bufio)
 
 	echo "$controller_id"
 }
 
 # start_cloned_replica CONTROLLER_IP  CLONED_CONTROLLER_IP CLONED_REPLICA_IP folder_name
 start_cloned_replica() {
-	cloned_replica_id=$(docker run --restart unless-stopped -d --net stg-net --ip "$3" -P --expose 9502-9504 -v /tmp/"$4":/"$4" $JI \
-		launch replica --type clone --snapName snap3 --cloneIP "$1" --frontendIP "$2" --listen "$3":9502 --size 2g /"$4")
+	cloned_replica_id=$(docker run --restart unless-stopped -d --net stg-net \
+		--ip "$3" -P --expose 9502-9504 -v /tmp/"$4":/"$4" $JI launch replica \
+		--type clone --snapName snap3 --cloneIP "$1" --frontendIP "$2" \
+		--listen "$3":9502 --size 2g /"$4" $bufio)
 
 	echo "$cloned_replica_id"
 }
@@ -1332,6 +1343,8 @@ test_upgrade() {
 	docker pull $1
 	UPGRADED_JI=$JI
 	JI=$1
+	local oldbufio=$bufio
+	bufio=""
 
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
@@ -1353,6 +1366,8 @@ test_upgrade() {
 	verify_replica_cnt "3" "Three replica count test in controller upgrade"
 	wait
 	test_data_integrity
+	bufio=$oldbufio
+
 	cleanup
 }
 
@@ -2002,6 +2017,8 @@ test_replica_restart_optimization() {
 }
 
 prepare_test_env
+run_data_integrity_test_with_fs_creation
+test_clone_feature
 test_volume_resize
 test_replica_restart_optimization
 test_delete_snapshot
@@ -2022,8 +2039,6 @@ test_replication_factor
 #test_two_replica_delete
 test_replica_ip_change
 test_replica_reregistration
-run_data_integrity_test_with_fs_creation
-test_clone_feature
 test_duplicate_snapshot_failure
 #test_extent_support_file_system
 test_upgrades

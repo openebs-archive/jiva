@@ -10,7 +10,10 @@ env:
   global:
     - GOARCH=$(go env GOARCH)
     - GO_FOR_RELEASE=1.13
-
+  matrix:
+    # tags are mainly in ascending order
+    - JIVA_BUILD_TAGS=0
+    - JIVA_BUILD_TAGS=1
 addons:
   apt:
     update: true
@@ -21,7 +24,13 @@ before_install:
   - go env && pwd
   - mkdir -p $HOME/gopath/bin
 script:
-  - make build
+  - >
+    if [ $JIVA_BUILD_TAGS = 0 ];
+    then
+      make build;
+    else
+      make build_buf;
+    fi;
 notifications:
   email:
     recipients:

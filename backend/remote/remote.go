@@ -24,6 +24,8 @@ var (
 	requestBuffer = 1024
 )
 
+var _ types.Backend = (*Remote)(nil)
+
 func New() types.BackendFactory {
 	return &Factory{}
 }
@@ -210,6 +212,13 @@ func (r *Remote) SetRevisionCounter(counter int64) error {
 	logrus.Infof("Set revision counter of %s to : %v", r.Name, counter)
 	localRevCount := strconv.FormatInt(counter, 10)
 	return r.doAction("setrevisioncounter", &map[string]string{"counter": localRevCount})
+}
+
+// SetSyncCounter set the sync count of the replica
+func (r *Remote) SetSyncCounter(counter int64) error {
+	logrus.Infof("Set sync counter of %s to : %v", r.Name, counter)
+	localSyncCount := strconv.FormatInt(counter, 10)
+	return r.doAction("setsynccounter", &map[string]string{"counter": localSyncCount})
 }
 
 func (r *Remote) info() (rest.Replica, error) {

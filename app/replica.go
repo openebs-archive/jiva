@@ -2,7 +2,6 @@ package app
 
 import (
 	"errors"
-	"github.com/openebs/jiva/alertlog"
 	"net"
 	"net/http"
 	"os"
@@ -12,6 +11,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/openebs/jiva/alertlog"
 
 	"github.com/openebs/jiva/types"
 
@@ -53,6 +54,10 @@ func ReplicaCmd() cli.Command {
 			},
 			cli.BoolTFlag{
 				Name: "sync-agent",
+			},
+			cli.BoolFlag{
+				Name:  "buffered-io",
+				Usage: "if set true io's will be buffered, recommended for db's where data sync happens at intervals",
 			},
 			cli.StringFlag{
 				Name:  "size",
@@ -127,7 +132,7 @@ checkagain:
 func CloneReplica(s *replica.Server, address string, cloneIP string, snapName string) error {
 	var err error
 	url := "http://" + cloneIP + ":9501"
-	task := sync.NewTask(url)
+	task := sync.NewTask(url, s.Bufio)
 	if err = task.CloneReplica(url, address, cloneIP, snapName); err != nil {
 		alertlog.Logger.Errorw("",
 			"eventcode", "jiva.volume.replica.clone.failure",
@@ -156,34 +161,23 @@ func CloneReplica(s *replica.Server, address string, cloneIP string, snapName st
 	return err
 }
 
-func startReplica(c *cli.Context) error {
-
+func initLogger() {
 	formatter := &logrus.TextFormatter{
 		FullTimestamp: true,
 	}
 	logrus.SetFormatter(formatter)
+}
 
-	if c.NArg() != 1 {
-		return errors.New("directory name is required")
-	}
-
+func setMaxChainLength() {
 	types.MaxChainLength, _ = strconv.Atoi(os.Getenv("MAX_CHAIN_LENGTH"))
 	if types.MaxChainLength == 0 {
 		logrus.Infof("MAX_CHAIN_LENGTH env not set, default value is 512")
 	} else {
 		logrus.Infof("MAX_CHAIN_LENGTH: %v", types.MaxChainLength)
 	}
+}
 
-	dir := c.Args()[0]
-	replicaType := c.String("type")
-	s := replica.NewServer(dir, 512, replicaType)
-	go replica.CreateHoles()
-
-	address := c.String("listen")
-	frontendIP := c.String("frontendIP")
-	cloneIP := c.String("cloneIP")
-	snapName := c.String("snapName")
-	size := c.String("size")
+func createReplica(s *replica.Server, size string, bufio bool) error {
 	if size != "" {
 		//Units bails with an error size is provided with i, like Gi
 		//The following will convert - G, Gi, GiB into G
@@ -193,11 +187,14 @@ func startReplica(c *cli.Context) error {
 			return err
 		}
 
-		if err := s.Create(size); err != nil {
+		if err := s.Create(size, bufio); err != nil {
 			return err
 		}
 	}
+	return nil
+}
 
+func parseAddress(address string) string {
 	if address == ":9502" {
 		host, _ := os.Hostname()
 		addrs, _ := net.LookupIP(host)
@@ -213,12 +210,74 @@ func startReplica(c *cli.Context) error {
 			}
 		}
 	}
+	return address
+}
+
+type cloneConfig struct {
+	s           *replica.Server
+	addr        string
+	fromReplica string
+	snapName    string
+}
+
+func startClone(conf cloneConfig) error {
+	var err error
+	logrus.Infof("Starting clone process\n")
+	status := conf.s.Replica().GetCloneStatus()
+	if status != "completed" {
+		logrus.Infof("Set clone status as inProgress")
+		if err = conf.s.Replica().SetCloneStatus("inProgress"); err != nil {
+			logrus.Error("Error in setting the clone status as 'inProgress'")
+			return err
+		}
+		if err = CloneReplica(conf.s, conf.addr, conf.fromReplica, conf.snapName); err != nil {
+			logrus.Error("Error in cloning replica, setting clone status as 'error'")
+			if statusErr := conf.s.Replica().SetCloneStatus("error"); err != nil {
+				logrus.Errorf("Error in setting the clone status as 'error', found error:%v", statusErr)
+				return err
+			}
+			return err
+		}
+	}
+	logrus.Infof("Set clone status as Completed")
+	if err := conf.s.Replica().SetCloneStatus("completed"); err != nil {
+		logrus.Error("Error in setting the clone status as 'completed'")
+		return err
+	}
+	logrus.Infof("Clone process completed successfully\n")
+	return nil
+}
+
+func startReplica(c *cli.Context) error {
+	if c.NArg() != 1 {
+		return errors.New("directory name is required")
+	}
+
+	initLogger()
+	setMaxChainLength()
+
+	dir := c.Args()[0]
+	replicaType := c.String("type")
+	s := replica.NewServer(dir, 512, replicaType)
+	go replica.CreateHoles()
+
+	address := c.String("listen")
+	frontendIP := c.String("frontendIP")
+	cloneIP := c.String("cloneIP")
+	snapName := c.String("snapName")
+	size := c.String("size")
+
+	if err := createReplica(s, size, c.Bool("buffered-io")); err != nil {
+		return err
+	}
+
+	address = parseAddress(address)
 	controlAddress, dataAddress, syncAddress, err := util.ParseAddresses(address)
 	if err != nil {
 		return err
 	}
 
-	logrus.Infof("Starting replica having replicaType: %v, frontendIP: %v, size: %v, dir: %v", replicaType, frontendIP, size, dir)
+	logrus.Infof("Starting replica having replicaType: %v, frontendIP: %v, size: %v, dir: %v , bufio enabled: %v", replicaType, frontendIP, size, dir, c.Bool("buffered-io"))
 	logrus.Infof("Setting replicaAddr: %v, controlAddr: %v, dataAddr: %v, syncAddr: %v", address, controlAddress, dataAddress, syncAddress)
 
 	var resp error
@@ -277,30 +336,16 @@ func startReplica(c *cli.Context) error {
 		logrus.Infof("Waiting for s.Replica() to be non nil")
 		time.Sleep(2 * time.Second)
 	}
+
 	if replicaType == "clone" && snapName != "" {
-		logrus.Infof("Starting clone process\n")
-		status := s.Replica().GetCloneStatus()
-		if status != "completed" {
-			logrus.Infof("Set clone status as inProgress")
-			if err = s.Replica().SetCloneStatus("inProgress"); err != nil {
-				logrus.Error("Error in setting the clone status as 'inProgress'")
-				return err
-			}
-			if err = CloneReplica(s, "tcp://"+address, cloneIP, snapName); err != nil {
-				logrus.Error("Error in cloning replica, setting clone status as 'error'")
-				if statusErr := s.Replica().SetCloneStatus("error"); err != nil {
-					logrus.Errorf("Error in setting the clone status as 'error', found error:%v", statusErr)
-					return err
-				}
-				return err
-			}
-		}
-		logrus.Infof("Set clone status as Completed")
-		if err := s.Replica().SetCloneStatus("completed"); err != nil {
-			logrus.Error("Error in setting the clone status as 'completed'")
+		if err := startClone(cloneConfig{
+			s:           s,
+			snapName:    snapName,
+			addr:        "tcp://" + address,
+			fromReplica: cloneIP,
+		}); err != nil {
 			return err
 		}
-		logrus.Infof("Clone process completed successfully\n")
 	} else {
 		logrus.Infof("Set clone status as NA")
 		if err := s.Replica().SetCloneStatus("NA"); err != nil {

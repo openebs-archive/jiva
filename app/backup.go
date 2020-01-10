@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+
 	"github.com/openebs/jiva/alertlog"
 
 	"github.com/openebs/jiva/sync"
@@ -92,7 +93,7 @@ func BackupListCmd() cli.Command {
 
 func createBackup(c *cli.Context) error {
 	url := c.GlobalString("url")
-	task := sync.NewTask(url)
+	task := sync.NewTask(url, false)
 
 	dest := c.String("dest")
 	if dest == "" {
@@ -126,7 +127,7 @@ func createBackup(c *cli.Context) error {
 
 func rmBackup(c *cli.Context) error {
 	url := c.GlobalString("url")
-	task := sync.NewTask(url)
+	task := sync.NewTask(url, false)
 
 	backup := c.Args().First()
 	if backup == "" {
@@ -153,7 +154,7 @@ func rmBackup(c *cli.Context) error {
 
 func restoreBackup(c *cli.Context) error {
 	url := c.GlobalString("url")
-	task := sync.NewTask(url)
+	task := sync.NewTask(url, false)
 
 	backup := c.Args().First()
 	if backup == "" {
@@ -179,7 +180,7 @@ func restoreBackup(c *cli.Context) error {
 
 func inspectBackup(c *cli.Context) error {
 	url := c.GlobalString("url")
-	task := sync.NewTask(url)
+	task := sync.NewTask(url, false)
 
 	backup := c.Args().First()
 	if backup == "" {
@@ -197,7 +198,7 @@ func inspectBackup(c *cli.Context) error {
 
 func listBackup(c *cli.Context) error {
 	url := c.GlobalString("url")
-	task := sync.NewTask(url)
+	task := sync.NewTask(url, false)
 
 	destURL := c.Args().First()
 	if destURL == "" {
