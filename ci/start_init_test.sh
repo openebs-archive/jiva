@@ -1,3 +1,4 @@
+
 #!/bin/bash
 #set -x
 PS4='${LINENO}: '
@@ -25,23 +26,22 @@ collect_logs_and_exit() {
 	curl http://$REPLICA_IP3:9502/v1/replicas | jq
 
 	#Take system output
-	ps -auxwww
-	top -n 10 -b
-	netstat -nap
-
-#	i=0
-#	while [ "$i" != 10 ]; do
-#		i=`expr $i + 1`
-#		echo "CONTROLLER TRACE>>"
-#		curl http://$CONTROLLER_IP:9501/debug/pprof/goroutine?debug=2
-#		echo "REPLICA 1 TRACE>>"
-#		curl http://$REPLICA_IP1:9502/debug/pprof/goroutine?debug=2
-#		echo "REPLICA 2 TRACE>>"
-#		curl http://$REPLICA_IP2:9502/debug/pprof/goroutine?debug=2
-#		echo "REPLICA 3 TRACE>>"
-#		curl http://$REPLICA_IP3:9502/debug/pprof/goroutine?debug=2
-#		sleep 5
-#	done
+	#ps -auxwww
+	#top -n 10 -b
+	#netstat -nap
+	#	i=0
+	#	while [ "$i" != 10 ]; do
+	#		i=`expr $i + 1`
+	#		echo "CONTROLLER TRACE>>"
+	#		curl http://$CONTROLLER_IP:9501/debug/pprof/goroutine?debug=2
+	#		echo "REPLICA 1 TRACE>>"
+	#		curl http://$REPLICA_IP1:9502/debug/pprof/goroutine?debug=2
+	#		echo "REPLICA 2 TRACE>>"
+	#		curl http://$REPLICA_IP2:9502/debug/pprof/goroutine?debug=2
+	#		echo "REPLICA 3 TRACE>>"
+	#		curl http://$REPLICA_IP3:9502/debug/pprof/goroutine?debug=2
+	#		sleep 5
+	#	done
 
 	echo "ls VOL1>>"
 	ls -ltr /tmp/vol1/
@@ -68,7 +68,7 @@ collect_logs_and_exit() {
 }
 
 collect_logs() {
-        echo "--------------------------Collect logs----------------------------"
+	echo "--------------------------Collect logs----------------------------"
 	echo "--------------------------ORIGINAL CONTROLLER LOGS ------------------------"
 	docker logs $orig_controller_id
 	echo "--------------------------DEBUG REPLICA 1 LOGS-----------------------------------"
@@ -79,7 +79,7 @@ collect_logs() {
 }
 
 cleanup() {
-        echo "----------------------------Cleanup------------------------"
+	echo "----------------------------Cleanup------------------------"
 	rm -rfv /tmp/vol*
 	rm -rfv /mnt/logs
 	docker stop $(docker ps -aq)
@@ -100,9 +100,9 @@ prepare_test_env() {
 }
 
 verify_replica_cnt() {
-        echo "-------------------Verify Replica count--------------------"
-	i=0
-	replica_cnt=""
+	echo "-------------------Verify Replica count--------------------"
+	local i=0
+	local replica_cnt=""
 	while [ "$replica_cnt" != "$1" ]; do
 		replica_cnt=`curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
 		i=`expr $i + 1`
@@ -140,7 +140,7 @@ verify_rw_status() {
 	i=0
 	rw_status=""
 	while [ "$rw_status" != "$1" ]; do
-		ro_status=`curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
+		ro_status=$(curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"')
 		if [ "$ro_status" == "true" ]; then
 			rw_status="RO"
 		elif [ "$ro_status" == "false" ]; then
@@ -157,30 +157,34 @@ verify_rw_status() {
 }
 
 verify_rw_rep_count() {
-        echo "---------------Verify RW Replica Status------------------"
-       i=0
-       count=""
-       while [ "$count" != "$1" ]; do
-               count=`get_rw_rep_count`
-               i=`expr $i + 1`
-               if [ "$i" == 100 ]; then
-		       echo "verify_rw_rep_count -- failed"
-		       collect_logs_and_exit
-               fi
-               sleep 2
-       done
-       echo "Verify RW Replica status test -- passed"
+	echo "---------------Verify RW Replica Status------------------"
+	i=0
+	count=""
+	while [ "$count" != "$1" ]; do
+		count=$(get_rw_rep_count)
+		i=$(expr $i + 1)
+		if [ "$i" == 100 ]; then
+			echo "verify_rw_rep_count -- failed"
+			collect_logs_and_exit
+		fi
+		sleep 5
+	done
+	echo "Verify RW Replica status test -- passed"
 }
 
 #returns number of replicas connected to controller in RW mode
 get_rw_rep_count() {
-	rep_index=0
-	rw_count=0
-	rep_cnt=`curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
-	replica_cnt=`expr $rep_cnt`
-	while [ $rep_index -lt $replica_cnt ]; do
-		mode=`curl -s http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].mode' | tr -d '"'`
-		if [ "$mode" == "RW" ]; then
+	local rep_index=0
+	local rw_count=0
+	local rep_cnt=0
+	rep_cnt=$(curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount' | tr -d '"')
+	if [[ -z "$rep_cnt" ]]; then
+		rep_cnt=0
+	fi
+	while [ $rep_index -lt $rep_cnt ]; do
+		local mode=""
+		mode=$(curl -s http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].mode' | tr -d '"')
+		if [[ "$mode" == "RW" ]]; then
 			rw_count=`expr $rw_count + 1`
 		fi
 		rep_index=`expr $rep_index + 1`
@@ -191,31 +195,31 @@ get_rw_rep_count() {
 #$1 - replication factor
 #$2 - message
 #this fn checks
-   # RW replica count connected to controller
-   # consistency factor
-   # and RO state of controller
+# RW replica count connected to controller
+# consistency factor
+# and RO state of controller
 #and verifies whether they are in sync
 verify_controller_quorum() {
-        echo "--------------------Verify controller quorum-----------------"
+	echo "--------------------Verify controller quorum-----------------"
 	i=0
 	cf=`expr $1 / 2`
 	cf=`expr $cf + 1`
 	while [ "$i" != 5 ]; do
 		date
 		rw_count=$(get_rw_rep_count)
-		ro_status=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
+		ro_status=$(curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"')
 		# volume RO status is true
-		if [ "$ro_status" == "true" ]; then
+		if [[ "$ro_status" == "true" ]]; then
 			# CF is not met
-			if [ "$rw_count" -lt "$cf" ]; then
+			if [[ "$rw_count" -lt "$cf" ]]; then
 				echo $2 " -- passed1"
 			else
 				# if CF is met, volume should be in rw
-				ro_status=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
+				ro_status=$(curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"')
 				if [ "$ro_status" == "false" ]; then
 					echo $2 " -- passed2"
 				else
-				# CF is met, and volume is in RO
+					# CF is met, and volume is in RO
 					echo $2 " -- failed1"
 					collect_logs_and_exit
 				fi
@@ -227,11 +231,11 @@ verify_controller_quorum() {
 				echo $2 " -- passed3"
 			else
 				# if CF is not met, volume should be in RO
-				ro_status=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
+				ro_status=$(curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"')
 				if [ "$ro_status" == "true" ]; then
 					echo $2 " -- passed4"
 				else
-				# CF is not met, and volume is in RW
+					# CF is not met, and volume is in RW
 					echo $2 " -- failed2"
 					collect_logs_and_exit
 				fi
@@ -244,33 +248,33 @@ verify_controller_quorum() {
 # This verifies the goroutine leaks which happens when a request is made to
 # replica_ip:9503.
 verify_go_routine_leak() {
-    echo "---------------------Verify goroutine leak-------------------------"
-    i=0
-    no_of_goroutine=`curl http://$2:9502/debug/pprof/goroutine?debug=1 | grep goroutine | awk '{ print $4}'`
-    passed=0
-    req_cnt=0
-    while [ "$i" != 30 ]; do
-            curl -m 5 -s http://$2:9503 &
-            i=`expr $i + 1`
-            sleep 2
-    done
-    wait
-    new_no_of_goroutine=`curl http://$2:9502/debug/pprof/goroutine?debug=1 | grep goroutine | awk '{ print $4}'`
-    old=`expr $no_of_goroutine + 3`
-    if [ $new_no_of_goroutine -lt $old ]; then
-             echo $1 --passed
-             return
-    fi
-    echo $1 " -- failed"
-    collect_logs_and_exit
+	echo "---------------------Verify goroutine leak-------------------------"
+	i=0
+	no_of_goroutine=$(curl http://$2:9502/debug/pprof/goroutine?debug=1 | grep goroutine | awk '{ print $4}')
+	passed=0
+	req_cnt=0
+	while [ "$i" != 30 ]; do
+		curl -m 5 -s http://$2:9503 &
+		i=`expr $i + 1`
+		sleep 2
+	done
+	wait
+	new_no_of_goroutine=$(curl http://$2:9502/debug/pprof/goroutine?debug=1 | grep goroutine | awk '{ print $4}')
+	old=`expr $no_of_goroutine + 3`
+	if [ $new_no_of_goroutine -lt $old ]; then
+		echo $1 --passed
+		return
+	fi
+	echo $1 " -- failed"
+	collect_logs_and_exit
 }
 
 verify_vol_status() {
-        echo "---------------------------Verify volume status--------------------------"
+	echo "---------------------------Verify volume status--------------------------"
 	i=0
 	rw_status=""
 	while [ "$rw_status" != "$1" ]; do
-		ro_status=`curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"'`
+		ro_status=$(curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"')
 		if [ "$ro_status" == "true" ]; then
 			rw_status="RO"
 		elif [ "$ro_status" == "false" ]; then
@@ -289,10 +293,10 @@ verify_vol_status() {
 
 verify_replica_mode() {
 	i=0
-        passed=0
+	passed=0
 	while [ "$i" != 50 ]; do
 		date
-		rep_mode=`curl -s http://$3:9502/v1/replicas | jq '.data[0].replicamode' | tr -d '"'`
+		rep_mode=$(curl -s http://$3:9502/v1/replicas | jq '.data[0].replicamode' | tr -d '"')
 		if [ "$rep_mode" == "$4" ]; then
 			passed=`expr $passed + 1`
 		fi
@@ -312,35 +316,40 @@ verify_replica_mode() {
 #$5 - another replica IP
 #$6 - its to be mode which will be verified by querying controller
 #this fn verifies that
-    #the state of replica to be in 'closed' state by querying replica (or)
-    #the mode to be connected to controller by querying controller
+#the state of replica to be in 'closed' state by querying replica (or)
+#the mode to be connected to controller by querying controller
 #this fn considered as 'pass' if the result matches with the pass count.
 #this fn takes care of checking for two replicas, and thus, pass count is passed by caller
 verify_rep_state() {
-        echo "------------------------Verify Replica state--------------------------"
+	echo "------------------------Verify Replica state--------------------------"
 	i=0
 	rep_state=""
+	local rep_cnt=0
+	replica_cnt=0
 	while [ "$i" != 50 ]; do
 		date
-		rep_cnt=`curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
+		rep_cnt=$(curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount')
+		if [[ -z "$rep_cnt" ]]; then
+			rep_cnt=0
+		fi
 		replica_cnt=`expr $rep_cnt`
 		passed=0
 		#if [ "$replica_cnt" == 0 ]; then
-			rep_state=`curl -s http://$3:9502/v1/replicas | jq '.data[0].state' | tr -d '"'`
+		rep_state=$(curl -s http://$3:9502/v1/replicas | jq '.data[0].state' | tr -d '"')
+		if [ "$rep_state" == "closed" ]; then
+			passed=`expr $passed + 1`
+		fi
+		if [ "$5" != "" ]; then
+			rep_state=$(curl -s http://$5:9502/v1/replicas | jq '.data[0].state' | tr -d '"')
 			if [ "$rep_state" == "closed" ]; then
 				passed=`expr $passed + 1`
 			fi
-			if [ "$5" != "" ]; then
-				rep_state=`curl -s http://$5:9502/v1/replicas | jq '.data[0].state' | tr -d '"'`
-				if [ "$rep_state" == "closed" ]; then
-					passed=`expr $passed + 1`
-				fi
-			fi
+		fi
 		#fi
-		rep_index=0
+		local rep_index=0
 		while [ $rep_index -lt $replica_cnt ]; do
-			address=`curl -s http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].address' | tr -d '"'`
-			mode=`curl -s http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].mode' | tr -d '"'`
+			address=$(curl -s http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].address' | tr -d '"')
+			mode=$(curl -s http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].mode' | tr -d '"')
 
 			if [ $address == "tcp://"$3":9502" ]; then
 				if [ "$mode" == "$4" ]; then
@@ -367,17 +376,21 @@ verify_rep_state() {
 }
 
 verify_controller_rep_state() {
-        echo "--------------------Verify controller and replica state------------------"
+	echo "--------------------Verify controller and replica state------------------"
 	i=0
 	rep_state=""
+	local rep_cnt=0
 	while [ "$i" != 50 ]; do
 		date
-		rep_cnt=`curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount'`
+		rep_cnt=$(curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].replicaCount')
+		if [[ -z "$rep_cnt" ]]; then
+			rep_cnt=0
+		fi
 		replica_cnt=`expr $rep_cnt`
 		rep_index=0
 		while [ $rep_index -lt $replica_cnt ]; do
-			address=`curl -s http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].address' | tr -d '"'`
-			mode=`curl -s http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].mode' | tr -d '"'`
+			address=$(curl -s http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].address' | tr -d '"')
+			mode=$(curl -s http://$CONTROLLER_IP:9501/v1/replicas | jq '.data['$rep_index'].mode' | tr -d '"')
 
 			if [ $address == "tcp://"$1":9502" ]; then
 				if [ "$mode" == "$2" ]; then
@@ -398,7 +411,8 @@ verify_controller_rep_state() {
 # start_controller CONTROLLER_IP
 start_controller() {
 	controller_id=$(docker run -d --net stg-net --ip $1 -P --expose 3260 --expose 9501 --expose 9502-9504 $JI \
-			env REPLICATION_FACTOR="$3" launch controller --frontend gotgt --frontendIP "$1" "$2")
+		env REPLICATION_FACTOR="$3" launch controller --frontend gotgt --frontendIP "$1" "$2")
+
 	echo "$controller_id"
 }
 
@@ -406,20 +420,24 @@ start_controller() {
 start_replica() {
 	replica_id=$(docker run --restart unless-stopped -d --net stg-net --ip "$2" -P --expose 9502-9504 -v /tmp/"$3":/"$3" $JI \
 		launch replica --frontendIP "$1" --listen "$2":9502 --size 2g /"$3")
+
 	echo "$replica_id"
+
 }
 
 # start_replica CONTROLLER_IP REPLICA_IP folder_name
 start_debug_replica() {
 	replica_id=$(docker run --restart unless-stopped -d --net stg-net --ip "$2" -P --expose 9502-9504 -v /tmp/"$3":/"$3" $JI_DEBUG \
-	env $4=$5  $6=$7 launch replica --frontendIP "$1" --listen "$2":9502 --size 2g /"$3")
+		env $4=$5  $6=$7 launch replica --frontendIP "$1" --listen "$2":9502 --size 2g /"$3")
+
 	echo "$replica_id"
 }
 
 # start_controller CONTROLLER_IP (debug build)
 start_debug_controller() {
 	controller_id=$(docker run -d --net stg-net --ip $1 -P --expose 3260 --expose 9501 --expose 9502-9504 $JI_DEBUG \
-			env REPLICATION_FACTOR="$3" "$4"="$5" launch controller --frontend gotgt --frontendIP "$1" "$2")
+		env REPLICATION_FACTOR="$3" "$4"="$5" launch controller --frontend gotgt --frontendIP "$1" "$2")
+
 	echo "$controller_id"
 }
 
@@ -427,12 +445,16 @@ start_debug_controller() {
 start_cloned_replica() {
 	cloned_replica_id=$(docker run --restart unless-stopped -d --net stg-net --ip "$3" -P --expose 9502-9504 -v /tmp/"$4":/"$4" $JI \
 		launch replica --type clone --snapName snap3 --cloneIP "$1" --frontendIP "$2" --listen "$3":9502 --size 2g /"$4")
+
 	echo "$cloned_replica_id"
 }
 
 # get_replica_count CONTROLLER_IP
 get_replica_count() {
-	replicaCount=`curl -s http://"$1":9501/v1/volumes | jq '.data[0].replicaCount'`
+	local replicaCount=$(curl -s http://"$1":9501/v1/volumes | jq '.data[0].replicaCount')
+	if [[ -z "$replicaCount" ]]; then
+		replicaCount=0
+	fi
 	echo "$replicaCount"
 }
 
@@ -440,28 +462,28 @@ get_replica_count() {
 #the replicas will not be deleted and error will be returned that replica
 #count is not equal to the RF.
 verify_delete_replica_unsuccess() {
-    expected_error="Error deleting replica"
-    error=$(curl -X "POST" http://$CONTROLLER_IP:9501/v1/delete | jq '.replicas[0].msg' | tr -d '"')
-    if [ "$error" != "$expected_error" ]; then
-               echo $2"  --failed"
-        collect_logs_and_exit
-    fi
-    #verify whether number of replicas are still the same as it was sent or nor.
-    verify_replica_cnt "$1" "$2"
-    echo $2"  --passed"
-    return
+	local expected_error="Error deleting replica"
+	local error=$(curl -X "POST" http://$CONTROLLER_IP:9501/v1/delete | jq '.replicas[0].msg' | tr -d '"')
+	if [[ "$error" != "$expected_error" ]]; then
+		echo $2"  --failed"
+		collect_logs_and_exit
+	fi
+	#verify whether number of replicas are still the same as it was sent or nor.
+	verify_replica_cnt "$1" "$2"
+	echo $2"  --passed"
+	return
 }
 
 #verify_delete_replica verifies that if the replication factor condition
 #is met then it will delete the replicas. So before calling this function
 #ensure that number of replicas should be equal to the RF.
 verify_delete_replica() {
-    old_replica_count=$(get_replica_count $CONTROLLER_IP)
-    echo "$old_replica_count"
-    curl -X "POST" http://$CONTROLLER_IP:9501/v1/delete | jq
-    new_replica_count=$(get_replica_count $CONTROLLER_IP)
-    echo "$new_replica_count"
-    verify_replica_cnt "0" "Zero replica count test"
+	old_replica_count=$(get_replica_count $CONTROLLER_IP)
+	echo "$old_replica_count"
+	curl -X "POST" http://$CONTROLLER_IP:9501/v1/delete | jq
+	new_replica_count=$(get_replica_count $CONTROLLER_IP)
+	echo "$new_replica_count"
+	verify_replica_cnt "0" "Zero replica count test"
 }
 
 test_two_replica_delete() {
@@ -575,18 +597,17 @@ test_preload() {
 	echo "-----------------------------Test_preload-------------------------------"
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
 	debug_replica_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1" "PRELOAD_TIMEOUT" "12")
-        # Since this is first time for replica to connect
-        # timeout of 12sec is injected
-        sleep 15
+	# Since this is first time for replica to connect
+	# timeout of 12sec is injected
+	sleep 15
 	sudo docker stop $orig_controller_id
 	sudo docker start $orig_controller_id
 	verify_replica_cnt "1" "One replica count test when controller is restarted"
-
-        # Restart controller once it has registered
-        # to test whether rpc connection is closed,
-        # since tcp connection is created only after
-        # replica is registered.
-        sudo docker stop $orig_controller_id
+	# Restart controller once it has registered
+	# to test whether rpc connection is closed,
+	# since tcp connection is created only after
+	# replica is registered.
+	sudo docker stop $orig_controller_id
 	sudo docker start $orig_controller_id
 	verify_replica_cnt "1" "One replica count test when controller is restarted"
 	sleep 5
@@ -607,16 +628,16 @@ test_preload() {
 	fi
 
 
-        preload_success=0
-        iter=0
+	preload_success=0
+	iter=0
 	while [ "$preload_success" -lt 1 ]; do
 		preload_success=`docker logs $debug_replica_id 2>&1 | grep -c "Read extents successful"`
-                if [ "$iter" == 100 ]; then
-                        collect_logs_and_exit
-                fi
-                let iter=iter+1
-                sleep 2
-        done
+		if [ "$iter" == 100 ]; then
+			collect_logs_and_exit
+		fi
+		let iter=iter+1
+		sleep 2
+	done
 
 	cleanup
 }
@@ -625,16 +646,16 @@ test_controller_rpc_close() {
 	echo "------------------------Test_controller_rpc_close--------------------------"
 	debug_controller_id=$(start_debug_controller "$CONTROLLER_IP" "store1" "1" "RPC_PING_TIMEOUT" "45")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
-        # Adding this sleep to ensure ping timeout
-        sleep 60
+	# Adding this sleep to ensure ping timeout
+	sleep 60
 
-        writer_exit=`docker logs $debug_controller_id 2>&1 | grep "Exiting rpc writer" | wc -l`
-        reader_exit=`docker logs $debug_controller_id 2>&1 | grep "Exiting rpc reader" | wc -l`
+	writer_exit=`docker logs $debug_controller_id 2>&1 | grep "Exiting rpc writer" | wc -l`
+	reader_exit=`docker logs $debug_controller_id 2>&1 | grep "Exiting rpc reader" | wc -l`
 	loop_exit=`docker logs $debug_controller_id 2>&1 | grep "Exiting rpc loop" | wc -l`
 	if [ "$writer_exit" == 0 ]; then
 		collect_logs_and_exit
 	fi
-        if [ "$reader_exit" == 0 ]; then
+	if [ "$reader_exit" == 0 ]; then
 		collect_logs_and_exit
 	fi
 	if [ "$loop_exit" == 0 ]; then
@@ -652,11 +673,11 @@ test_replica_rpc_close() {
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "1")
 	debug_replica_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	sleep 5
-        docker stop $orig_controller_id
-        sleep 25
+	docker stop $orig_controller_id
+	sleep 25
 
 	read_write_exit=`docker logs $debug_replica_id 2>&1 | grep -c "Closing RPC conn with replica:"`
-        if [ "$read_write_exit" == 0 ]; then
+	if [ "$read_write_exit" == 0 ]; then
 		collect_logs_and_exit
 	fi
 
@@ -715,7 +736,7 @@ verify_bad_file_descriptor_error() {
 # holes for the duplicate data.
 test_bad_file_descriptor() {
 	echo "----------------Test_bad_file_descripter---------------"
-        # Test case1: When punching holes while writing
+	# Test case1: When punching holes while writing
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
 	replica1_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1" "PUNCH_HOLE_TIMEOUT" "5")
 	replica2_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2" "PUNCH_HOLE_TIMEOUT" "5")
@@ -726,9 +747,9 @@ test_bad_file_descriptor() {
 	# data in HoleCreatorChan during write is drained while
 	# closing the replica.
 	# Replica will be closed upon controller disconnection
-        verify_bad_file_descriptor_error "When punching holes while writing"
+	verify_bad_file_descriptor_error "When punching holes while writing"
 
-        # Test case2: When punching holes while preload
+	# Test case2: When punching holes while preload
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
 	replica1_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1" "PUNCH_HOLE_TIMEOUT" "5" "DISABLE_PUNCH_HOLES" "True")
 	replica2_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2" "PUNCH_HOLE_TIMEOUT" "5" "DISABLE_PUNCH_HOLES" "True")
@@ -738,7 +759,7 @@ test_bad_file_descriptor() {
 	# delayed and we can verify that data which is filled in the
 	# HoleCreatorChan during preload is drained while closing the replica.
 	# Replica will be closed upon controller disconnection
-        verify_bad_file_descriptor_error "When punching holes while preload"
+	verify_bad_file_descriptor_error "When punching holes while preload"
 }
 
 test_two_replica_stop_start() {
@@ -838,7 +859,7 @@ run_ios_rand_write() {
 }
 
 run_ios() {
-        echo "---------------------------Run IO's-------------------------------"
+	echo "---------------------------Run IO's-------------------------------"
 	login_to_volume "$CONTROLLER_IP:3260"
 	sleep 2
 	get_scsi_disk
@@ -948,20 +969,20 @@ test_three_replica_stop_start() {
 }
 
 test_ctrl_stop_start() {
-       echo "-----------------Test Controller stop/start---------------"
-       orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
-       replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
-       replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
-       replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+	echo "-----------------Test Controller stop/start---------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
 
-       verify_rw_rep_count "3"
+	verify_rw_rep_count "3"
 
-       docker stop $orig_controller_id
-       docker start $orig_controller_id
+	docker stop $orig_controller_id
+	docker start $orig_controller_id
 
-       verify_rw_rep_count "3"
-       echo "Test Controller stop/start test --passed"
-       cleanup
+	verify_rw_rep_count "3"
+	echo "Test Controller stop/start test --passed"
+	cleanup
 }
 
 test_replica_reregistration() {
@@ -1064,7 +1085,7 @@ login_to_volume() {
 
 # Wait for iSCSI device node (scsi device) to be created
 get_scsi_disk() {
-        echo "-------------------------Get SCSI Disk---------------------------"
+	echo "-------------------------Get SCSI Disk---------------------------"
 	device_name=$(iscsiadm -m session -P 3 |grep -i "Attached scsi disk" | awk '{print $4}')
 	i=0
 	while [ -z $device_name ]; do
@@ -1078,7 +1099,7 @@ get_scsi_disk() {
 			continue;
 		fi
 	done
-        echo "SCSI disk:" $device_name
+	echo "SCSI disk:" $device_name
 }
 
 
@@ -1095,13 +1116,13 @@ test_data_integrity() {
 		mount /dev/$device_name /mnt/store
 
 		dd if=/dev/urandom of=file1 bs=4k count=10000
-                hash1=$(md5sum file1 | awk '{print $1}')
+		hash1=$(md5sum file1 | awk '{print $1}')
 		cp file1 /mnt/store
 		umount /mnt/store
 		logout_of_volume
-	        login_to_volume "$CONTROLLER_IP:3260"
-	        get_scsi_disk
-	        sleep 5
+		login_to_volume "$CONTROLLER_IP:3260"
+		get_scsi_disk
+		sleep 5
 		mount /dev/$device_name /mnt/store
 
 		hash2=$(md5sum /mnt/store/file1 | awk '{print $1}')
@@ -1139,8 +1160,8 @@ run_data_integrity_test_with_fs_creation() {
 # As a part of negative test we are trying to create the snapshot with the
 # same name which returns snapshot_exists.
 create_snapshot() {
-	message=`curl -H "Content-Type: application/json" -X POST -d '{"name":"'$2'"}' http://$CONTROLLER_IP:9501/v1/volumes/$1?action=snapshot | jq '.message' | tr -d '"'`
-	if [ "$message" == "$3" ] ;
+	message=$(curl -H "Content-Type: application/json" -X POST -d '{"name":"'$2'"}' http://$CONTROLLER_IP:9501/v1/volumes/$1?action=snapshot | jq '.message' | tr -d '"')
+	if [[ "$message" == "$3" ]] ;
 	then
 		echo "create snapshot test passed"
 	else
@@ -1155,7 +1176,7 @@ test_duplicate_snapshot_failure() {
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
 	verify_rw_rep_count "2"
-	id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
+	id=$(curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"')
 	create_snapshot $id "snap1" "Snapshot: snap1 created successfully"
 	create_snapshot $id "snap1" "Snapshot: snap1 already exists"
 	create_snapshot $id "snap2" "Snapshot: snap2 created successfully"
@@ -1166,7 +1187,7 @@ test_duplicate_snapshot_failure() {
 
 test_clone_feature() {
 	echo "-----------------------Test_clone_feature-------------------------"
-	id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
+	id=$(curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"')
 	create_snapshot $id "snap3" "Snapshot: snap3 created successfully"
 	cloned_controller_id=$(start_controller "$CLONED_CONTROLLER_IP" "store2" "1")
 	start_cloned_replica "$CONTROLLER_IP"  "$CLONED_CONTROLLER_IP" "$CLONED_REPLICA_IP" "vol4"
@@ -1201,11 +1222,11 @@ test_clone_feature() {
 }
 
 verify_clone_status() {
-	i=0
-	clonestatus=""
+	local i=0
+	local clonestatus=""
 	while [ "$clonestatus" != "$1" ]; do
 		sleep 5
-		clonestatus=`curl -s http://$CLONED_REPLICA_IP:9502/v1/replicas/1 | jq '.clonestatus' | tr -d '"'`
+		clonestatus=$(curl -s http://$CLONED_REPLICA_IP:9502/v1/replicas/1 | jq '.clonestatus' | tr -d '"')
 		i=`expr $i + 1`
 		if [ $i -eq 20 ]; then
 			echo "1"
@@ -1220,7 +1241,7 @@ verify_clone_status() {
 create_device() {
 	# losetup is used to associate block device
 	# get the free device
-	device=$(sudo losetup -f)
+	local device=$(sudo losetup -f)
 	echo $device
 }
 
@@ -1283,27 +1304,25 @@ test_extent_support_file_system() {
 }
 
 upgrade_controller() {
-       echo "--------------------- Upgrade Controller --------------------"
-       docker logs $orig_controller_id
-       docker stop $orig_controller_id
-       docker rm $orig_controller_id
-       orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+	docker logs $orig_controller_id
+	docker stop $orig_controller_id
+	docker rm $orig_controller_id
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
 }
 
 upgrade_replicas() {
-       echo "--------------------- Upgrade Replica --------------------"
-       docker logs $replica1_id
-       docker stop $replica1_id
-       docker rm $replica1_id
-       replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
-       docker logs $replica2_id
-       docker stop $replica2_id
-       docker rm $replica2_id
-       replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
-       docker logs $replica3_id
-       docker stop $replica3_id
-       docker rm $replica3_id
-       replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+	docker logs $replica1_id
+	docker stop $replica1_id
+	docker rm $replica1_id
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	docker logs $replica1_id
+	docker stop $replica2_id
+	docker rm $replica2_id
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	docker logs $replica1_id
+	docker stop $replica3_id
+	docker rm $replica3_id
+	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
 }
 
 test_upgrade() {
@@ -1338,7 +1357,7 @@ test_upgrade() {
 }
 
 test_upgrades() {
-       test_upgrade "openebs/jiva:1.4.0" "replica-controller"
+	test_upgrade "openebs/jiva:1.4.0" "replica-controller"
 }
 
 di_test_on_raw_disk() {
@@ -1410,31 +1429,20 @@ test_volume_resize() {
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
 	verify_rw_rep_count "2"
-	id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
+	id=$(curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"')
 	curl -H "Content-Type: application/json" -X POST -d '{"name":"store1", "size": "10G"}' http://$CONTROLLER_IP:9501/v1/volumes/$id?action=resize
 
 	upgraded_size=$((10*1024*1024*1024))
-	size=`curl http://$REPLICA_IP1:9502/v1/replicas/1 | jq '.size' | tr -d '"'`
+	size=$(curl http://$REPLICA_IP1:9502/v1/replicas/1 | jq '.size' | tr -d '"')
 	if [[ $size != $upgraded_size ]]; then
 		echo "Resize test failed"
 	fi
-	size=`curl http://$REPLICA_IP2:9502/v1/replicas/1 | jq '.size' | tr -d '"'`
+	size=$(curl http://$REPLICA_IP2:9502/v1/replicas/1 | jq '.size' | tr -d '"')
 	if [[ $size != $upgraded_size ]]; then
 		echo "Resize test failed"
 	fi
 	di_test_on_raw_disk "2M"
 	sleep 5
-	# Test pod restarts on same node
-	docker stop $replica1_id
-	docker start $replica1_id
-	verify_rw_rep_count "2"
-	di_test_on_raw_disk "2M"
-	docker stop $replica1_id
-	docker stop $replica2_id
-	docker start $replica1_id
-	docker start $replica2_id
-	verify_rw_rep_count "2"
-	di_test_on_raw_disk "2M"
 	docker stop $orig_controller_id
 	docker start $orig_controller_id
 	verify_rw_rep_count "2"
@@ -1463,7 +1471,7 @@ create_auto_generated_snapshot() {
 
 create_manual_snapshot() {
 	snaplist_initial=`ls /tmp/vol1 | grep .img | grep -v meta | grep  -v head`
-	id=`curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"'`
+	id=$(curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"')
 	create_snapshot $id $1 "Snapshot: $1 created successfully"
 	snaplist_final=`ls /tmp/vol1 | grep .img | grep -v meta | grep  -v head`
 	snaps[$snapIndx]=`echo ${snaplist_initial[@]} ${snaplist_final[@]} | tr ' ' '\n' | sort | uniq -u`
@@ -1543,7 +1551,7 @@ test_restart_during_prepare_rebuild() {
 	replica2_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2" "PANIC_AFTER_PREPARE_REBUILD" "TRUE")
 	verify_container_dead $replica2_id "restart during prepare rebuild"
 	docker stop $replica2_id
-        replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	rev_counter1=`cat /tmp/vol1/revision.counter`
 	rev_counter2=`cat /tmp/vol2/revision.counter`
 	if [ $rev_counter1 -ne $rev_counter2 ]; then
@@ -1733,10 +1741,10 @@ test_duplicate_data_delete() {
 # blocks in $1 file.
 run_dd() {
 	dd if=/dev/urandom of=$1 bs=4k count=100000 seek=$2
-        sync
-        hash1=""
-        hash1=$(md5sum $1 | awk '{print $1}')
-        echo "$hash1"
+	sync
+	hash1=""
+	hash1=$(md5sum $1 | awk '{print $1}')
+	echo "$hash1"
 }
 
 
@@ -1753,9 +1761,9 @@ copy_files_into_mnt_dir() {
 		mount /dev/$device_name /mnt/store
 
 		cp $1 /mnt/store
-                if [ "$2" != "" ]; then
-                        cp $2 /mnt/store
-                fi
+		if [ "$2" != "" ]; then
+			cp $2 /mnt/store
+		fi
 
 		cd /mnt/store; sync; sleep 5; sync; sleep 5; cd ~;
 		blockdev --flushbufs /dev/$device_name
@@ -1770,56 +1778,56 @@ copy_files_into_mnt_dir() {
 
 verify_delete_snapshot_failure() {
 	echo "-------------Verify delete snapshots failure---------------"
-        declare -a errors=("Failed to coalesce" "Replica tcp://"$1":9502 mode is" "Snapshot deletion process is in progress" "Can not remove a snapshot because, RF: 3, replica count: 2" "Client.Timeout exceeded while awaiting headers")
-        local i=""
-        local cnt=0
-        local snap=""
-        local msg=""
-        local snap_ls="docker exec "$orig_controller_id" jivactl snapshot ls"
-        snap=$(eval $snap_ls | tail -1)
-        cmd="docker exec "$orig_controller_id" jivactl snapshot rm "$snap""
-        msg=$(eval $cmd 2>&1)
-        echo "$msg"
-        for i in "${errors[@]}"
-        do
-                # match the substring with the given array of strings
-                if [[ "$msg" == *"$i"* ]]; then
-                        cnt=$((cnt + 1))
-                        echo "Verify delete snapshot failure -- passed"
-                        return
-                fi
-        done
-        if [ "$cnt" == "0" ] && [ "$2" == "true" ]; then
-                if [[ "$msg" == *"deleted snapshot"* ]]; then
-                        echo "Verify delete snapshot failure -- passed"
-                        return
-                else
-                        echo "Verify delete snapshot failure -- failed"
-                        collect_logs_and_exit
-                        return
-                fi
-        elif [ "$cnt" == "0" ]; then
-                echo "Verify delete snapshot failure -- failed"
-                collect_logs_and_exit
-        fi
+	declare -a errors=("Failed to coalesce" "Replica tcp://"$1":9502 mode is" "Snapshot deletion process is in progress" "Can not remove a snapshot because, RF: 3, replica count: 2" "Client.Timeout exceeded while awaiting headers", "Failed to replace")
+	local i=""
+	local cnt=0
+	local snap=""
+	local msg=""
+	local snap_ls="docker exec "$orig_controller_id" jivactl snapshot ls"
+	snap=$(eval $snap_ls | tail -1)
+	cmd="docker exec "$orig_controller_id" jivactl snapshot rm "$snap""
+	msg=$(eval $cmd 2>&1)
+	echo "$msg"
+	for i in "${errors[@]}"
+	do
+		# match the substring with the given array of strings
+		if [[ "$msg" == *"$i"* ]]; then
+			cnt=$((cnt + 1))
+			echo "Verify delete snapshot failure -- passed"
+			return
+		fi
+	done
+	if [ "$cnt" == "0" ] && [ "$2" == "true" ]; then
+		if [[ "$msg" == *"deleted snapshot"* ]]; then
+			echo "Verify delete snapshot failure -- passed"
+			return
+		else
+			echo "Verify delete snapshot failure -- failed"
+			collect_logs_and_exit
+			return
+		fi
+	elif [ "$cnt" == "0" ]; then
+		echo "Verify delete snapshot failure -- failed"
+		collect_logs_and_exit
+	fi
 
 }
 
 # delete_snapshot delete all the snapshot except for Head and latest snapshot.
 delete_snapshots() {
 	echo "---------------------delete snapshots----------------------"
-        local snaps=""
-        local i=3
-        local lines=""
-        snaps=$(docker exec -it "$orig_controller_id" jivactl snapshot ls)
-        lines=$(echo "$snaps" | wc -w)
-        while [ "$i" -lt "$lines" ]
-        do
-                snaps=$(docker exec "$orig_controller_id" jivactl snapshot ls)
-                snap=$(echo $snaps | awk '{print $3}')
-                docker exec -it "$orig_controller_id" jivactl snapshot rm $snap
-                i=$((i + 1))
-        done
+	local snaps=""
+	local i=3
+	local lines=""
+	snaps=$(docker exec -it "$orig_controller_id" jivactl snapshot ls)
+	lines=$(echo "$snaps" | wc -w)
+	while [ "$i" -lt "$lines" ]
+	do
+		snaps=$(docker exec "$orig_controller_id" jivactl snapshot ls)
+		snap=$(echo $snaps | awk '{print $3}')
+		docker exec -it "$orig_controller_id" jivactl snapshot rm $snap
+		i=$((i + 1))
+	done
 }
 
 # mount_and_verify_hash does login to iscsi target and mount the block
@@ -1827,24 +1835,24 @@ delete_snapshots() {
 # and $4 respectively.
 mount_and_verify_hash() {
 	echo "--------------------Mount and verify hash------------------"
-       	login_to_volume "$CONTROLLER_IP:3260"
+	login_to_volume "$CONTROLLER_IP:3260"
 	sleep 5
 	get_scsi_disk
 	if [ "$device_name" != "" ]; then
 		mount /dev/$device_name /mnt/store
 		hash1=$(md5sum /mnt/store/$2 | awk '{print $1}')
-                if [ "$3" != "" ] && [ "$4" != "" ]; then
-                        hash2=$(md5sum /mnt/store/$4 | awk '{print $1}')
-                        if [ "$1" == "$hash1" ] && [ "$3" == "$hash2" ]; then echo "DI Test: PASSED"
-                        else
-                                echo "Mount and verify hash Test: FAILED"; collect_logs_and_exit
-                        fi
-                else
-                        if [ "$1" == "$hash1" ]; then echo "DI Test: PASSED"
-                        else
-                                echo "Mount and verify hash Test: FAILED"; collect_logs_and_exit
-                        fi
-                fi
+		if [ "$3" != "" ] && [ "$4" != "" ]; then
+			hash2=$(md5sum /mnt/store/$4 | awk '{print $1}')
+			if [ "$1" == "$hash1" ] && [ "$3" == "$hash2" ]; then echo "DI Test: PASSED"
+			else
+				echo "Mount and verify hash Test: FAILED"; collect_logs_and_exit
+			fi
+		else
+			if [ "$1" == "$hash1" ]; then echo "DI Test: PASSED"
+			else
+				echo "Mount and verify hash Test: FAILED"; collect_logs_and_exit
+			fi
+		fi
 
 		umount /mnt/store
 		logout_of_volume
@@ -1857,55 +1865,53 @@ mount_and_verify_hash() {
 # start_stop_replica start and stop replica $2 for $1 no of times
 start_stop_replica() {
 	echo "----------------------Start stop replica---------------------"
-        i=0
-        while [ "$i" -lt "$1" ];
-        do
-                sleep 2
-                sudo docker stop $2
-                sudo docker start $2
-                i=$((i + 1))
-        done
+	i=0
+	while [ "$i" -lt "$1" ];
+	do
+		sleep 2
+		sudo docker stop $2
+		sudo docker start $2
+		i=$((i + 1))
+	done
 }
 
 # verify if snapshot deletion has been failed while replica restarts
 # and other cases. $1 and $2 are the files that to be
 verify_replica_restart_while_snap_deletion() {
 	echo "--------Verify replica restart while snap deletion--------"
-        copy_files_into_mnt_dir "$1" "$2" &
-        sleep 5
-        start_stop_replica "4" "$3"
-        verify_replica_cnt "3" "Three replica count test"
-        sudo docker stop "$3"
-        wait
-        # case 1: Rebuild in progress
-        sudo docker start "$3"
-        sleep 5
-        verify_delete_snapshot_failure "$4" "false"
-        verify_rw_rep_count "3"
+	copy_files_into_mnt_dir "$1" "$2" &
+	sleep 5
+	start_stop_replica "4" "$3"
+	verify_replica_cnt "3" "Three replica count test"
+	sudo docker stop "$3"
+	wait
+	# case 1: Rebuild in progress
+	sudo docker start "$3"
+	sleep 5
+	verify_delete_snapshot_failure "$4" "false"
+	verify_rw_rep_count "3"
 
-        # case 2: Replication factor is not met
-        sudo docker stop "$3"
-        sleep 5
-        verify_delete_snapshot_failure "$4" "false"
-
-        # case 3: Coalesce failed or client timeout exceeded
-        sleep 2
-        sudo docker start "$3"
-        verify_replica_cnt "3" "Three replica count test"
-        verify_rw_rep_count "3"
-        verify_delete_snapshot_failure "$4" & "false"
-        sleep 2
-        sudo docker stop "$3"
-        wait
-
-        # case 4: Already a snapshot being deleted
-        sudo docker start "$3"
-        verify_replica_cnt "3" "Three replica count test"
-        verify_rw_rep_count "3"
-        verify_delete_snapshot_failure "$4" "true" &
-        sleep 0.5
-        verify_delete_snapshot_failure "$4" "false"
-        wait
+	# case 2: Replication factor is not met
+	sudo docker stop "$3"
+	sleep 5
+	verify_delete_snapshot_failure "$4" "false"
+	# case 3: Coalesce failed or client timeout exceeded
+	sleep 2
+	sudo docker start "$3"
+	verify_replica_cnt "3" "Three replica count test"
+	verify_rw_rep_count "3"
+	verify_delete_snapshot_failure "$4" & "false"
+	sleep 2
+	sudo docker stop "$3"
+	wait
+	# case 4: Already a snapshot being deleted
+	sudo docker start "$3"
+	verify_replica_cnt "3" "Three replica count test"
+	verify_rw_rep_count "3"
+	verify_delete_snapshot_failure "$4" "true" &
+	sleep 0.5
+	verify_delete_snapshot_failure "$4" "false"
+	wait
 }
 
 test_delete_snapshot() {
@@ -1915,89 +1921,88 @@ test_delete_snapshot() {
 	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
 	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
 
-        verify_replica_cnt "3" "Three replica count test"
-        device_name=""
-        file1="f1"
-        file2="f2"
-        file3="f3"
-        hash_file1=""
-        hash_file2=""
-        hash_file3=""
-        hash_file1=$(run_dd "$file1" "0")
-        hash_file2=$(run_dd "$file2" "100000")
-        copy_files_into_mnt_dir "$file1" "$file2" &
+	verify_replica_cnt "3" "Three replica count test"
+	device_name=""
+	file1="f1"
+	file2="f2"
+	file3="f3"
+	hash_file1=""
+	hash_file2=""
+	hash_file3=""
+	hash_file1=$(run_dd "$file1" "0")
+	hash_file2=$(run_dd "$file2" "100000")
+	copy_files_into_mnt_dir "$file1" "$file2" &
+	# start stop replica such that data is written across various
+	# snapshots
+	sleep 1
+	start_stop_replica "4" "$replica3_id"
+	wait
 
-        # start stop replica such that data is written across various
-        # snapshots
-        sleep 1
-        start_stop_replica "4" "$replica3_id"
-        wait
+	verify_replica_cnt "3" "Three replica count test"
+	verify_rw_rep_count "3"
 
-        verify_replica_cnt "3" "Three replica count test"
-        verify_rw_rep_count "3"
+	delete_snapshots
 
-        delete_snapshots
+	mount_and_verify_hash "$hash_file1" "$file1" "$hash_file2" "$file2"
+	# overwriting on the same blocks and verify data consistency
+	hash_file3=$(run_dd "$file3" "0")
+	copy_files_into_mnt_dir "$file3" &
 
-        mount_and_verify_hash "$hash_file1" "$file1" "$hash_file2" "$file2"
+	start_stop_replica "2" "$replica3_id"
+	wait
 
-        # overwriting on the same blocks and verify data consistency
-        hash_file3=$(run_dd "$file3" "0")
-        copy_files_into_mnt_dir "$file3" &
+	verify_replica_cnt "3" "Three replica count test"
+	verify_rw_rep_count "3"
 
-        start_stop_replica "2" "$replica3_id"
-        wait
-
-        verify_replica_cnt "3" "Three replica count test"
-        verify_rw_rep_count "3"
-
-        delete_snapshots
-        mount_and_verify_hash "$hash_file3" "$file3"
-        cleanup
+	delete_snapshots
+	mount_and_verify_hash "$hash_file3" "$file3"
+	cleanup
 }
 
 test_replica_restart_while_snap_deletion() {
-        echo "------------Test replica restart while snap deletion---------------"
-        orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
-        replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
-        replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
-        replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+	echo "------------Test replica restart while snap deletion---------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
 
-        verify_replica_cnt "3" "Three replica count test"
-        verify_replica_restart_while_snap_deletion "f1" "f2" "$replica3_id" "$REPLICA_IP3"
-        rm -vrf "f1" "f2" "f3"
-        cleanup
+	verify_replica_cnt "3" "Three replica count test"
+	verify_replica_restart_while_snap_deletion "f1" "f2" "$replica3_id" "$REPLICA_IP3"
+	rm -vrf "f1" "f2" "f3"
+	cleanup
 }
 
 test_replica_restart_optimization() {
-        echo "------------Test replica restart optimization---------------"
-        orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
-        replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
-        replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
-        replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+	echo "------------Test replica restart optimization---------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
 
-        run_ios 100K 0 &
-        sleep 10
-        docker stop $replica3_id
-        wait
-        docker stop $replica2_id
-        docker stop $replica1_id
-        sleep 5
-        docker start $replica3_id
-        docker start $replica2_id
-        sleep 3
-        docker start $replica1_id
-        verify_replica_cnt "3" "Thre replica count test"
-        count=$(docker logs $orig_controller_id 2>&1 | grep -c "Replica tcp://172.18.0.3:9502 will takeover")
-        if [ "$count" -eq 0  ]; then
-           echo "replica restart optimization test failed"
-           collect_logs_and_exit
-        fi
-           echo "replica restart optimization test --passed"
+	run_ios 100K 0 &
+	sleep 10
+	docker stop $replica3_id
+	wait
+	docker stop $replica2_id
+	docker stop $replica1_id
+	sleep 5
+	docker start $replica3_id
+	docker start $replica2_id
+	sleep 3
+	docker start $replica1_id
+	verify_replica_cnt "3" "Thre replica count test"
+	count=$(docker logs $orig_controller_id 2>&1 | grep -c "Replica tcp://172.18.0.3:9502 will takeover")
+	if [ "$count" -eq 0  ]; then
+		echo "replica restart optimization test failed"
+		collect_logs_and_exit
+	fi
+	echo "replica restart optimization test --passed"
 
-        cleanup
+	cleanup
 }
 
 prepare_test_env
+test_volume_resize
 test_replica_restart_optimization
 test_delete_snapshot
 test_replica_restart_while_snap_deletion
@@ -2017,7 +2022,6 @@ test_replication_factor
 #test_two_replica_delete
 test_replica_ip_change
 test_replica_reregistration
-test_volume_resize
 run_data_integrity_test_with_fs_creation
 test_clone_feature
 test_duplicate_snapshot_failure
