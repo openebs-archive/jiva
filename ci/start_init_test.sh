@@ -874,7 +874,7 @@ run_ios() {
 	login_to_volume "$CONTROLLER_IP:3260"
 	sleep 2
 	get_scsi_disk
-	if [ "$device_name"!="" ]; then
+	if [ "$device_name" != "" ]; then
 		# Add 4 sec delay in serving IOs from replica1, start IOs, and then close replica1
 		# This will trigger the quorum condition which checks if the IOs are
 		# written to more than 50% of the replicas
@@ -884,6 +884,7 @@ run_ios() {
 		else
 			echo "IOs errored out while running 3 replicas stop/start test"; collect_logs_and_exit
 		fi
+		sync
 		logout_of_volume
 		sleep 5
 	else
@@ -1497,11 +1498,20 @@ create_manual_snapshot() {
 }
 
 verify_physical_space_consumed() {
+	set -x
 	size=`du -sh --block-size=1048576 /tmp/vol1/$active_file1 | awk '{print $1}'`
+	if [ -z $size ]; then
+		echo "verify physical space consumed failed for replica1"
+		collect_logs_and_exit
+	fi
 	if [ $size != $active_file_size ] && [ $size != `expr $active_file_size + 1` ] ; then
 		echo "Active file size check failed for replica1"; collect_logs_and_exit
 	fi
 	size=`du -sh --block-size=1048576 /tmp/vol2/$active_file2 | awk '{print $1}'`
+	if [ -z $size ]; then
+		echo "verify physical space consumed failed for replica2"
+		collect_logs_and_exit
+	fi
 	if [ $size != $active_file_size ] && [ $size != `expr $active_file_size + 1` ] ; then
 		echo "Active file size check failed for replica2"; collect_logs_and_exit
 	fi
@@ -1510,18 +1520,27 @@ verify_physical_space_consumed() {
 	for (( i = 1 ; i <= "${#snaps[@]}" ; i++ ))
 	do
 		size=`du -sh --block-size=1048576 /tmp/vol1/${snaps[$i]} | awk '{print $1}'`
+		if [ -z $size ]; then
+			echo "verify physical space consumed failed for replica1"
+			collect_logs_and_exit
+		fi
 		if [ $size != ${snapsize[$i]} ] && [ $size != `expr ${snapsize[$i]} + 1` ]; then
 			echo "Test Failed";
 			echo "Snap: $i Name: ${snaps[$i]} Actual: $size Expected: ${snapsize[$i]}"
 			collect_logs_and_exit
 		fi
 		size=`du -sh --block-size=1048576 /tmp/vol2/${snaps[$i]} | awk '{print $1}'`
+		if [ -z $size ]; then
+			echo "verify physical space consumed failed for replica2"
+			collect_logs_and_exit
+		fi
 		if [ $size != ${snapsize[$i]} ] && [ $size != `expr ${snapsize[$i]} + 1` ]; then
 			echo "Test Failed";
 			echo "Snap: $i Name: ${snaps[$i]} Actual: $size Expected: ${snapsize[$i]}"
 			collect_logs_and_exit
 		fi
 	done
+	set +x
 }
 
 update_file_sizes() {
@@ -2017,13 +2036,13 @@ test_replica_restart_optimization() {
 }
 
 prepare_test_env
+test_duplicate_data_delete
 run_data_integrity_test_with_fs_creation
 test_clone_feature
 test_volume_resize
 test_replica_restart_optimization
 test_delete_snapshot
 test_replica_restart_while_snap_deletion
-test_duplicate_data_delete
 test_single_replica_stop_start
 test_restart_during_prepare_rebuild
 test_two_replica_stop_start
