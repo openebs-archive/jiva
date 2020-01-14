@@ -145,6 +145,7 @@ func NewVolume(context *api.ApiContext, name string, readOnly bool, replicas int
 		v.Actions["snapshot"] = context.UrlBuilder.ActionLink(v.Resource, "snapshot")
 		v.Actions["revert"] = context.UrlBuilder.ActionLink(v.Resource, "revert")
 		v.Actions["deleteSnapshot"] = context.UrlBuilder.ActionLink(v.Resource, "deleteSnapshot")
+		v.Actions["resize"] = context.UrlBuilder.ActionLink(v.Resource, "resize")
 	}
 	return v
 }
