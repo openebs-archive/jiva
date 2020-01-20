@@ -1429,8 +1429,8 @@ test_volume_resize() {
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
 	verify_rw_rep_count "2"
-	id=$(curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].id' |  tr -d '"')
-	curl -H "Content-Type: application/json" -X POST -d '{"name":"store1", "size": "10G"}' http://$CONTROLLER_IP:9501/v1/volumes/$id?action=resize
+	resizeUrl=$(curl http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].actions.resize' |  tr -d '"')
+	curl -H "Content-Type: application/json" -X POST -d '{"name":"store1", "size":"10G"}' "$resizeUrl"
 
 	upgraded_size=$((10*1024*1024*1024))
 	size=$(curl http://$REPLICA_IP1:9502/v1/replicas/1 | jq '.size' | tr -d '"')

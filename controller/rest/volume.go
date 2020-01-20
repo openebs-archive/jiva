@@ -130,7 +130,9 @@ func (s *Server) ResizeVolume(rw http.ResponseWriter, req *http.Request) error {
 		return err
 	}
 
+	logrus.Infof("Resize volume to %s", input.Size)
 	if err := s.c.Resize(input.Name, input.Size); err != nil {
+		logrus.Error(err)
 		return err
 	}
 
