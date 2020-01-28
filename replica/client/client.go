@@ -215,6 +215,12 @@ func (c *ReplicaClient) GetReplica() (rest.Replica, error) {
 	return replica, err
 }
 
+func (c *ReplicaClient) GetLastIO() (*rest.LastIO, error) {
+	var lastIO rest.LastIO
+	err := c.get(c.address+"/readlastio", &lastIO)
+	return &lastIO, err
+}
+
 func (c *ReplicaClient) ReloadReplica() (rest.Replica, error) {
 	var replica rest.Replica
 

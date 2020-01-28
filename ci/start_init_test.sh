@@ -1457,9 +1457,9 @@ create_auto_generated_snapshot() {
 
 	# This will create an auto generated snapshot(Snap1) with the above data
 	docker stop $replica1_id
-	verify_rw_rep_count "1"
-	docker start $replica1_id
 	verify_rw_rep_count "2"
+	docker start $replica1_id
+	verify_rw_rep_count "3"
 	snaplist_final=`ls /tmp/vol1 | grep .img | grep -v meta | grep  -v head`
 
 	snaps[$snapIndx]=`echo ${snaplist_initial[@]} ${snaplist_final[@]} | tr ' ' '\n' | sort | uniq -u`
@@ -1552,8 +1552,8 @@ test_restart_during_prepare_rebuild() {
 	verify_container_dead $replica2_id "restart during prepare rebuild"
 	docker stop $replica2_id
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
-	rev_counter1=`cat /tmp/vol1/revision.counter`
-	rev_counter2=`cat /tmp/vol2/revision.counter`
+	rev_counter1=`cat /tmp/vol1/revision.counter | cut -d',' -f1`
+	rev_counter2=`cat /tmp/vol2/revision.counter | cut -d',' -f1`
 	if [ $rev_counter1 -ne $rev_counter2 ]; then
 		echo "replica restart during prepare rebuild1 -- failed"
 		collect_logs_and_exit
@@ -1567,10 +1567,11 @@ test_restart_during_prepare_rebuild() {
 
 test_duplicate_data_delete() {
 	echo "----------------Test_duplicate_data_delete---------------"
-	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
-	verify_replica_cnt "2" "Duplicate data delete test"
+	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+	verify_replica_cnt "3" "Duplicate data delete test"
 	snaps[$snapIndx]=`ls /tmp/vol1 | grep .img | grep -v meta | grep  -v head`
 	let snapIndx=snapIndx+1
 	active_file1=`ls /tmp/vol1 | grep .img | grep -v meta | grep head`
@@ -2002,13 +2003,12 @@ test_replica_restart_optimization() {
 }
 
 prepare_test_env
+test_duplicate_data_delete
 test_volume_resize
 test_replica_restart_optimization
 test_delete_snapshot
 test_replica_restart_while_snap_deletion
-test_duplicate_data_delete
 test_single_replica_stop_start
-test_restart_during_prepare_rebuild
 test_two_replica_stop_start
 test_three_replica_stop_start
 test_ctrl_stop_start

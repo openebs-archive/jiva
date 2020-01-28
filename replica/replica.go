@@ -40,6 +40,16 @@ var (
 	diskPattern = regexp.MustCompile(`volume-head-(\d)+.img`)
 )
 
+type LastIO struct {
+	Offset string `json:"offset"`
+	Size   int    `json:"size"`
+}
+
+type Data struct {
+	LastIO LastIO `json:"lio"`
+	Buffer []byte `json:"buffer"`
+}
+
 type Replica struct {
 	sync.RWMutex
 	volume           diffDisk
@@ -74,6 +84,7 @@ type Replica struct {
 	Clone         bool
 	// used for draining the HoleCreatorChan also useful for mocking
 	holeDrainer func()
+	lastIO      LastIO
 }
 
 type Info struct {
@@ -1214,29 +1225,28 @@ func (r *Replica) Unmap(offset int64, length int64) (int, error) {
 
 func (r *Replica) WriteAt(buf []byte, offset int64) (int, error) {
 	var (
-		c    int
-		err  error
-		mode types.Mode
+		c   int
+		err error
 	)
+
 	if r.readOnly {
 		return 0, fmt.Errorf("Can not write on read-only replica")
 	}
+
 	if r.ReplicaType != "quorum" {
 		r.RLock()
 		r.info.Dirty = true
 		c, err = r.volume.WriteAt(buf, offset)
-		mode = r.mode
 		r.RUnlock()
 		if err != nil {
 			return c, err
 		}
 	}
-	if mode == types.RW {
-		if err := r.increaseRevisionCounter(); err != nil {
-			return c, err
-		}
-	} else if mode != types.WO {
-		return c, fmt.Errorf("write happening on invalid rep state %v", mode)
+
+	r.lastIO.Offset = strconv.FormatInt(offset, 10)
+	r.lastIO.Size = len(buf)
+	if err := r.increaseRevisionCounter(); err != nil {
+		return c, err
 	}
 	return c, nil
 }

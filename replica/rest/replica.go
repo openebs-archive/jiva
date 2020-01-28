@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/openebs/jiva/replica"
 	"github.com/openebs/jiva/types"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
@@ -54,6 +55,31 @@ func (s *Server) GetUsage(apiContext *api.ApiContext) (*types.VolUsage, error) {
 	s.s.RLock()
 	defer s.s.RUnlock()
 	return s.s.GetUsage()
+}
+
+func (s *Server) GetLastIO(rw http.ResponseWriter, req *http.Request) error {
+	var (
+		lio *replica.Data
+		err error
+	)
+
+	apiContext := api.GetApiContext(req)
+	lio, err = s.s.GetLastIOData()
+	if err != nil {
+		return fmt.Errorf("fail to get last io data, err: %v", err)
+	}
+
+	resp := &LastIO{
+		Resource: client.Resource{
+			Type:    "readlastio",
+			Id:      "1",
+			Actions: map[string]string{},
+			Links:   map[string]string{},
+		},
+		Data: *lio,
+	}
+	apiContext.Write(resp)
+	return nil
 }
 
 func (s *Server) GetStats(rw http.ResponseWriter, req *http.Request) error {

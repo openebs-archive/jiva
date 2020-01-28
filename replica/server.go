@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -279,6 +280,35 @@ func (s *Server) GetRevisionCounter() (int64, error) {
 	return tmpReplica.revisionCache, nil
 }
 
+// GetLastIOData returns the data at given offset
+func (s *Server) GetLastIOData() (*Data, error) {
+	s.Lock()
+	defer s.Unlock()
+	if s.r == nil {
+		return nil, fmt.Errorf("s.r is nil")
+	}
+
+	// We are keeping the last IO in memory as well
+	// In case of restart it will be updated by reading
+	// from revision.counter file
+	s.r.RLock()
+	defer s.r.RUnlock()
+	buf := make([]byte, s.r.lastIO.Size)
+	offset, err := strconv.ParseInt(s.r.lastIO.Offset, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	_, err = s.r.ReadAt(buf, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Data{
+		Buffer: buf,
+		LastIO: s.r.lastIO,
+	}, nil
+}
+
 // GetUsage returns the used size of volume
 func (s *Server) GetUsage() (*types.VolUsage, error) {
 	if s.r != nil {
@@ -468,6 +498,7 @@ func (s *Server) Sync() (int, error) {
 	n, err := s.r.Sync()
 	return n, err
 }
+
 func (s *Server) Unmap(offset int64, length int64) (int, error) {
 	s.RLock()
 	defer s.RUnlock()

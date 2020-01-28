@@ -28,6 +28,11 @@ type Replica struct {
 	CloneStatus       string                      `json:"clonestatus"`
 }
 
+type LastIO struct {
+	client.Resource
+	Data replica.Data `json:"data"`
+}
+
 type DeleteReplicaOutput struct {
 	client.Resource
 }
@@ -289,7 +294,7 @@ func NewSchema() *client.Schemas {
 	schemas.AddType("revisionCounter", RevisionCounter{})
 	schemas.AddType("replicaCounter", ReplicaCounter{})
 	schemas.AddType("replacediskInput", ReplaceDiskInput{})
-
+	schemas.AddType("readlastio", LastIO{})
 	delete := schemas.AddType("delete", DeleteReplicaOutput{})
 	delete.ResourceMethods = []string{"DELETE"}
 

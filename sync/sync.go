@@ -273,7 +273,7 @@ Register:
 	}
 	inject.PanicAfterPrepareRebuild()
 
-	ok, err := t.isRevisionCountAndChainSame(fromClient, toClient)
+	ok, err := t.isRevisionCountAndChainSame(fromClient, toClient, s)
 	if err != nil {
 		return err
 	}
@@ -289,7 +289,8 @@ Register:
 	return t.reloadAndVerify(replicaAddress, toClient)
 }
 
-func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.ReplicaClient) (bool, error) {
+func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.ReplicaClient, s *replica.Server) (bool, error) {
+	var curRevCount int64
 	rwReplica, err := fromClient.GetReplica()
 	if err != nil {
 		return false, err
@@ -308,6 +309,51 @@ func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.R
 		if !reflect.DeepEqual(rwReplica.Chain[1:], curReplica.Chain[1:]) {
 			logrus.Warningf("Replica %v's chain not equal to RW replica %v's chain", toClient.GetAddress(), fromClient.GetAddress())
 			return false, nil
+		}
+		return true, nil
+	}
+
+	volume, err := t.client.GetVolume()
+	if err != nil {
+		return false, fmt.Errorf("failed to get volume info, error: %s", err.Error())
+	}
+
+	// If volume is in RW state we will not sync last IO as IO's might be
+	// happening and it may not be last IO
+	if volume.ReadOnly == "false" {
+		logrus.Infof("Volume is healthy, skip verifying last missing io")
+		return false, nil
+	}
+
+	curRevCount, err = strconv.ParseInt(curReplica.RevisionCounter, 10, 64)
+	if err != nil {
+		return false, err
+	}
+
+	if rwReplica.RevisionCounter == strconv.FormatInt(curRevCount+1, 10) {
+		if !reflect.DeepEqual(rwReplica.Chain[1:], curReplica.Chain[1:]) {
+			logrus.Warningf("Replica %v's chain not equal to RW replica %v's chain", toClient.GetAddress(), fromClient.GetAddress())
+			return false, nil
+		}
+		// syncLastIO
+		lio, err := fromClient.GetLastIO()
+		if err != nil {
+			return false, fmt.Errorf("fail to get last io, err: %v", err)
+		}
+
+		// upgrade case where last io will have size = 0
+		if lio.Data.LastIO.Size == 0 {
+			return false, nil
+		}
+
+		logrus.Infof("Sync last missing io")
+		offset, err := strconv.ParseInt(lio.Data.LastIO.Offset, 10, 64)
+		if err != nil {
+			return false, nil
+		}
+
+		if _, err := s.WriteAt(lio.Data.Buffer, offset); err != nil {
+			return false, fmt.Errorf("fail to write last io, err: %v", err)
 		}
 		return true, nil
 	}

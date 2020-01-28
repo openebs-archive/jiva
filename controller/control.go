@@ -36,6 +36,7 @@ type Controller struct {
 	StartTime                time.Time
 	StartSignalled           bool
 	ReadOnly                 bool
+	logged                   bool
 	SnapshotName             string
 	IsSnapDeletionInProgress bool
 	StartAutoSnapDeletion    chan bool
@@ -338,6 +339,9 @@ func (c *Controller) addReplica(address string, snapshot bool) error {
 	c.Lock()
 	defer c.Unlock()
 
+	if c.ReadOnly {
+		snapshot = false
+	}
 	err = c.addReplicaNoLock(newBackend, address, snapshot)
 	if err != nil {
 		logrus.Infof("addReplicaNoLock %s from addReplica failed %v", address, err)
@@ -935,12 +939,14 @@ func (c *Controller) Start(addresses ...string) error {
 // on the app.
 func (c *Controller) WriteAt(b []byte, off int64) (int, error) {
 	c.Lock()
-	if c.ReadOnly == true {
+	if c.ReadOnly == true && !c.logged {
+		c.logged = true
 		err := fmt.Errorf("Mode: ReadOnly")
 		c.Unlock()
 		time.Sleep(1 * time.Second)
 		return 0, err
 	}
+	c.logged = false
 	defer c.Unlock()
 	if off < 0 || off+int64(len(b)) > c.size {
 		err := fmt.Errorf("EOF: Write of %v bytes at offset %v is beyond volume size %v", len(b), off, c.size)

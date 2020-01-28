@@ -207,7 +207,7 @@ func (c *Client) operation(op uint32, buf []byte, offset int64, length int64) (i
 					err = ErrPingTimeout
 				}
 				c.SetError(err)
-				//journal.PrintLimited(1000) //flush automatically upon timeout
+				journal.PrintLimited(1000) //flush automatically upon timeout
 				return 0, err
 			}
 		}

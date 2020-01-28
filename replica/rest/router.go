@@ -52,6 +52,7 @@ func NewRouter(s *Server) *mux.Router {
 	router.Methods("GET").Path("/v1/replicas").Handler(f(schemas, s.ListReplicas))
 	router.Methods("GET").Path("/v1/replicas/{id}").Handler(f(schemas, s.GetReplica))
 	router.Methods("GET").Path("/v1/replicas/{id}/volusage").Handler(f(schemas, s.GetVolUsage))
+	router.Methods("GET").Path("/v1/readlastio").Handler(f(schemas, s.GetLastIO))
 	router.Methods("DELETE").Path("/v1/replicas/{id}").Handler(f(schemas, s.DeleteReplica))
 
 	router.Methods("DELETE").Path("/v1/delete").Handler(f(schemas, s.DeleteVolume))
