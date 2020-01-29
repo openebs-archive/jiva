@@ -178,5 +178,5 @@ func (c *Controller) PrepareRebuildReplica(address string) ([]string, error) {
 		return nil, err
 	}
 
-	return rwChain[1:], nil
+	return rwChain, nil
 }

@@ -279,9 +279,20 @@ Register:
 	}
 
 	if !ok {
+		volume, err := t.client.GetVolume()
+		if err != nil {
+			return fmt.Errorf("failed to get volume info, error: %s", err.Error())
+		}
+
 		logrus.Infof("syncFiles from:%v to:%v", fromClient, toClient)
-		if err = t.syncFiles(fromClient, toClient, output.Disks); err != nil {
-			return err
+		if volume.ReadOnly == "true" {
+			if err = t.syncFiles(fromClient, toClient, output.Disks); err != nil {
+				return err
+			}
+		} else {
+			if err = t.syncFiles(fromClient, toClient, output.Disks[1:]); err != nil {
+				return err
+			}
 		}
 	}
 

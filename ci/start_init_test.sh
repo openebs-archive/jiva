@@ -1457,7 +1457,6 @@ create_auto_generated_snapshot() {
 
 	# This will create an auto generated snapshot(Snap1) with the above data
 	docker stop $replica1_id
-	verify_rw_rep_count "2"
 	docker start $replica1_id
 	verify_rw_rep_count "3"
 	snaplist_final=`ls /tmp/vol1 | grep .img | grep -v meta | grep  -v head`

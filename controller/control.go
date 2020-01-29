@@ -939,7 +939,7 @@ func (c *Controller) Start(addresses ...string) error {
 // on the app.
 func (c *Controller) WriteAt(b []byte, off int64) (int, error) {
 	c.Lock()
-	if c.ReadOnly == true && !c.logged {
+	if c.ReadOnly && !c.logged {
 		c.logged = true
 		err := fmt.Errorf("Mode: ReadOnly")
 		c.Unlock()

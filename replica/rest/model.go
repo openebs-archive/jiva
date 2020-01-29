@@ -28,6 +28,7 @@ type Replica struct {
 	CloneStatus       string                      `json:"clonestatus"`
 }
 
+// LastIO holds the data of last IO
 type LastIO struct {
 	client.Resource
 	Data replica.Data `json:"data"`

@@ -57,6 +57,7 @@ func (s *Server) GetUsage(apiContext *api.ApiContext) (*types.VolUsage, error) {
 	return s.s.GetUsage()
 }
 
+// GetLastIO reads the data of last IO from file
 func (s *Server) GetLastIO(rw http.ResponseWriter, req *http.Request) error {
 	var (
 		lio *replica.Data

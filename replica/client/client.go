@@ -215,6 +215,7 @@ func (c *ReplicaClient) GetReplica() (rest.Replica, error) {
 	return replica, err
 }
 
+// GetLastIO get the last IO data over REST call
 func (c *ReplicaClient) GetLastIO() (*rest.LastIO, error) {
 	var lastIO rest.LastIO
 	err := c.get(c.address+"/readlastio", &lastIO)

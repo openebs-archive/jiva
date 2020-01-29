@@ -40,16 +40,19 @@ var (
 	diskPattern = regexp.MustCompile(`volume-head-(\d)+.img`)
 )
 
+// LastIO holds the info of last processed IO
 type LastIO struct {
 	Offset string `json:"offset"`
 	Size   int    `json:"size"`
 }
 
+// Data holds the data and metadata of Last IO
 type Data struct {
 	LastIO LastIO `json:"lio"`
 	Buffer []byte `json:"buffer"`
 }
 
+// Replica holds the fields related to replica
 type Replica struct {
 	sync.RWMutex
 	volume           diffDisk
