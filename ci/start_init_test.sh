@@ -2001,7 +2001,49 @@ test_replica_restart_optimization() {
 	cleanup
 }
 
+test_last_missing_io_optimization() {
+	echo "-----------------------Test last missing io optimization----------------------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	sleep 5
+	replica3_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3" "WRITE_TIMEOUT" "15")
+
+	verify_replica_cnt "3" "Two replica count test"
+	login_to_volume "$CONTROLLER_IP:3260"
+	sleep 2
+	get_scsi_disk
+	if [ "$device_name"!="" ]; then
+		dd if=/dev/urandom of=/dev/$device_name bs=4k count=100 seek=5 &
+	else
+		echo "device not found, last missing io optimization test is failed"
+	fi
+
+	sleep 5
+	docker stop $replica3_id
+	docker rm $replica3_id
+	wait
+	docker stop $replica2_id
+	docker rm $replica2_id
+
+	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+	verify_replica_cnt "2" "Two replica count test"
+	logout_of_volume
+
+	local count=0
+	count=$(docker logs $replica3_id 2>&1 | grep -c "Sync last missing io")
+	if [ "$count" -eq 0  ]; then
+		echo "last missing io optimization test failed"
+		collect_logs_and_exit
+	fi
+	echo "last missing io optimization test --passed"
+
+	cleanup
+}
+
+
 prepare_test_env
+test_last_missing_io_optimization
 test_duplicate_data_delete
 test_volume_resize
 test_replica_restart_optimization

@@ -62,3 +62,10 @@ func AddPunchHoleTimeout() {
 	logrus.Infof("Add punch hole timeout of %vs for debug build", timeout)
 	time.Sleep(time.Duration(timeout) * time.Second)
 }
+
+// AddWriteTimeout add delay in while writing
+func AddWriteTimeout() {
+	timeout, _ := strconv.Atoi(os.Getenv("WRITE_TIMEOUT"))
+	logrus.Infof("Write timeout of %vs for debug build", timeout)
+	time.Sleep(time.Duration(timeout) * time.Second)
+}

@@ -359,6 +359,7 @@ func (r *Replica) Reload() (*Replica, error) {
 	}
 	newReplica.mode = r.mode
 	newReplica.info.Dirty = r.info.Dirty
+	newReplica.lastIO = r.lastIO
 	return newReplica, nil
 }
 

@@ -66,8 +66,13 @@ func (r *Replica) readLastIO() (LastIO, error) {
 		return LastIO{}, fmt.Errorf("fail to parse size: %v, err: %v", list[2], err)
 	}
 
+	offset := list[1]
+	if offset == "" {
+		offset = "0"
+	}
+
 	return LastIO{
-		Offset: list[1],
+		Offset: offset,
 		Size:   size,
 	}, nil
 }
@@ -77,8 +82,13 @@ func (r *Replica) writeRevisionCounter(counter int64) error {
 		return fmt.Errorf("BUG: revision file wasn't initialized")
 	}
 
+	offset := r.lastIO.Offset
+	if offset == "" {
+		offset = "0"
+	}
 	buf := make([]byte, revisionBlockSize)
-	str := strconv.FormatInt(counter, 10) + "," + r.lastIO.Offset + "," + strconv.Itoa(r.lastIO.Size)
+
+	str := strconv.FormatInt(counter, 10) + "," + offset + "," + strconv.Itoa(r.lastIO.Size)
 	copy(buf, []byte(str))
 	_, err := r.revisionFile.WriteAt(buf, 0)
 	if err != nil {
@@ -145,20 +155,6 @@ func (r *Replica) GetRevisionCounter() int64 {
 	}
 	r.revisionCache = counter
 	return counter
-}
-
-func (r *Replica) GetLastIO() LastIO {
-	r.revisionLock.Lock()
-	defer r.revisionLock.Unlock()
-
-	lastIO, err := r.readLastIO()
-	if err != nil {
-		logrus.Error("Fail to get last IO info: ", err)
-		// -1 will result in the replica to be discarded
-		return LastIO{}
-	}
-	r.lastIO = lastIO
-	return r.lastIO
 }
 
 // SetRevisionCounterCloneReplica set revision counter for clone replica

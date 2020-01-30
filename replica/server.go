@@ -9,6 +9,7 @@ import (
 	"time"
 
 	fibmap "github.com/frostschutz/go-fibmap"
+	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/types"
 	"github.com/sirupsen/logrus"
 )
@@ -517,6 +518,7 @@ func (s *Server) WriteAt(buf []byte, offset int64) (int, error) {
 	if s.r == nil {
 		return 0, fmt.Errorf("Volume no longer exist")
 	}
+	inject.AddWriteTimeout()
 	i, err := s.r.WriteAt(buf, offset)
 	return i, err
 }

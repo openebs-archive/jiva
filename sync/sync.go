@@ -441,10 +441,6 @@ func (t *Task) syncFiles(fromClient, toClient *replicaClient.ReplicaClient, disk
 	for i := range disks {
 		//We are syncing from the oldest snapshots to newer ones
 		disk := disks[len(disks)-1-i]
-		if strings.Contains(disk, "volume-head") {
-			return fmt.Errorf("Disk list shouldn't contain volume-head")
-		}
-
 		ok, err := isRevisionCountSame(fromClient, toClient, disk)
 		if err != nil {
 			return err

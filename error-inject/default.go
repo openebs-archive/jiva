@@ -14,6 +14,9 @@ func AddPreloadTimeout() {}
 // AddPunchHoleTimeout add delay in while punching hole
 func AddPunchHoleTimeout() {}
 
+// AddWriteTimeout add delay in while writing
+func AddWriteTimeout() {}
+
 // DisablePunchHoles is used for disabling punch holes
 func DisablePunchHoles() bool { return false }
 
