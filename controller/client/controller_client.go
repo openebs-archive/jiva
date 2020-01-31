@@ -7,9 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/openebs/jiva/controller/rest"
 	"github.com/sirupsen/logrus"
@@ -202,14 +200,8 @@ func (c *ControllerClient) GetVolume() (*rest.Volume, error) {
 	return &volumes.Data[0], nil
 }
 
-func (c *ControllerClient) Register(address string, revisionCount int64, replicaType string, upTime time.Duration, state string) error {
-	err := c.post("/register", &rest.RegReplica{
-		Address:  address,
-		RevCount: strconv.FormatInt(revisionCount, 10),
-		RepType:  replicaType,
-		UpTime:   upTime,
-		RepState: state,
-	}, nil)
+func (c *ControllerClient) Register(rep *rest.RegReplica) error {
+	err := c.post("/register", &rep, nil)
 	return err
 }
 

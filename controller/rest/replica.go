@@ -110,6 +110,7 @@ func (s *Server) RegisterReplica(rw http.ResponseWriter, req *http.Request) erro
 		RepType:  regReplica.RepType,
 		UpTime:   regReplica.UpTime,
 		RepState: regReplica.RepState,
+		Version:  regReplica.Version,
 	}
 	code = http.StatusOK
 	rw.WriteHeader(code)

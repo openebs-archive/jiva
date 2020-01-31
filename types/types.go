@@ -12,8 +12,10 @@ const (
 	INIT   = Mode("INIT")
 	CLOSED = Mode("CLOSED")
 
-	StateUp   = State("Up")
-	StateDown = State("Down")
+	StateUp           = State("Up")
+	StateDown         = State("Down")
+	ReplicaVersion    = 1
+	ControllerVersion = 1
 )
 
 const (
@@ -118,6 +120,7 @@ type RegReplica struct {
 	RevCount int64
 	RepType  string
 	RepState string
+	Version  int
 }
 
 type IOStats struct {

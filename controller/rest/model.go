@@ -32,6 +32,7 @@ type Volume struct {
 	Name         string `json:"name"`
 	ReplicaCount int    `json:"replicaCount"`
 	ReadOnly     string `json:"readOnly"`
+	Version      int    `json:"version"`
 }
 
 type VolumeCollection struct {
@@ -110,6 +111,7 @@ type PrepareRebuildOutput struct {
 	Disks []string `json:"disks"`
 }
 
+// RegReplica holds the field for registration of replica
 type RegReplica struct {
 	client.Resource
 	Address  string        `json:"Address"`
@@ -117,6 +119,7 @@ type RegReplica struct {
 	RepType  string        `json:"RepType"`
 	RepState string        `json:"RepState"`
 	UpTime   time.Duration `json:"UpTime"`
+	Version  int           `json:"version"`
 }
 
 // NewVolume ...
@@ -136,6 +139,7 @@ func NewVolume(context *api.ApiContext, name string, readOnly bool, replicas int
 		Name:         name,
 		ReplicaCount: replicas,
 		ReadOnly:     ReadOnly,
+		Version:      types.ControllerVersion,
 	}
 
 	if replicas == 0 {

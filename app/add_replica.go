@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+
 	"github.com/openebs/jiva/alertlog"
 
 	"github.com/openebs/jiva/replica"
@@ -36,11 +37,7 @@ func AutoAddReplica(s *replica.Server, frontendIP string, replica string, replic
 	var err error
 	url := "http://" + frontendIP + ":9501"
 	task := sync.NewTask(url)
-	if replicaType == "quorum" {
-		err = task.AddQuorumReplica(replica, s)
-	} else {
-		err = task.AddReplica(replica, s)
-	}
+	err = task.AddReplica(replica, s)
 	if err != nil {
 		alertlog.Logger.Errorw("",
 			"eventcode", "jiva.volume.replica.add.failure",

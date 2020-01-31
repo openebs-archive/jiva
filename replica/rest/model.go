@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"github.com/openebs/jiva/replica"
+	"github.com/openebs/jiva/types"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
 )
@@ -26,6 +27,7 @@ type Replica struct {
 	UsedLogicalBlocks string                      `json:"usedlogicalblocks"`
 	UsedBlocks        string                      `json:"usedblocks"`
 	CloneStatus       string                      `json:"clonestatus"`
+	Version           int                         `json:"version"`
 }
 
 type DeleteReplicaOutput struct {
@@ -131,6 +133,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 			Id:      "1",
 			Actions: map[string]string{},
 		},
+		Version: types.ReplicaVersion,
 	}
 
 	r.State = string(state)

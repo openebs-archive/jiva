@@ -71,41 +71,6 @@ func find(list []string, item string) int {
 	return -1
 }
 
-func (t *Task) AddQuorumReplica(replicaAddress string, _ *replica.Server) error {
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
-Register:
-	volume, err := t.client.GetVolume()
-	if err != nil {
-		return err
-	}
-	addr := strings.Split(replicaAddress, "://")
-	parts := strings.Split(addr[1], ":")
-	Replica, _ := replica.CreateTempReplica()
-	server, _ := replica.CreateTempServer()
-
-	if volume.ReplicaCount == 0 {
-		revisionCount := Replica.GetRevisionCounter()
-		replicaType := "quorum"
-		upTime := time.Since(Replica.ReplicaStartTime)
-		state, _ := server.PrevStatus()
-		_ = t.client.Register(parts[0], revisionCount, replicaType, upTime, string(state))
-		select {
-		case <-ticker.C:
-			goto Register
-		case _ = <-replica.ActionChannel:
-		}
-	}
-
-	logrus.Infof("Adding quorum replica %s in WO mode", replicaAddress)
-	_, err = t.client.CreateQuorumReplica(replicaAddress)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName string) error {
 	var (
 		fromReplica rest.Replica
@@ -206,6 +171,11 @@ Register:
 	if err != nil {
 		return fmt.Errorf("failed to get volume info, error: %s", err.Error())
 	}
+
+	if volume.Version > types.ControllerVersion {
+		return fmt.Errorf("incompatible controller version: %v, supported version must be <= %v", volume.Version, types.ReplicaVersion)
+	}
+
 	addr := strings.Split(replicaAddress, "://")
 	parts := strings.Split(addr[1], ":")
 	if volume.ReplicaCount == 0 {
@@ -214,7 +184,14 @@ Register:
 		upTime := time.Since(Replica.ReplicaStartTime)
 		state, _ := server.PrevStatus()
 		logrus.Infof("Register replica at controller")
-		err := t.client.Register(parts[0], revisionCount, replicaType, upTime, string(state))
+		err := t.client.Register(&rest.RegReplica{
+			Address:  parts[0],
+			RevCount: strconv.FormatInt(revisionCount, 10),
+			RepType:  replicaType,
+			UpTime:   upTime,
+			RepState: string(state),
+			Version:  types.ReplicaVersion,
+		})
 		if err != nil {
 			logrus.Errorf("Error in sending register command, error: %s", err)
 		}

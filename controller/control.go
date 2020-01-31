@@ -354,8 +354,13 @@ func (c *Controller) signalToAdd() {
 func (c *Controller) registerReplica(register types.RegReplica) error {
 	c.Lock()
 	defer c.Unlock()
-	logrus.Infof("Register Replica, Address: %v Uptime: %v State: %v Type: %v RevisionCount: %v",
-		register.Address, register.UpTime, register.RepState, register.RepType, register.RevCount)
+	logrus.Infof("Register Replica, %+v", register)
+
+	if register.Version < types.ReplicaVersion {
+		msg := fmt.Sprintf("Can't register replica: %v with version: %v, supported version must be > %v", register.Address, register.Version, types.ReplicaVersion)
+		logrus.Error(msg)
+		return fmt.Errorf(msg)
+	}
 
 	_, ok := c.RegisteredReplicas[register.Address]
 	if !ok {
