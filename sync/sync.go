@@ -12,6 +12,7 @@ import (
 	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/replica"
 	replicaClient "github.com/openebs/jiva/replica/client"
+	rst "github.com/openebs/jiva/replica/rest"
 	"github.com/openebs/jiva/types"
 	"github.com/sirupsen/logrus"
 )
@@ -285,12 +286,12 @@ Register:
 		}
 
 		logrus.Infof("syncFiles from:%v to:%v", fromClient, toClient)
-		if volume.ReadOnly == "true" {
-			if err = t.syncFiles(fromClient, toClient, output.Disks); err != nil {
+		if volume.ReadOnly != "true" && volume.Version == rest.VolumeVersion {
+			if err = t.syncFiles(fromClient, toClient, output.Disks[1:]); err != nil {
 				return err
 			}
 		} else {
-			if err = t.syncFiles(fromClient, toClient, output.Disks[1:]); err != nil {
+			if err = t.syncFiles(fromClient, toClient, output.Disks); err != nil {
 				return err
 			}
 		}
@@ -300,8 +301,71 @@ Register:
 	return t.reloadAndVerify(replicaAddress, toClient)
 }
 
+func isVersionCompatible(rwReplicaVersion int, controllerVersion int) bool {
+	if controllerVersion < rest.VolumeVersion {
+		logrus.Warningf("Skip sync of last missing IO, expected controller version: %v, got: %v", rest.VolumeVersion, controllerVersion)
+		return false
+	}
+
+	if rwReplicaVersion < rst.ReplicaVersion {
+		logrus.Warningf("Skip sync of last missing IO, expected replica version: %v, got: %v", rst.ReplicaVersion, rwReplicaVersion)
+		return false
+	}
+	return true
+}
+
+func (t *Task) syncLastMissingIO(rwReplica, curReplica rst.Replica, fromClient, toClient *replicaClient.ReplicaClient, s *replica.Server) (bool, error) {
+	volume, err := t.client.GetVolume()
+	if err != nil {
+		return false, fmt.Errorf("failed to get volume info, error: %s", err.Error())
+	}
+	// If volume is in RW state we will not sync last IO as IO's might be
+	// happening and it may not be last IO
+	if volume.ReadOnly == "false" {
+		logrus.Infof("Volume is healthy, skip verifying last missing io")
+		return false, nil
+	}
+
+	if !isVersionCompatible(rwReplica.Version, volume.Version) {
+		return false, nil
+	}
+
+	var curRevCount int64 = 0
+	curRevCount, err = strconv.ParseInt(curReplica.RevisionCounter, 10, 64)
+	if err != nil {
+		return false, err
+	}
+
+	if rwReplica.RevisionCounter == strconv.FormatInt(curRevCount+1, 10) {
+		if !reflect.DeepEqual(rwReplica.Chain[1:], curReplica.Chain[1:]) {
+			logrus.Warningf("Replica %v's chain not equal to RW replica %v's chain", toClient.GetAddress(), fromClient.GetAddress())
+			return false, nil
+		}
+		// syncLastIO
+		lio, err := fromClient.GetLastIO()
+		if err != nil {
+			return false, fmt.Errorf("fail to get last io, err: %v", err)
+		}
+
+		if lio.Data.LastIO.Size == 0 {
+			return false, nil
+		}
+
+		logrus.Infof("Sync last missing io")
+		offset, err := strconv.ParseInt(lio.Data.LastIO.Offset, 10, 64)
+		if err != nil {
+			return false, nil
+		}
+
+		if _, err := s.WriteAt(lio.Data.Buffer, offset); err != nil {
+			return false, fmt.Errorf("fail to write last io, err: %v", err)
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
 func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.ReplicaClient, s *replica.Server) (bool, error) {
-	var curRevCount int64
 	rwReplica, err := fromClient.GetReplica()
 	if err != nil {
 		return false, err
@@ -324,52 +388,7 @@ func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.R
 		return true, nil
 	}
 
-	volume, err := t.client.GetVolume()
-	if err != nil {
-		return false, fmt.Errorf("failed to get volume info, error: %s", err.Error())
-	}
-
-	// If volume is in RW state we will not sync last IO as IO's might be
-	// happening and it may not be last IO
-	if volume.ReadOnly == "false" {
-		logrus.Infof("Volume is healthy, skip verifying last missing io")
-		return false, nil
-	}
-
-	curRevCount, err = strconv.ParseInt(curReplica.RevisionCounter, 10, 64)
-	if err != nil {
-		return false, err
-	}
-
-	if rwReplica.RevisionCounter == strconv.FormatInt(curRevCount+1, 10) {
-		if !reflect.DeepEqual(rwReplica.Chain[1:], curReplica.Chain[1:]) {
-			logrus.Warningf("Replica %v's chain not equal to RW replica %v's chain", toClient.GetAddress(), fromClient.GetAddress())
-			return false, nil
-		}
-		// syncLastIO
-		lio, err := fromClient.GetLastIO()
-		if err != nil {
-			return false, fmt.Errorf("fail to get last io, err: %v", err)
-		}
-
-		// upgrade case where last io will have size = 0
-		if lio.Data.LastIO.Size == 0 {
-			return false, nil
-		}
-
-		logrus.Infof("Sync last missing io")
-		offset, err := strconv.ParseInt(lio.Data.LastIO.Offset, 10, 64)
-		if err != nil {
-			return false, nil
-		}
-
-		if _, err := s.WriteAt(lio.Data.Buffer, offset); err != nil {
-			return false, fmt.Errorf("fail to write last io, err: %v", err)
-		}
-		return true, nil
-	}
-
-	return false, nil
+	return t.syncLastMissingIO(rwReplica, curReplica, fromClient, toClient, s)
 }
 
 // checkAndResetFailedRebuild set the rebuilding to false if

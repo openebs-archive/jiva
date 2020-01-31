@@ -8,6 +8,11 @@ import (
 	"github.com/rancher/go-rancher/client"
 )
 
+const (
+	// ReplicaVersion is the version of replica
+	ReplicaVersion = 1
+)
+
 type Replica struct {
 	client.Resource
 	Dirty             bool                        `json:"dirty"`
@@ -26,6 +31,7 @@ type Replica struct {
 	UsedLogicalBlocks string                      `json:"usedlogicalblocks"`
 	UsedBlocks        string                      `json:"usedblocks"`
 	CloneStatus       string                      `json:"clonestatus"`
+	Version           int                         `json:"version"`
 }
 
 // LastIO holds the data of last IO
@@ -137,6 +143,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 			Id:      "1",
 			Actions: map[string]string{},
 		},
+		Version: ReplicaVersion,
 	}
 
 	r.State = string(state)

@@ -1357,7 +1357,7 @@ test_upgrade() {
 }
 
 test_upgrades() {
-	test_upgrade "openebs/jiva:1.4.0" "replica-controller"
+	test_upgrade "openebs/jiva:1.6.0" "replica-controller"
 }
 
 di_test_on_raw_disk() {

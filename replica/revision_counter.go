@@ -58,21 +58,15 @@ func (r *Replica) readLastIO() (LastIO, error) {
 	list := strings.Split(str, ",")
 	if len(list) < 3 {
 		// upgrade case where revision.counter doesn't have last IO info
-		return LastIO{}, nil
+		return LastIO{Offset: "0"}, nil
 	}
-
 	size, err = strconv.Atoi(list[2])
 	if err != nil {
 		return LastIO{}, fmt.Errorf("fail to parse size: %v, err: %v", list[2], err)
 	}
 
-	offset := list[1]
-	if offset == "" {
-		offset = "0"
-	}
-
 	return LastIO{
-		Offset: offset,
+		Offset: list[1],
 		Size:   size,
 	}, nil
 }

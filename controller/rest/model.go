@@ -10,6 +10,11 @@ import (
 	"github.com/rancher/go-rancher/client"
 )
 
+const (
+	// VolumeVersion is the version of the volume
+	VolumeVersion = 1
+)
+
 type Timeout struct {
 	client.Resource
 	Timeout        string `json:"timeout"`
@@ -32,6 +37,7 @@ type Volume struct {
 	Name         string `json:"name"`
 	ReplicaCount int    `json:"replicaCount"`
 	ReadOnly     string `json:"readOnly"`
+	Version      int    `json:"version"`
 }
 
 type VolumeCollection struct {
@@ -136,6 +142,7 @@ func NewVolume(context *api.ApiContext, name string, readOnly bool, replicas int
 		Name:         name,
 		ReplicaCount: replicas,
 		ReadOnly:     ReadOnly,
+		Version:      VolumeVersion,
 	}
 
 	if replicas == 0 {
