@@ -1345,6 +1345,13 @@ test_upgrade() {
 	JI=$UPGRADED_JI
 	if [ "$2" == "controller-replica" ]; then
 		upgrade_controller
+		sleep 5
+		count=$(docker logs $orig_controller_id 2>&1 | grep -c "Can't register replica:")
+		if [ "$count" -eq 0  ]; then
+			echo "upgrade controller-replica test failed"
+			collect_logs_and_exit
+		fi
+
 		upgrade_replicas
 	else
 		upgrade_replicas
@@ -1357,6 +1364,7 @@ test_upgrade() {
 }
 
 test_upgrades() {
+	test_upgrade "openebs/jiva:1.4.0" "controller-replica"
 	test_upgrade "openebs/jiva:1.4.0" "replica-controller"
 }
 
@@ -2002,6 +2010,7 @@ test_replica_restart_optimization() {
 }
 
 prepare_test_env
+test_upgrades
 test_volume_resize
 test_replica_restart_optimization
 test_delete_snapshot
@@ -2026,6 +2035,5 @@ run_data_integrity_test_with_fs_creation
 test_clone_feature
 test_duplicate_snapshot_failure
 #test_extent_support_file_system
-test_upgrades
 run_vdbench_test_on_volume
 run_libiscsi_test_suite

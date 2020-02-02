@@ -357,9 +357,7 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 	logrus.Infof("Register Replica, %+v", register)
 
 	if register.Version < types.ReplicaVersion {
-		msg := fmt.Sprintf("Can't register replica: %v with version: %v, supported version must be > %v", register.Address, register.Version, types.ReplicaVersion)
-		logrus.Error(msg)
-		return fmt.Errorf(msg)
+		return fmt.Errorf("Can't register replica: %v with version: %v, supported version must be > %v", register.Address, register.Version, types.ReplicaVersion)
 	}
 
 	_, ok := c.RegisteredReplicas[register.Address]
