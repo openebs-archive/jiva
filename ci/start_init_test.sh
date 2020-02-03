@@ -1304,6 +1304,7 @@ test_extent_support_file_system() {
 }
 
 upgrade_controller() {
+	echo "----------------Upgrade Controller----------------"
 	docker logs $orig_controller_id
 	docker stop $orig_controller_id
 	docker rm $orig_controller_id
@@ -1311,18 +1312,17 @@ upgrade_controller() {
 }
 
 upgrade_replicas() {
-	docker logs $replica1_id
-	docker stop $replica1_id
-	docker rm $replica1_id
-	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
-	docker logs $replica1_id
-	docker stop $replica2_id
-	docker rm $replica2_id
-	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
-	docker logs $replica1_id
-	docker stop $replica3_id
-	docker rm $replica3_id
-	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+	echo "----------------Upgrade Replicas----------------"
+	upgrade_replica $replica1_id $REPLICA_IP1 "vol1"
+	upgrade_replica $replica2_id $REPLICA_IP2 "vol2"
+	upgrade_replica $replica3_id $REPLICA_IP3 "vol3"
+}
+
+upgrade_replica() {
+	docker logs $1
+	docker stop $1
+	docker rm $1
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$2" "$3")
 }
 
 test_upgrade() {
@@ -1338,7 +1338,7 @@ test_upgrade() {
 	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
 	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
 
-	verify_replica_cnt "3" "Three replica count test in controller upgrade"
+	verify_replica_cnt "3" "Three replica count test in $2 test with image: $JI"
 	run_ios 50K 0 &
 	sleep 8
 
@@ -1351,21 +1351,27 @@ test_upgrade() {
 			echo "upgrade controller-replica test failed"
 			collect_logs_and_exit
 		fi
-
 		upgrade_replicas
-	else
+	elif [ "$2" == "replica-controller" ]; then
 		upgrade_replicas
 		upgrade_controller
+	else
+		upgrade_replica $replica1_id $REPLICA_IP1 "vol1"
+		upgrade_replica $replica2_id $REPLICA_IP2 "vol2"
+		upgrade_controller
 	fi
-	verify_replica_cnt "3" "Three replica count test in controller upgrade"
+
+	verify_replica_cnt "3" "Three replica count test in $2 test with image: $JI"
 	wait
 	test_data_integrity
+	echo "Upgrade test passed for case: $2"
 	cleanup
 }
 
 test_upgrades() {
-	test_upgrade "openebs/jiva:1.4.0" "controller-replica"
-	test_upgrade "openebs/jiva:1.4.0" "replica-controller"
+	test_upgrade "openebs/jiva:1.6.0" "controller-replica"
+	test_upgrade "openebs/jiva:1.6.0" "replica-controller"
+	test_upgrade "openebs/jiva:1.6.0" "new_replica-old_replica-controller"
 }
 
 di_test_on_raw_disk() {
