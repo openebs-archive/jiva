@@ -508,13 +508,13 @@ func (c *Controller) Resize(name string, size string) error {
 	}
 	err = c.handleErrorNoLock(c.backend.Resize(name, size))
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to resize replica, err: %v", err)
 	}
 
 	if c.frontend != nil {
 		err = c.frontend.Resize(uint64(sizeInBytes))
 		if err != nil {
-			return err
+			return fmt.Errorf("Failed to resize from frontend, err: %v", err)
 		}
 	}
 	c.size = sizeInBytes
