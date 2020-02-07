@@ -37,6 +37,7 @@ type Controller struct {
 	StartSignalled           bool
 	ReadOnly                 bool
 	SnapshotName             string
+	logged                   bool
 	IsSnapDeletionInProgress bool
 	StartAutoSnapDeletion    chan bool
 }
@@ -935,12 +936,14 @@ func (c *Controller) Start(addresses ...string) error {
 // on the app.
 func (c *Controller) WriteAt(b []byte, off int64) (int, error) {
 	c.Lock()
-	if c.ReadOnly == true {
+	if c.ReadOnly && !c.logged {
+		c.logged = true
 		err := fmt.Errorf("Mode: ReadOnly")
 		c.Unlock()
 		time.Sleep(1 * time.Second)
 		return 0, err
 	}
+	c.logged = false
 	defer c.Unlock()
 	if off < 0 || off+int64(len(b)) > c.size {
 		err := fmt.Errorf("EOF: Write of %v bytes at offset %v is beyond volume size %v", len(b), off, c.size)
@@ -966,12 +969,14 @@ func (c *Controller) WriteAt(b []byte, off int64) (int, error) {
 
 func (c *Controller) Sync() (int, error) {
 	c.Lock()
-	if c.ReadOnly == true {
+	if c.ReadOnly && !c.logged {
+		c.logged = true
 		err := fmt.Errorf("Mode: ReadOnly")
 		c.Unlock()
 		time.Sleep(1 * time.Second)
 		return -1, err
 	}
+	c.logged = false
 	defer c.Unlock()
 	n, err := c.backend.Sync()
 	if err != nil {
@@ -993,12 +998,14 @@ func (c *Controller) Sync() (int, error) {
 
 func (c *Controller) Unmap(offset int64, length int64) (int, error) {
 	c.Lock()
-	if c.ReadOnly == true {
+	if c.ReadOnly && !c.logged {
+		c.logged = true
 		err := fmt.Errorf("Mode: ReadOnly")
 		c.Unlock()
 		time.Sleep(1 * time.Second)
 		return -1, err
 	}
+	c.logged = false
 	defer c.Unlock()
 	n, err := c.backend.Unmap(offset, length)
 	if err != nil {
