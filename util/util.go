@@ -176,20 +176,22 @@ func CheckReplicationFactor() int {
 	return int(replicationFactor)
 }
 
+// GetReadTimeout gets the read timeout value from the env
 func GetReadTimeout() time.Duration {
 	readTimeout, _ := strconv.ParseInt(os.Getenv("RPC_READ_TIMEOUT"), 10, 64)
 	if readTimeout == 0 {
-		logrus.Infof("WRITE_READ_TIMEOUT env not set")
+		logrus.Infof("RPC_READ_TIMEOUT env not set")
 		return time.Duration(readTimeout)
 	}
-	return time.Duration(readTimeout)
+	return time.Duration(readTimeout) * time.Second
 }
 
+// GetWriteTimeout gets the write timeout value from the env
 func GetWriteTimeout() time.Duration {
 	writeTimeout, _ := strconv.ParseInt(os.Getenv("RPC_WRITE_TIMEOUT"), 10, 64)
 	if writeTimeout == 0 {
 		logrus.Infof("RPC_WRITE_TIMEOUT env not set")
 		return time.Duration(writeTimeout)
 	}
-	return time.Duration(writeTimeout)
+	return time.Duration(writeTimeout) * time.Second
 }

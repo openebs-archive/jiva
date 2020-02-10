@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/gorilla/handlers"
 	"github.com/openebs/jiva/backend/dynamic"
@@ -109,10 +108,10 @@ func startController(c *cli.Context) error {
 	}
 	name := c.Args()[0]
 	rf := util.CheckReplicationFactor()
-	types.RPCReadTimeout = util.GetReadTimeout() * time.Second
-	types.RPCWriteTimeout = util.GetWriteTimeout() * time.Second
-	logrus.Infof("REPLICATION_FACTOR: %v, RPC_READ_TIMEOUT: %v, RPC_WRITE_TIMEOUT: %v", rf, types.RPCReadTimeout, types.RPCWriteTimeout)
+	types.RPCReadTimeout = util.GetReadTimeout()
+	types.RPCWriteTimeout = util.GetWriteTimeout()
 	rpc.SetRPCTimeout()
+	logrus.Infof("REPLICATION_FACTOR: %v, RPC_READ_TIMEOUT: %v, RPC_WRITE_TIMEOUT: %v", rf, types.RPCReadTimeout, types.RPCWriteTimeout)
 
 	if !util.ValidVolumeName(name) {
 		return errors.New("invalid target name")
