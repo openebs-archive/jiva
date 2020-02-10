@@ -411,7 +411,7 @@ verify_controller_rep_state() {
 # start_controller CONTROLLER_IP
 start_controller() {
 	controller_id=$(docker run -d --net stg-net --ip $1 -P --expose 3260 --expose 9501 --expose 9502-9504 $JI \
-		env REPLICATION_FACTOR="$3" launch controller --frontend gotgt --frontendIP "$1" "$2")
+		env REPLICATION_FACTOR="$3" RPC_WRITE_TIMEOUT="$4" launch controller --frontend gotgt --frontendIP "$1" "$2")
 
 	echo "$controller_id"
 }
@@ -2033,10 +2033,47 @@ test_write_io_timeout() {
         verify_rw_rep_count "3"
         verify_replica_cnt "3" "write io timeout test passed"
         logout_of_volume
+        cleanup
+}
+
+test_write_io_timeout_with_readwrite_env() {
+        orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3" "15")
+        replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+        replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+        verify_rw_rep_count "2"
+        verify_replica_cnt "2" "initial check for write io timeout ENV passed"
+        login_to_volume "$CONTROLLER_IP:3260"
+        debug_replica_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3" "PRELOAD_TIMEOUT" "25")
+        sleep 5
+        get_scsi_disk
+        if [ "$device_name"!="" ]; then
+                preload_success=0
+                iter=0
+                while [ "$preload_success" -lt 3 ]; do
+                        preload_success=`docker logs $debug_replica_id 2>&1 | grep -c "Start reading extents"`
+                        if [ "$iter" == 100 ]; then
+                                collect_logs_and_exit
+                        fi
+                        let iter=iter+1
+                        sleep 2
+                done
+                dd if=/dev/urandom of=/dev/$device_name bs=4K count=1000
+                if [ $? -eq 0 ]; then echo "IOs were written successfully while running 3 replicas stop/start test"
+                else
+                        echo "IOs errored out while running 3 replicas stop/start test"; collect_logs_and_exit
+                fi
+        else
+                echo "Unable to detect iSCSI device during test_restart_add_replica"; collect_logs_and_exit
+        fi
+        verify_rw_rep_count "2"
+        verify_replica_cnt "2" "write io timeout ENV test passed"
+        logout_of_volume
+        cleanup
 }
 
 prepare_test_env
 test_write_io_timeout
+test_write_io_timeout_with_readwrite_env
 test_volume_resize
 test_replica_restart_optimization
 test_delete_snapshot
