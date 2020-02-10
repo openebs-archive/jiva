@@ -18,8 +18,8 @@ var (
 	ErrPingTimeout = errors.New("Ping timeout")
 	//Retries are not required as the reader on msg->complete has already exited
 	opRetries       = 0
-	opReadTimeout   = 15 * time.Second // client read
-	opWriteTimeout  = 15 * time.Second // client write
+	opReadTimeout   = 30 * time.Second // client read
+	opWriteTimeout  = 30 * time.Second // client write
 	opSyncTimeout   = 30 * time.Second // client sync
 	opUnmapTimeout  = 30 * time.Second // client unmap
 	opPingTimeout   = 40 * time.Second

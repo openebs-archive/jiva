@@ -84,6 +84,7 @@ cleanup() {
 	rm -rfv /mnt/logs
 	docker stop $(docker ps -aq)
 	docker rm $(docker ps -aq)
+	logout_of_volume
 }
 
 prepare_test_env() {
@@ -2001,7 +2002,41 @@ test_replica_restart_optimization() {
 	cleanup
 }
 
+test_write_io_timeout() {
+        orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+        replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+        replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+        verify_rw_rep_count "2"
+        verify_replica_cnt "2" "initial check for write io timeout passed"
+        login_to_volume "$CONTROLLER_IP:3260"
+        debug_replica_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3" "PRELOAD_TIMEOUT" "25")
+        sleep 5
+        get_scsi_disk
+        if [ "$device_name"!="" ]; then
+                preload_success=0
+                iter=0
+                while [ "$preload_success" -lt 3 ]; do
+                        preload_success=`docker logs $debug_replica_id 2>&1 | grep -c "Start reading extents"`
+                        if [ "$iter" == 100 ]; then
+                                collect_logs_and_exit
+                        fi
+                        let iter=iter+1
+                        sleep 2
+                done
+                dd if=/dev/urandom of=/dev/$device_name bs=4K count=1000
+                if [ $? -eq 0 ]; then echo "IOs were written successfully while running 3 replicas stop/start test"
+                else
+                        echo "IOs errored out while running 3 replicas stop/start test"; collect_logs_and_exit
+                fi
+        else
+                echo "Unable to detect iSCSI device during test_restart_add_replica"; collect_logs_and_exit
+        fi
+        verify_rw_rep_count "3"
+        logout_of_volume
+}
+
 prepare_test_env
+test_write_io_timeout
 test_volume_resize
 test_replica_restart_optimization
 test_delete_snapshot
