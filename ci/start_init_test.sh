@@ -84,7 +84,6 @@ cleanup() {
 	rm -rfv /mnt/logs
 	docker stop $(docker ps -aq)
 	docker rm $(docker ps -aq)
-	logout_of_volume
 }
 
 prepare_test_env() {
@@ -2032,6 +2031,7 @@ test_write_io_timeout() {
                 echo "Unable to detect iSCSI device during test_restart_add_replica"; collect_logs_and_exit
         fi
         verify_rw_rep_count "3"
+        verify_replica_cnt "3" "write io timeout test passed"
         logout_of_volume
 }
 
