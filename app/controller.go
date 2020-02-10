@@ -14,6 +14,7 @@ import (
 	"github.com/openebs/jiva/backend/remote"
 	"github.com/openebs/jiva/controller"
 	"github.com/openebs/jiva/controller/rest"
+	"github.com/openebs/jiva/rpc"
 	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
 	"github.com/sirupsen/logrus"
@@ -107,7 +108,10 @@ func startController(c *cli.Context) error {
 	}
 	name := c.Args()[0]
 	rf := util.CheckReplicationFactor()
-	logrus.Infof("REPLICATION_FACTOR: %v", rf)
+	types.RPCReadTimeout = util.GetReadTimeout()
+	types.RPCWriteTimeout = util.GetWriteTimeout()
+	rpc.SetRPCTimeout()
+	logrus.Infof("REPLICATION_FACTOR: %v, RPC_READ_TIMEOUT: %v, RPC_WRITE_TIMEOUT: %v", rf, types.RPCReadTimeout, types.RPCWriteTimeout)
 
 	if !util.ValidVolumeName(name) {
 		return errors.New("invalid target name")
