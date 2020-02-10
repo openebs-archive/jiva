@@ -16,6 +16,13 @@ const (
 	StateDown = State("Down")
 )
 
+var (
+	// RPCReadTimeout ...
+	RPCReadTimeout time.Duration
+	// RPCWriteTimeout ...
+	RPCWriteTimeout time.Duration
+)
+
 const (
 	// DrainStart flag is used to notify CreateHoles goroutine
 	// for draining the data in HoleCreatorChan
