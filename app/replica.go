@@ -2,7 +2,6 @@ package app
 
 import (
 	"errors"
-	"github.com/openebs/jiva/alertlog"
 	"net"
 	"net/http"
 	"os"
@@ -13,6 +12,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/openebs/jiva/alertlog"
+
 	"github.com/openebs/jiva/types"
 
 	"github.com/docker/go-units"
@@ -20,6 +21,7 @@ import (
 	"github.com/openebs/jiva/replica"
 	"github.com/openebs/jiva/replica/rest"
 	"github.com/openebs/jiva/replica/rpc"
+	dataconn "github.com/openebs/jiva/rpc"
 	"github.com/openebs/jiva/sync"
 	"github.com/openebs/jiva/util"
 	"github.com/sirupsen/logrus"
@@ -173,6 +175,10 @@ func startReplica(c *cli.Context) error {
 	} else {
 		logrus.Infof("MAX_CHAIN_LENGTH: %v", types.MaxChainLength)
 	}
+	types.RPCReadTimeout = util.GetReadTimeout() * time.Second
+	types.RPCWriteTimeout = util.GetWriteTimeout() * time.Second
+	logrus.Infof("RPC_READ_TIMEOUT: %v, RPC_WRITE_TIMEOUT: %v", types.RPCReadTimeout, types.RPCWriteTimeout)
+	dataconn.SetRPCTimeout()
 
 	dir := c.Args()[0]
 	replicaType := c.String("type")

@@ -8,6 +8,7 @@ import (
 
 	journal "github.com/longhorn/sparse-tools/stats"
 	inject "github.com/openebs/jiva/error-inject"
+	"github.com/openebs/jiva/types"
 	"github.com/sirupsen/logrus"
 )
 
@@ -24,6 +25,16 @@ var (
 	opPingTimeout   = 40 * time.Second
 	opUpdateTimeout = 15 * time.Second // client update
 )
+
+// SetRPCTimeout is used to custom timeouts for read and write
+func SetRPCTimeout() {
+	if types.RPCReadTimeout != 0 {
+		opReadTimeout = types.RPCReadTimeout
+	}
+	if types.RPCWriteTimeout != 0 {
+		opWriteTimeout = types.RPCWriteTimeout
+	}
+}
 
 //SampleOp operation
 type SampleOp int

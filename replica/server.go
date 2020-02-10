@@ -486,6 +486,7 @@ func (s *Server) WriteAt(buf []byte, offset int64) (int, error) {
 	if s.r == nil {
 		return 0, fmt.Errorf("Volume no longer exist")
 	}
+	time.Sleep(10 * time.Second)
 	i, err := s.r.WriteAt(buf, offset)
 	return i, err
 }
