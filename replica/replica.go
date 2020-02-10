@@ -238,8 +238,8 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 
 	r.insertBackingFile()
 	r.ReplicaType = replicaType
-	inject.AddPreloadTimeout()
 	logrus.Info("Start reading extents")
+	inject.AddPreloadTimeout()
 	if err := PreloadLunMap(&r.volume); err != nil {
 		return r, fmt.Errorf("failed to load Lun map, error: %v", err)
 	}
