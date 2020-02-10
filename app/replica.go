@@ -2,7 +2,6 @@ package app
 
 import (
 	"errors"
-	"github.com/openebs/jiva/alertlog"
 	"net"
 	"net/http"
 	"os"
@@ -12,6 +11,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/openebs/jiva/alertlog"
 
 	"github.com/openebs/jiva/types"
 
