@@ -68,7 +68,7 @@ _run_ci:
 
 build_image:
 	@echo "INFO:\tRun unit tests and build image"
-	bash ./scripts/ci
+	bash ./scripts/ci ${XC_ARCH}
 
 
 _push_image:
@@ -89,7 +89,7 @@ endif
 	@echo "Linting with golint"
 	$(shell golint $(shell find . -maxdepth 1 -type d \( ! -iname ".git" ! -iname "vendor" \)) )
 
-build: deps build_image _run_ci _push_image
+build: deps build_image _run_ci 
 build_gitlab: deps build_image _push_image
 
 #

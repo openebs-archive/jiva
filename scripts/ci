@@ -1,10 +1,24 @@
 #!/bin/bash
 set -e
 
+# architecute on which integration tests need to be run
+ARCH=$1
+
 cd $(dirname $0)
 
 ./build_binaries
 ./build_debug_binaries
+
+# if [ -z "$ARCH" ]; then
+#   echo "platform not specified for running tests. Exiting."
+#   exit 1
+# fi
+
+# # currently integration tests are run only for amd64
+# if [ "$ARCH" == "amd64" ]; then
+#   exit 0
+# fi
+
 ./prepare_test
 ./validate
 ./package

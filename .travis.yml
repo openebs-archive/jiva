@@ -11,6 +11,13 @@ env:
     - GOARCH=$(go env GOARCH)
     - GO_FOR_RELEASE=1.13
 
+jobs:
+  include:
+    - os: linux
+      arch: amd64
+    - os: linux
+      arch: arm64
+
 addons:
   apt:
     update: true
@@ -22,6 +29,10 @@ before_install:
   - mkdir -p $HOME/gopath/bin
 script:
   - make build
+
+after_success:
+  - make _push_image
+
 notifications:
   email:
     recipients:
