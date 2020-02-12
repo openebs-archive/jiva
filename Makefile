@@ -68,7 +68,7 @@ _run_ci:
 
 build_image:
 	@echo "INFO:\tRun unit tests and build image"
-	bash ./scripts/ci ${XC_ARCH}
+	bash ./scripts/ci
 
 
 _push_image:

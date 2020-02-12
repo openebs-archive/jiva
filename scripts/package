@@ -16,7 +16,6 @@ fi
 cp ../bin/longhorn* .
 cp ../bin/longhorn jivactl
 #cp /usr/src/tgt/pkg/tgt_*.deb .
-echo "ARCHinDockerBUILD " ${ARCH}
 if [ ${ARCH} == "linux_arm64" ]
 then
   DOCKERFILE=Dockerfile_build_arm64

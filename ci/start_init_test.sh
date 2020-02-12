@@ -1,6 +1,7 @@
 
 #!/bin/bash
 #set -x
+
 PS4='${LINENO}: '
 CONTROLLER_IP="172.18.0.2"
 REPLICA_IP1="172.18.0.3"
@@ -2070,6 +2071,17 @@ test_write_io_timeout_with_readwrite_env() {
         logout_of_volume
         cleanup
 }
+
+if [ -z "$ARCH" ]; then
+  echo "platform not specified for running tests. Exiting."
+  exit 1
+fi
+
+# currently integration tests are run only for amd64
+if [ "$ARCH" != "linux_amd64" ]; then
+  echo "skipping test for $ARCH" 
+  exit 0
+fi
 
 prepare_test_env
 test_write_io_timeout
