@@ -192,14 +192,6 @@ func (t *Task) AddReplica(replicaAddress string, s *replica.Server) error {
 	logrus.Infof("Addreplica %v", replicaAddress)
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
-	Replica, err := replica.CreateTempReplica()
-	if err != nil {
-		return fmt.Errorf("failed to create temp replica, error: %s", err.Error())
-	}
-	server, err := replica.CreateTempServer()
-	if err != nil {
-		return fmt.Errorf("failed to create temp server, error: %s", err.Error())
-	}
 Register:
 	logrus.Infof("Get Volume info from controller")
 	volume, err := t.client.GetVolume()
@@ -209,10 +201,10 @@ Register:
 	addr := strings.Split(replicaAddress, "://")
 	parts := strings.Split(addr[1], ":")
 	if volume.ReplicaCount == 0 {
-		revisionCount := Replica.GetRevisionCounter()
+		revisionCount := s.Replica().GetRevisionCounter()
 		replicaType := "Backend"
-		upTime := time.Since(Replica.ReplicaStartTime)
-		state, _ := server.PrevStatus()
+		upTime := time.Since(s.Replica().ReplicaStartTime)
+		state, _ := s.PrevStatus()
 		logrus.Infof("Register replica at controller")
 		err := t.client.Register(parts[0], revisionCount, replicaType, upTime, string(state))
 		if err != nil {

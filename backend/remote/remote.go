@@ -257,15 +257,6 @@ func (rf *Factory) Create(address string) (types.Backend, error) {
 		monitorChan: make(types.MonitorChannel, 5),
 	}
 
-	replica, err := r.info()
-	if err != nil {
-		return nil, err
-	}
-
-	if replica.State != "closed" {
-		return nil, fmt.Errorf("Replica must be closed, Can not add in state: %s", replica.State)
-	}
-
 	conn, err := net.Dial("tcp", dataAddress)
 	if err != nil {
 		return nil, err
@@ -273,13 +264,6 @@ func (rf *Factory) Create(address string) (types.Backend, error) {
 
 	remote := rpc.NewClient(conn, r.closeChan)
 	r.IOs = remote
-
-	if err := r.open(); err != nil {
-		logrus.Errorf("Failed to open replica, error: %v", err)
-		remote.Close()
-		return nil, err
-	}
-
 	go r.monitorPing(remote)
 
 	return r, nil

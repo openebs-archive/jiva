@@ -139,10 +139,10 @@ func (s *Server) Create(size int64) error {
 	state, _ := s.Status()
 
 	if state != Initial {
+		s.Open()
 		fmt.Println("STATE = ", state)
 		return nil
 	}
-
 	size = s.getSize(size)
 	sectorSize := s.getSectorSize()
 
@@ -151,13 +151,13 @@ func (s *Server) Create(size int64) error {
 	if err != nil {
 		return err
 	}
-
-	return r.Close()
+	s.r = r
+	return nil
 }
 
 func (s *Server) Open() error {
-	s.Lock()
-	defer s.Unlock()
+	//s.Lock()
+	//defer s.Unlock()
 
 	if s.r != nil {
 		return fmt.Errorf("Replica is already open")
