@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/openebs/jiva/alertlog"
+	inject "github.com/openebs/jiva/error-inject"
 
 	"github.com/openebs/jiva/types"
 
@@ -197,6 +199,12 @@ func startReplica(c *cli.Context) error {
 		if err := s.Create(size); err != nil {
 			return err
 		}
+		logrus.Info("Start reading extents")
+		inject.AddPreloadTimeout()
+		if err := replica.PreloadLunMap(s.Replica().GetVolume()); err != nil {
+			return fmt.Errorf("failed to load Lun map, error: %v", err)
+		}
+		logrus.Info("Read extents successful")
 	}
 
 	if address == ":9502" {
