@@ -275,10 +275,15 @@ Register:
 		if err = t.syncFiles(fromClient, toClient, output.Disks); err != nil {
 			return err
 		}
+		_, err := toClient.ReloadReplica()
+		if err != nil {
+			logrus.Errorf("Error in reloadreplica %s", replicaAddress)
+			return err
+		}
 	}
 
-	logrus.Infof("reloadAndVerify %v", replicaAddress)
-	return t.reloadAndVerify(replicaAddress, toClient)
+	logrus.Infof("VerifyRebuild %v", replicaAddress)
+	return t.verifyRebuild(replicaAddress, toClient)
 }
 
 func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.ReplicaClient) (bool, error) {
@@ -328,23 +333,18 @@ func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server
 	return nil
 }
 
-func (t *Task) reloadAndVerify(address string, repClient *replicaClient.ReplicaClient) error {
-	_, err := repClient.ReloadReplica()
-	if err != nil {
-		logrus.Errorf("Error in reloadreplica %s", address)
-		return err
-	}
+func (t *Task) verifyRebuild(address string, repClient *replicaClient.ReplicaClient) (err error) {
 
-	if err := t.client.VerifyRebuildReplica(rest.EncodeID(address)); err != nil {
+	if err = t.client.VerifyRebuildReplica(rest.EncodeID(address)); err != nil {
 		logrus.Errorf("Error in verifyRebuildReplica %s", address)
-		return err
+		return
 	}
 
 	if err = repClient.SetRebuilding(false); err != nil {
 		logrus.Errorf("Error in setRebuilding %s", address)
 	}
 
-	return err
+	return
 }
 
 func isRevisionCountSame(fromClient, toClient *replicaClient.ReplicaClient, disk string) (bool, error) {
