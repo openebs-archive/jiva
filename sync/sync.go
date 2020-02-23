@@ -12,6 +12,7 @@ import (
 	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/replica"
 	replicaClient "github.com/openebs/jiva/replica/client"
+	replicaRest "github.com/openebs/jiva/replica/rest"
 	"github.com/openebs/jiva/types"
 	"github.com/sirupsen/logrus"
 )
@@ -161,7 +162,17 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 		if err := toClient.SetRebuilding(true); err != nil {
 			return fmt.Errorf("Failed to setRebuilding = true, %s", err)
 		}
-		if err = t.syncFiles(fromClient, toClient, chain); err != nil {
+		rwReplica, err := fromClient.GetReplica()
+		if err != nil {
+			return err
+		}
+
+		curReplica, err := toClient.GetReplica()
+		if err != nil {
+			return err
+		}
+		logrus.Infof("syncFiles from:%v to:%v", fromClient, toClient)
+		if err = t.syncFiles(fromClient, toClient, chain, rwReplica, curReplica); err != nil {
 			logrus.Errorf("Sync failed, retry after 2s, error: %s", err.Error())
 			time.Sleep(2 * time.Second)
 			continue
@@ -254,7 +265,7 @@ Register:
 	}
 
 	logrus.Infof("SetRebuilding to true in %v", replicaAddress)
-	if err := toClient.SetRebuilding(true); err != nil {
+	if err := s.SetRebuilding(true); err != nil {
 		return fmt.Errorf("failed to set rebuilding: true, error: %s", err.Error())
 	}
 
@@ -265,17 +276,26 @@ Register:
 	}
 	inject.PanicAfterPrepareRebuild()
 
-	ok, err := t.isRevisionCountAndChainSame(fromClient, toClient)
+	rwReplica, err := fromClient.GetReplica()
+	if err != nil {
+		return err
+	}
+
+	curReplica, err := toClient.GetReplica()
+	if err != nil {
+		return err
+	}
+	ok, err := t.isRevisionCountAndChainSame(fromClient, toClient, rwReplica, curReplica)
 	if err != nil {
 		return err
 	}
 
 	if !ok {
 		logrus.Infof("syncFiles from:%v to:%v", fromClient, toClient)
-		if err = t.syncFiles(fromClient, toClient, output.Disks); err != nil {
+		if err = t.syncFiles(fromClient, toClient, output.Disks, rwReplica, curReplica); err != nil {
 			return err
 		}
-		_, err := toClient.ReloadReplica()
+		err = s.Reload()
 		if err != nil {
 			logrus.Errorf("Error in reloadreplica %s", replicaAddress)
 			return err
@@ -286,16 +306,9 @@ Register:
 	return t.verifyRebuild(replicaAddress, toClient)
 }
 
-func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.ReplicaClient) (bool, error) {
-	rwReplica, err := fromClient.GetReplica()
-	if err != nil {
-		return false, err
-	}
-
-	curReplica, err := toClient.GetReplica()
-	if err != nil {
-		return false, err
-	}
+func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.ReplicaClient,
+	rwReplica replicaRest.Replica, curReplica replicaRest.Replica,
+) (bool, error) {
 	logrus.Infof("RevisionCount of RW replica (%v): %v, Current replica (%v): %v",
 		fromClient.GetAddress(), rwReplica.RevisionCounter, toClient.GetAddress(),
 		curReplica.RevisionCounter)
@@ -372,7 +385,8 @@ func isRevisionCountSame(fromClient, toClient *replicaClient.ReplicaClient, disk
 	return true, nil
 }
 
-func (t *Task) syncFiles(fromClient, toClient *replicaClient.ReplicaClient, disks []string) error {
+func (t *Task) syncFiles(fromClient, toClient *replicaClient.ReplicaClient, disks []string,
+	rwReplica replicaRest.Replica, curReplica replicaRest.Replica) error {
 	for i := range disks {
 		//We are syncing from the oldest snapshots to newer ones
 		disk := disks[len(disks)-1-i]
