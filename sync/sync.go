@@ -107,7 +107,7 @@ Register:
 	return nil
 }
 
-func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName string) error {
+func (t *Task) CloneReplica(s *replica.Server, url string, address string, cloneIP string, snapName string) error {
 	var (
 		fromReplica rest.Replica
 		snapFound   bool
@@ -159,7 +159,7 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 		if snapFound == false {
 			return fmt.Errorf("Snapshot Not found at source")
 		}
-		if err := toClient.SetRebuilding(true); err != nil {
+		if err := s.SetRebuilding(true); err != nil {
 			return fmt.Errorf("Failed to setRebuilding = true, %s", err)
 		}
 		rwReplica, err := fromClient.GetReplica()
@@ -172,21 +172,22 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 			return err
 		}
 		logrus.Infof("syncFiles from:%v to:%v", fromClient, toClient)
-		if err = t.syncFiles(fromClient, toClient, chain, rwReplica, curReplica); err != nil {
+		if err = t.syncFiles(s.Replica(), fromClient, toClient, chain, rwReplica, curReplica); err != nil {
 			logrus.Errorf("Sync failed, retry after 2s, error: %s", err.Error())
 			time.Sleep(2 * time.Second)
 			continue
 		}
 
-		_, err = toClient.UpdateCloneInfo(snapName, strconv.FormatInt(repl.Disks[snapshotName].RevisionCounter, 10))
+		err = s.UpdateCloneInfo(snapName, strconv.FormatInt(repl.Disks[snapshotName].RevisionCounter, 10))
 		if err != nil {
 			return fmt.Errorf("Failed to update clone info, err: %v", err)
 		}
-		_, err = toClient.ReloadReplica()
+		err = s.Reload()
 		if err != nil {
 			return fmt.Errorf("Failed to reload clone replica, error: %s", err.Error())
 		}
-		if err := toClient.SetRebuilding(false); err != nil {
+		s.UpdateLUNMap()
+		if err := s.SetRebuilding(false); err != nil {
 			return fmt.Errorf("Failed to setRebuilding = false, error: %s", err.Error())
 		}
 		return err
@@ -229,6 +230,12 @@ Register:
 		}
 	}
 	if action == "start" {
+		logrus.Info("Start reading extents")
+		inject.AddPreloadTimeout()
+		if err := replica.PreloadVolume(s.Replica()); err != nil {
+			return fmt.Errorf("failed to load Lun map, error: %v", err)
+		}
+		logrus.Info("Read extents successful")
 		logrus.Infof("Received start from controller")
 		types.ShouldPunchHoles = true
 		if err := t.client.Start(replicaAddress); err != nil {
@@ -292,7 +299,7 @@ Register:
 
 	if !ok {
 		logrus.Infof("syncFiles from:%v to:%v", fromClient, toClient)
-		if err = t.syncFiles(fromClient, toClient, output.Disks, rwReplica, curReplica); err != nil {
+		if err = t.syncFiles(s.Replica(), fromClient, toClient, output.Disks, rwReplica, curReplica); err != nil {
 			return err
 		}
 		err = s.Reload()
@@ -300,6 +307,7 @@ Register:
 			logrus.Errorf("Error in reloadreplica %s", replicaAddress)
 			return err
 		}
+		s.UpdateLUNMap()
 	}
 
 	logrus.Infof("VerifyRebuild %v", replicaAddress)
@@ -385,7 +393,7 @@ func isRevisionCountSame(fromClient, toClient *replicaClient.ReplicaClient, disk
 	return true, nil
 }
 
-func (t *Task) syncFiles(fromClient, toClient *replicaClient.ReplicaClient, disks []string,
+func (t *Task) syncFiles(r *replica.Replica, fromClient, toClient *replicaClient.ReplicaClient, disks []string,
 	rwReplica replicaRest.Replica, curReplica replicaRest.Replica) error {
 	for i := range disks {
 		//We are syncing from the oldest snapshots to newer ones

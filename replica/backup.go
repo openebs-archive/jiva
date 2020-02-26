@@ -280,12 +280,6 @@ func preload(d *diffDisk) error {
 		if i == 0 {
 			continue
 		}
-		if i == 1 {
-			// Reinitialize to zero so that we can detect holes in the base snapshot
-			for j := 0; j < len(d.location); j++ {
-				d.location[j] = 0
-			}
-		}
 		if d.UserCreatedSnap[i] {
 			userCreatedSnapIndx = uint16(i)
 		}
@@ -342,4 +336,8 @@ func PreloadLunMap(d *diffDisk) error {
 		}
 	}
 	return nil
+}
+
+func PreloadVolume(r *Replica) error {
+	return PreloadLunMap(&r.volume)
 }

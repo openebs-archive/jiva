@@ -334,6 +334,57 @@ func (s *Server) Revert(name, created string) error {
 	return nil
 }
 
+// UpdateLUNMap updates the the original LUNmap with any changes which have been
+// encountered after PreloadVolume
+func (s *Server) UpdateLUNMap() {
+
+	s.Lock()
+	volume := s.r.volume
+	//copyLUNMap(r, s.Replica())
+	volume.location = make([]uint16, len(s.r.volume.location))
+	s.Unlock()
+	PreloadLunMap(&volume)
+	s.Lock()
+	var (
+		length              int64
+		lOffset             int64
+		fileIndx            uint16
+		prevFileIndx        uint16
+		offset              int64
+		userCreatedSnapIndx uint16
+	)
+	for i, isUserCreated := range volume.UserCreatedSnap {
+		if isUserCreated {
+			userCreatedSnapIndx = uint16(i)
+		}
+	}
+
+	for offset, fileIndx = range volume.location {
+		if s.r.volume.location[offset] > fileIndx {
+			if prevFileIndx != fileIndx || offset != lOffset+length {
+				if prevFileIndx > userCreatedSnapIndx && shouldCreateHoles() {
+					sendToCreateHole(volume.files[prevFileIndx], lOffset*volume.sectorSize, length*volume.sectorSize)
+				}
+				length = 1
+				lOffset = offset
+				prevFileIndx = fileIndx
+			} else {
+				length++
+			}
+		} else {
+			// No hole drilling over here as that offset is empty
+			s.r.volume.location[offset] = volume.location[offset]
+			if prevFileIndx > userCreatedSnapIndx && shouldCreateHoles() {
+				sendToCreateHole(volume.files[prevFileIndx], lOffset*volume.sectorSize, length*volume.sectorSize)
+			}
+			length = 1
+			lOffset = offset
+			prevFileIndx = fileIndx
+		}
+	}
+	s.Unlock()
+}
+
 func (s *Server) Snapshot(name string, userCreated bool, createdTime string) error {
 	s.Lock()
 	defer s.Unlock()

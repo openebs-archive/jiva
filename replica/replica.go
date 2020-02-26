@@ -331,10 +331,7 @@ func (r *Replica) Resize(obj interface{}) error {
 	return r.encodeToFile(&r.info, volumeMetaData)
 }
 
-func (r *Replica) GetVolume() *diffDisk {
-	return &r.volume
-}
-
+// Reload reopens the files and recreates the file chain after syncing
 func (r *Replica) Reload() (*Replica, error) {
 	newReplica, err := New(r.info.Size, r.info.SectorSize, r.dir, r.info.BackingFile, r.ReplicaType)
 	if err != nil {
@@ -475,7 +472,7 @@ func (r *Replica) ReplaceDisk(target, source string) error {
 	}
 
 	// Open for R/W
-	newFile, err := r.openFile(r.activeDiskData[index].Name, 0)
+	newFile, err := r.OpenFile(r.activeDiskData[index].Name, 0)
 	if err != nil {
 		logrus.Fatalf("Failed to open new instance of target: %v, err: %v", target, err)
 		return err
@@ -762,7 +759,7 @@ func (r *Replica) nextFile(parsePattern *regexp.Regexp, pattern, parent string) 
 	return fmt.Sprintf(pattern, index+1), nil
 }
 
-func (r *Replica) openFile(name string, flag int) (types.DiffDisk, error) {
+func (r *Replica) OpenFile(name string, flag int) (types.DiffDisk, error) {
 	return sparse.NewDirectFileIoProcessor(r.diskPath(name), os.O_RDWR|flag, 06666, true)
 }
 
@@ -776,7 +773,7 @@ func (r *Replica) createNewHead(oldHead, parent, created string) (types.DiffDisk
 		return nil, disk{}, fmt.Errorf("%s already exists", newHeadName)
 	}
 
-	f, err := r.openFile(newHeadName, os.O_TRUNC)
+	f, err := r.OpenFile(newHeadName, os.O_TRUNC)
 	if err != nil {
 		return nil, disk{}, err
 	}
@@ -1018,7 +1015,7 @@ func (r *Replica) openLiveChain() error {
 
 	for i := len(chain) - 1; i >= 0; i-- {
 		parent := chain[i]
-		f, err := r.openFile(parent, 0)
+		f, err := r.OpenFile(parent, 0)
 		if err != nil {
 			logrus.Error("failed to open live chain with existing parent: ", parent)
 			return err

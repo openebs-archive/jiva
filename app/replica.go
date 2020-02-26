@@ -2,7 +2,6 @@ package app
 
 import (
 	"errors"
-	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -14,7 +13,6 @@ import (
 	"time"
 
 	"github.com/openebs/jiva/alertlog"
-	inject "github.com/openebs/jiva/error-inject"
 
 	"github.com/openebs/jiva/types"
 
@@ -131,7 +129,7 @@ func CloneReplica(s *replica.Server, address string, cloneIP string, snapName st
 	var err error
 	url := "http://" + cloneIP + ":9501"
 	task := sync.NewTask(url)
-	if err = task.CloneReplica(url, address, cloneIP, snapName); err != nil {
+	if err = task.CloneReplica(s, url, address, cloneIP, snapName); err != nil {
 		alertlog.Logger.Errorw("",
 			"eventcode", "jiva.volume.replica.clone.failure",
 			"msg", "Failed to clone Jiva volume replica",
@@ -199,12 +197,6 @@ func startReplica(c *cli.Context) error {
 		if err := s.Create(size); err != nil {
 			return err
 		}
-		logrus.Info("Start reading extents")
-		inject.AddPreloadTimeout()
-		if err := replica.PreloadLunMap(s.Replica().GetVolume()); err != nil {
-			return fmt.Errorf("failed to load Lun map, error: %v", err)
-		}
-		logrus.Info("Read extents successful")
 	}
 
 	if address == ":9502" {
