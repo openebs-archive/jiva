@@ -213,6 +213,7 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 	r.volume.location = make([]uint16, locationSize)
 	r.volume.files = []types.DiffDisk{nil}
 	r.volume.UserCreatedSnap = []bool{false}
+	r.volume.rmLock = &sync.Mutex{}
 
 	if r.readOnly && !exists {
 		return nil, os.ErrNotExist
