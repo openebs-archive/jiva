@@ -347,10 +347,10 @@ func (s *Server) UpdateLUNMap() {
 	PreloadLunMap(&volume)
 	s.Lock()
 	var (
-		length              int64
-		lOffset             int
+		holeLength          int64
+		holeOffset          int
 		fileIndx            uint16
-		prevFileIndx        uint16
+		prevHoleFileIndx    uint16
 		offset              int
 		userCreatedSnapIndx uint16
 	)
@@ -361,26 +361,28 @@ func (s *Server) UpdateLUNMap() {
 	}
 
 	for offset, fileIndx = range volume.location {
+		if fileIndx == 0 {
+			continue
+		}
 		if s.r.volume.location[offset] > fileIndx {
-			if prevFileIndx != fileIndx || int64(offset) != int64(lOffset)+length {
-				if prevFileIndx > userCreatedSnapIndx && shouldCreateHoles() {
-					sendToCreateHole(volume.files[prevFileIndx], int64(lOffset)*volume.sectorSize, length*volume.sectorSize)
+			if prevHoleFileIndx != fileIndx || int64(offset) != int64(holeOffset)+holeLength {
+				if prevHoleFileIndx > userCreatedSnapIndx && shouldCreateHoles() && prevHoleFileIndx != 0 {
+					sendToCreateHole(volume.files[prevHoleFileIndx], int64(holeOffset)*volume.sectorSize, holeLength*volume.sectorSize)
 				}
-				length = 1
-				lOffset = offset
-				prevFileIndx = fileIndx
+				holeLength = 1
+				holeOffset = offset
+				prevHoleFileIndx = fileIndx
 			} else {
-				length++
+				holeLength++
 			}
 		} else {
 			// No hole drilling over here as that offset is empty
 			s.r.volume.location[offset] = volume.location[offset]
-			if prevFileIndx > userCreatedSnapIndx && shouldCreateHoles() {
-				sendToCreateHole(volume.files[prevFileIndx], int64(lOffset)*volume.sectorSize, length*volume.sectorSize)
+			if prevHoleFileIndx > userCreatedSnapIndx && shouldCreateHoles() && prevHoleFileIndx != 0 {
+				sendToCreateHole(volume.files[prevHoleFileIndx], int64(holeOffset)*volume.sectorSize, holeLength*volume.sectorSize)
 			}
-			length = 1
-			lOffset = offset
-			prevFileIndx = fileIndx
+			holeOffset = 0
+			prevHoleFileIndx = 0
 		}
 	}
 	s.Unlock()
