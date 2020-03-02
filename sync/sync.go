@@ -306,8 +306,8 @@ Register:
 			logrus.Errorf("Error in reloadreplica %s", replicaAddress)
 			return err
 		}
-		s.UpdateLUNMap()
 	}
+	s.UpdateLUNMap()
 
 	logrus.Infof("VerifyRebuild %v", replicaAddress)
 	return t.verifyRebuild(replicaAddress, toClient)
