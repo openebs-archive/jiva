@@ -2015,7 +2015,7 @@ test_write_io_timeout() {
         if [ "$device_name"!="" ]; then
                 preload_success=0
                 iter=0
-                while [ "$preload_success" -lt 3 ]; do
+                while [ "$preload_success" -lt 1 ]; do
                         preload_success=`docker logs $debug_replica_id 2>&1 | grep -c "Start reading extents"`
                         if [ "$iter" == 100 ]; then
                                 collect_logs_and_exit
@@ -2050,7 +2050,7 @@ test_write_io_timeout_with_readwrite_env() {
         if [ "$device_name"!="" ]; then
                 preload_success=0
                 iter=0
-                while [ "$preload_success" -lt 3 ]; do
+                while [ "$preload_success" -lt 1 ]; do
                         preload_success=`docker logs $debug_replica_id 2>&1 | grep -c "Start reading extents"`
                         if [ "$iter" == 100 ]; then
                                 collect_logs_and_exit

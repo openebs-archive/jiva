@@ -230,7 +230,6 @@ Register:
 		}
 	}
 	if action == "start" {
-		logrus.Info("Start reading extents")
 		inject.AddPreloadTimeout()
 		if err := replica.PreloadVolume(s.Replica()); err != nil {
 			return fmt.Errorf("failed to load Lun map, error: %v", err)

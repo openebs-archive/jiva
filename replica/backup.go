@@ -326,6 +326,7 @@ func preload(d *diffDisk) error {
 }
 
 func PreloadLunMap(d *diffDisk) error {
+	logrus.Info("Start reading extents")
 	if err := preload(d); err != nil {
 		return err
 	}
