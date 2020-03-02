@@ -8,7 +8,12 @@ then
 fi
 
 source "$(dirname $0)/version"
-IMAGEID=$( docker images -q openebs/jiva:${VERSION} )
+if [ "$ARCH" == "linux_arm64" ]; then
+  IMAGEID=$( docker images -q openebs/jiva-${XC_ARCH}:${VERSION} )
+else 
+  IMAGEID=$( docker images -q openebs/jiva:${VERSION} )
+fi
+
 echo $IMAGEID 
 if [ -z ${IMAGEID} ];
 then
