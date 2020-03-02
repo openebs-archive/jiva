@@ -295,13 +295,14 @@ func (s *Server) SetRebuilding(rebuilding bool) error {
 	s.Lock()
 	defer s.Unlock()
 
-	state, _ := s.Status()
+	//state, _ := s.Status()
 	// Must be Open/Dirty to set true or must be Rebuilding to set false
-	if (rebuilding && state != Open && state != Dirty) ||
-		(!rebuilding && state != Rebuilding) {
-		return fmt.Errorf("Can not set rebuilding=%v from state %s", rebuilding, state)
-	}
-
+	/*
+		if (rebuilding && state != Open && state != Dirty) ||
+			(!rebuilding && state != Rebuilding) {
+			return fmt.Errorf("Can not set rebuilding=%v from state %s", rebuilding, state)
+		}
+	*/
 	return s.r.SetRebuilding(rebuilding)
 }
 
