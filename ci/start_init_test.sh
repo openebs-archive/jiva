@@ -2084,8 +2084,8 @@ if [ "$ARCH" != "linux_amd64" ]; then
 fi
 
 prepare_test_env
-test_write_io_timeout
-test_write_io_timeout_with_readwrite_env
+#test_write_io_timeout
+#test_write_io_timeout_with_readwrite_env
 test_volume_resize
 test_replica_restart_optimization
 test_delete_snapshot
