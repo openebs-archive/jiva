@@ -185,12 +185,10 @@ func (s *Server) Reload() error {
 		return nil
 	}
 
-	types.ShouldPunchHoles = true
 	logrus.Infof("Reloading volume")
 	newReplica, err := s.r.Reload()
 	if err != nil {
 		logrus.Errorf("error in Reload")
-		types.ShouldPunchHoles = false
 		return err
 	}
 

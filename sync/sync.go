@@ -186,6 +186,7 @@ func (t *Task) CloneReplica(s *replica.Server, url string, address string, clone
 		if err != nil {
 			return fmt.Errorf("Failed to reload clone replica, error: %s", err.Error())
 		}
+		types.ShouldPunchHoles = true
 		s.UpdateLUNMap()
 		if err := s.SetRebuilding(false); err != nil {
 			return fmt.Errorf("Failed to setRebuilding = false, error: %s", err.Error())
@@ -307,6 +308,7 @@ Register:
 			return err
 		}
 	}
+	types.ShouldPunchHoles = true
 	s.UpdateLUNMap()
 
 	logrus.Infof("VerifyRebuild %v", replicaAddress)
