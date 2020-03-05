@@ -8,10 +8,11 @@ then
 fi
 
 source "$(dirname $0)/version"
-if [ "$XC_ARCH" == "amd64" ]; then
-  IMAGEID=$( docker images -q openebs/jiva:${VERSION} )
-else 
+if [ ${ARCH} == "linux_arm64" ]; then
   IMAGEID=$( docker images -q openebs/jiva-${XC_ARCH}:${VERSION} )
+  IMAGE_REPO="openebs/jiva-${XC_ARCH}"
+else 
+  IMAGEID=$( docker images -q openebs/jiva:${VERSION} )
 fi
 
 echo $IMAGEID 
@@ -41,6 +42,7 @@ if [ ${CURRENT_BRANCH} = "master" ]; then
   CI_TAG="ci"
 fi
 
+echo "Set the image repo as: ${IMAGE_REPO}"
 echo "Set the fixed ci image tag as: ${CI_TAG}"
 echo "Set the build/unique image tag as: ${BUILD_TAG}"
 
