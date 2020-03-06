@@ -181,7 +181,7 @@ func startReplica(c *cli.Context) error {
 	go replica.CreateHoles(s)
 	// close replica gracefully upon kill signal
 	addShutdown(func() {
-		s.Close()
+		_ = s.Close()
 	})
 
 	address := c.String("listen")

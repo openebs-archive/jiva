@@ -213,7 +213,7 @@ func drainHoleCreatorChan() {
 }
 
 //CreateHoles removes the offsets from corresponding sparse files
-func CreateHoles(s *Server) error {
+func CreateHoles(s *Server) {
 	var (
 		fd uintptr
 	)
@@ -238,7 +238,7 @@ func CreateHoles(s *Server) error {
 			time.Sleep(1)
 			retryCount++
 			if retryCount == 5 {
-				s.Close()
+				_ = s.Close()
 				logrus.Fatalf("Error Creating holes: %v", err)
 			}
 			goto retry

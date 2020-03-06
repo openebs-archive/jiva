@@ -457,7 +457,7 @@ func (r *Replica) ReplaceDisk(target, source string) error {
 	}
 
 	if err := r.rmDisk(source); err != nil {
-		r.close()
+		_ = r.close()
 		logrus.Fatalf("Failed to remove disk: %v, err: %v", source, err)
 		return err
 	}
@@ -474,7 +474,7 @@ func (r *Replica) ReplaceDisk(target, source string) error {
 
 	// Close the removed file
 	if err := r.volume.files[index].Close(); err != nil {
-		r.close()
+		_ = r.close()
 		logrus.Fatalf("Failed to close old instance of target: %v, err: %v", target, err)
 		return err
 	}
@@ -482,7 +482,7 @@ func (r *Replica) ReplaceDisk(target, source string) error {
 	// Open for R/W
 	newFile, err := r.openFile(r.activeDiskData[index].Name, 0)
 	if err != nil {
-		r.close()
+		_ = r.close()
 		logrus.Fatalf("Failed to open new instance of target: %v, err: %v", target, err)
 		return err
 	}
