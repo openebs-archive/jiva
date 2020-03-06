@@ -35,6 +35,7 @@ const (
 type ReaderWriterAt interface {
 	io.ReaderAt
 	io.WriterAt
+	io.Closer
 }
 
 type IOs interface {
@@ -45,7 +46,6 @@ type IOs interface {
 
 type DiffDisk interface {
 	ReaderWriterAt
-	io.Closer
 	Fd() uintptr
 }
 
@@ -68,7 +68,6 @@ var (
 
 type Backend interface {
 	IOs
-	io.Closer
 	Snapshot(name string, userCreated bool, created string) error
 	Resize(name string, size string) error
 	Size() (int64, error)

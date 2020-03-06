@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudflare/cfssl/log"
 	fibmap "github.com/frostschutz/go-fibmap"
 	"github.com/openebs/jiva/types"
 	"github.com/sirupsen/logrus"
@@ -38,6 +39,7 @@ type Server struct {
 	//between controller and replica. If the connection is broken,
 	//the replica attempts to connect back to controller
 	MonitorChannel chan struct{}
+	closeSync      chan struct{}
 }
 
 func NewServer(dir string, sectorSize int64, serverType string) *Server {
@@ -49,6 +51,7 @@ func NewServer(dir string, sectorSize int64, serverType string) *Server {
 		defaultSectorSize: sectorSize,
 		ServerType:        serverType,
 		MonitorChannel:    make(chan struct{}),
+		closeSync:         make(chan struct{}),
 	}
 }
 
@@ -157,9 +160,9 @@ func (s *Server) Create(size int64) error {
 
 func (s *Server) Open() error {
 	s.Lock()
-	defer s.Unlock()
 
 	if s.r != nil {
+		s.Unlock()
 		return fmt.Errorf("Replica is already open")
 	}
 
@@ -169,11 +172,38 @@ func (s *Server) Open() error {
 	logrus.Infof("Opening volume %s, size %d/%d", s.dir, size, sectorSize)
 	r, err := New(size, sectorSize, s.dir, s.backing, s.ServerType)
 	if err != nil {
+		s.Unlock()
 		logrus.Errorf("Error %v during open", err)
 		return err
 	}
 	s.r = r
+	s.Unlock()
+	go s.periodicSync()
 	return nil
+}
+
+func (s *Server) periodicSync() {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	logrus.Info("Start periodic sync")
+	for {
+		select {
+		case <-s.closeSync:
+			logrus.Info("Stop periodic sync")
+			return
+		case <-ticker.C:
+			s.RLock()
+			if s.r == nil {
+				logrus.Warning("Stop periodic sync as s.r not set")
+				s.RUnlock()
+				return
+			}
+			if _, err := s.r.Sync(); err != nil {
+				log.Warning("Fail to sync, err: %v", err)
+			}
+			s.RUnlock()
+		}
+	}
 }
 
 func (s *Server) Reload() error {
@@ -440,8 +470,8 @@ func (s *Server) Close() error {
 	logrus.Infof("Closing replica")
 	s.Lock()
 
-	defer s.Unlock()
 	if s.r == nil {
+		s.Unlock()
 		logrus.Infof("Skip closing replica, s.r not set")
 		return nil
 	}
@@ -449,8 +479,13 @@ func (s *Server) Close() error {
 	// r.holeDrainer is initialized at construct
 	// function in replica.go
 	s.r.holeDrainer()
-
+	s.Unlock()
+	// notify periodicSync go routine to stop
+	s.closeSync <- struct{}{}
+	s.Lock()
+	defer s.Unlock()
 	if err := s.r.Close(); err != nil {
+		logrus.Errorf("Failed to close replica, err: %v", err)
 		return err
 	}
 

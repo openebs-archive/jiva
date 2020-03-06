@@ -32,6 +32,7 @@ help:
 	@echo "Usage:-"
 	@echo "\tmake build             -- will create jiva image"
 	@echo "\tmake deps              -- will verify build dependencies are installed"
+	@echo "\tARCH = $(ARCH)     -- arch where make is running"
 	@echo ""
 
 
@@ -61,10 +62,9 @@ mod:  go.mod go.sum
 deps: _build_check_go _build_check_docker mod
 	@echo "INFO:\tVerifying dependencies for jiva"
 
-
 _run_ci:
 	@echo "INFO:\tRun ci over jiva image"
-	sudo bash ./ci/start_init_test.sh
+	sudo -E bash ./ci/start_init_test.sh
 
 test:
 	@echo "INFO:\tRun ci over jiva image"

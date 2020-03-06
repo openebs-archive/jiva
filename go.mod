@@ -3,6 +3,7 @@ module github.com/openebs/jiva
 go 1.13
 
 require (
+	github.com/cloudflare/cfssl v1.4.1
 	github.com/docker/docker v1.13.1
 	github.com/docker/go-units v0.4.0
 	github.com/frostschutz/go-fibmap v0.0.0-20160825162329-b32c231bfe6a

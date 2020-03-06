@@ -457,6 +457,7 @@ func (r *Replica) ReplaceDisk(target, source string) error {
 	}
 
 	if err := r.rmDisk(source); err != nil {
+		r.close()
 		logrus.Fatalf("Failed to remove disk: %v, err: %v", source, err)
 		return err
 	}
@@ -473,6 +474,7 @@ func (r *Replica) ReplaceDisk(target, source string) error {
 
 	// Close the removed file
 	if err := r.volume.files[index].Close(); err != nil {
+		r.close()
 		logrus.Fatalf("Failed to close old instance of target: %v, err: %v", target, err)
 		return err
 	}
@@ -480,6 +482,7 @@ func (r *Replica) ReplaceDisk(target, source string) error {
 	// Open for R/W
 	newFile, err := r.openFile(r.activeDiskData[index].Name, 0)
 	if err != nil {
+		r.close()
 		logrus.Fatalf("Failed to open new instance of target: %v, err: %v", target, err)
 		return err
 	}
@@ -716,10 +719,23 @@ func (r *Replica) isBackingFile(index int) bool {
 	return index == 1
 }
 
+func (r *Replica) closeAndSyncDir(f types.DiffDisk) error {
+	err := f.Close()
+	if err != nil {
+		return err
+	}
+	if err = r.syncDir(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (r *Replica) close() error {
 	for i, f := range r.volume.files {
 		if f != nil && !r.isBackingFile(i) {
-			f.Close()
+			if err := r.closeAndSyncDir(f); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -736,6 +752,7 @@ func (r *Replica) encodeToFile(obj interface{}, file string) error {
 		logrus.Errorf("failed to create temp file: %s while encoding the data to file", file)
 		return err
 	}
+
 	defer f.Close()
 
 	if err := json.NewEncoder(f).Encode(&obj); err != nil {
@@ -743,8 +760,8 @@ func (r *Replica) encodeToFile(obj interface{}, file string) error {
 		return err
 	}
 
-	if err := f.Close(); err != nil {
-		logrus.Errorf("failed to close file after encoding to file: %s", f.Name())
+	if err := r.closeAndSyncDir(f); err != nil {
+		logrus.Errorf("failed to close and sync file after encoding to file: %s", f.Name())
 		return err
 	}
 
@@ -769,6 +786,22 @@ func (r *Replica) openFile(name string, flag int) (types.DiffDisk, error) {
 	return sparse.NewDirectFileIoProcessor(r.diskPath(name), os.O_RDWR|flag, 06666, true)
 }
 
+// after creating or deleting the file the directory also needs to be synced
+// in order to guarantee the file is visible across system crashes. See man
+// page of fsync for more details.
+func (r *Replica) syncDir() error {
+	f, err := os.Open(r.dir)
+	if err != nil {
+		return err
+	}
+	err = f.Sync()
+	closeErr := f.Close()
+	if err != nil {
+		return err
+	}
+	return closeErr
+}
+
 func (r *Replica) createNewHead(oldHead, parent, created string) (types.DiffDisk, disk, error) {
 	newHeadName, err := r.nextFile(diskPattern, headName, oldHead)
 	if err != nil {
@@ -783,6 +816,12 @@ func (r *Replica) createNewHead(oldHead, parent, created string) (types.DiffDisk
 	if err != nil {
 		return nil, disk{}, err
 	}
+
+	err = r.syncDir()
+	if err != nil {
+		return nil, disk{}, fmt.Errorf("Fail to sync dir, err: %v", err)
+	}
+
 	if err := syscall.Truncate(r.diskPath(newHeadName), r.info.Size); err != nil {
 		return nil, disk{}, err
 	}
@@ -844,6 +883,11 @@ func (r *Replica) rmDisk(name string) error {
 	if err := os.Remove(r.diskPath(name + metadataSuffix)); err != nil {
 		lastErr = err
 	}
+
+	if lastErr == nil {
+		lastErr = r.syncDir()
+	}
+
 	return lastErr
 }
 
