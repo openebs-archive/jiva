@@ -1,0 +1,13 @@
+#Make the base image configurable. If BASE IMAGES is not provided
+#docker command will fail
+ARG BASE_IMAGE=ubuntu:18.04
+
+FROM $BASE_IMAGE
+
+RUN apt-get update && apt-get install -y curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY longhorn jivactl launch copy-binary launch-with-vm-backing-file launch-simple-jiva /usr/local/bin/
+
+VOLUME /usr/local/bin
+CMD ["longhorn"]
