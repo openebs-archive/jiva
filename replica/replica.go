@@ -733,8 +733,10 @@ func (r *Replica) closeAndSyncDir(f types.DiffDisk) error {
 func (r *Replica) close() error {
 	for i, f := range r.volume.files {
 		if f != nil && !r.isBackingFile(i) {
+			// continue on err to close other files as well, as returning
+			// error means keeping the rest files open while fataling.
 			if err := r.closeAndSyncDir(f); err != nil {
-				return err
+				logrus.Errorf("Fail to close and sync file, err: %v", err)
 			}
 		}
 	}
@@ -891,6 +893,14 @@ func (r *Replica) rmDisk(name string) error {
 	return lastErr
 }
 
+func (r *Replica) doCleanup(files ...string) {
+	for _, f := range files {
+		if err := r.rmDisk(f); err != nil {
+			logrus.Warningf("Fail to remove disks while doCleanup, err: %v", err)
+		}
+	}
+}
+
 func (r *Replica) revertDisk(parent, created string) (*Replica, error) {
 	if _, err := os.Stat(r.diskPath(parent)); err != nil {
 		return nil, err
@@ -951,12 +961,11 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 	}
 	defer func() {
 		if !done {
-			r.rmDisk(newHeadDisk.Name)
-			r.rmDisk(newSnapName)
+			r.doCleanup(newHeadDisk.Name, newSnapName)
 			f.Close()
 			return
 		}
-		r.rmDisk(oldHead)
+		r.doCleanup(oldHead)
 	}()
 
 	if err := r.linkDisk(r.info.Head, newSnapName); err != nil {
