@@ -38,7 +38,7 @@ type Controller struct {
 	ReadOnly                 bool
 	SnapshotName             string
 	IsSnapDeletionInProgress bool
-	StartAutoSnapDeletion    chan bool
+	//StartAutoSnapDeletion    chan bool
 }
 
 func max(x int, y int) int {
@@ -98,13 +98,13 @@ func WithClusterIP(ip string) BuildOpts {
 }
 
 // NewController instantiates a new Controller
-func NewController(ch chan bool, opts ...BuildOpts) *Controller {
+func NewController(opts ...BuildOpts) *Controller {
 	c := &Controller{
 		RegisteredReplicas:       map[string]types.RegReplica{},
 		RegisteredQuorumReplicas: map[string]types.RegReplica{},
 		StartTime:                time.Now(),
 		ReadOnly:                 true,
-		StartAutoSnapDeletion:    ch,
+		//StartAutoSnapDeletion:    ch,
 	}
 
 	for _, o := range opts {

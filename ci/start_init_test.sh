@@ -2079,7 +2079,7 @@ fi
 
 # currently integration tests are run only for amd64
 if [ "$ARCH" != "linux_amd64" ]; then
-  echo "skipping test for $ARCH" 
+  echo "skipping test for $ARCH"
   exit 0
 fi
 
