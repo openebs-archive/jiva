@@ -273,17 +273,17 @@ Register:
 	}
 	inject.PanicAfterPrepareRebuild()
 
-	ok, err := t.isRevisionCountAndChainSame(fromClient, toClient)
-	if err != nil {
+	//	ok, err := t.isRevisionCountAndChainSame(fromClient, toClient)
+	//	if err != nil {
+	//		return err
+	//	}
+
+	//	if !ok {
+	logrus.Infof("syncFiles from:%v to:%v", fromClient, toClient)
+	if err = t.syncFiles(fromClient, toClient, output.Disks); err != nil {
 		return err
 	}
-
-	if !ok {
-		logrus.Infof("syncFiles from:%v to:%v", fromClient, toClient)
-		if err = t.syncFiles(fromClient, toClient, output.Disks); err != nil {
-			return err
-		}
-	}
+	//	}
 
 	logrus.Infof("reloadAndVerify %v", replicaAddress)
 	return t.reloadAndVerify(replicaAddress, toClient)
@@ -388,16 +388,16 @@ func (t *Task) syncFiles(fromClient, toClient *replicaClient.ReplicaClient, disk
 			return fmt.Errorf("Disk list shouldn't contain volume-head")
 		}
 
-		ok, err := isRevisionCountSame(fromClient, toClient, disk)
-		if err != nil {
+		/*		ok, err := isRevisionCountSame(fromClient, toClient, disk)
+				if err != nil {
+					return err
+				}
+		*/
+		//		if !ok {
+		if err := t.syncFile(disk, "", fromClient, toClient); err != nil {
 			return err
 		}
-
-		if !ok {
-			if err := t.syncFile(disk, "", fromClient, toClient); err != nil {
-				return err
-			}
-		}
+		//		}
 		if err := t.syncFile(disk+".meta", "", fromClient, toClient); err != nil {
 			return err
 		}
