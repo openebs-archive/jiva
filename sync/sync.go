@@ -273,17 +273,17 @@ Register:
 	}
 	inject.PanicAfterPrepareRebuild()
 
-	//	ok, err := t.isRevisionCountAndChainSame(fromClient, toClient)
-	//	if err != nil {
-	//		return err
-	//	}
-
-	//	if !ok {
-	logrus.Infof("syncFiles from:%v to:%v", fromClient, toClient)
-	if err = t.syncFiles(fromClient, toClient, output.Disks); err != nil {
+	ok, err := t.isRevisionCountAndChainSame(fromClient, toClient)
+	if err != nil {
 		return err
 	}
-	//	}
+
+	if !ok {
+		logrus.Infof("syncFiles from:%v to:%v", fromClient, toClient)
+		if err = t.syncFiles(fromClient, toClient, output.Disks); err != nil {
+			return err
+		}
+	}
 
 	logrus.Infof("reloadAndVerify %v", replicaAddress)
 	return t.reloadAndVerify(replicaAddress, toClient)
