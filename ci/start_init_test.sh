@@ -2013,11 +2013,11 @@ test_restart_during_prepare_rebuild
 test_preload
 test_replica_rpc_close
 test_controller_rpc_close
-test_replication_factor
+#test_replication_factor
 #test_two_replica_delete
-test_replica_ip_change
-test_replica_reregistration
 test_volume_resize
+#test_replica_ip_change
+#test_replica_reregistration
 run_data_integrity_test_with_fs_creation
 test_clone_feature
 test_duplicate_snapshot_failure
