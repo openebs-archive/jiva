@@ -388,16 +388,16 @@ func (t *Task) syncFiles(fromClient, toClient *replicaClient.ReplicaClient, disk
 			return fmt.Errorf("Disk list shouldn't contain volume-head")
 		}
 
-		ok, err := isRevisionCountSame(fromClient, toClient, disk)
-		if err != nil {
+		/*		ok, err := isRevisionCountSame(fromClient, toClient, disk)
+				if err != nil {
+					return err
+				}
+		*/
+		//		if !ok {
+		if err := t.syncFile(disk, "", fromClient, toClient); err != nil {
 			return err
 		}
-
-		if !ok {
-			if err := t.syncFile(disk, "", fromClient, toClient); err != nil {
-				return err
-			}
-		}
+		//		}
 		if err := t.syncFile(disk+".meta", "", fromClient, toClient); err != nil {
 			return err
 		}
