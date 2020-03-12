@@ -933,6 +933,7 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 	if newSnapName != "" {
 		r.addChildDisk(newSnapName, newHeadDisk.Name)
 		r.diskData[newSnapName] = r.diskData[oldHead]
+		r.diskData[newSnapName].Name = newSnapName
 		r.diskData[newSnapName].UserCreated = userCreated
 		r.diskData[newSnapName].Created = created
 		r.diskData[newSnapName].RevisionCounter = r.GetRevisionCounter()
