@@ -6,9 +6,9 @@ import (
 	"net"
 	"time"
 
-	journal "github.com/longhorn/sparse-tools/stats"
 	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/types"
+	journal "github.com/openebs/sparse-tools/stats"
 	"github.com/sirupsen/logrus"
 )
 

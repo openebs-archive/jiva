@@ -64,7 +64,11 @@ deps: _build_check_go _build_check_docker mod
 
 _run_ci:
 	@echo "INFO:\tRun ci over jiva image"
-	sudo bash ./ci/start_init_test.sh
+	sudo -E bash -x ./ci/start_init_test.sh
+
+test:
+	@echo "INFO:\tRun ci over jiva image"
+	sudo -E bash -x ./ci/start_init_test.sh
 
 build_image:
 	@echo "INFO:\tRun unit tests and build image"
@@ -89,7 +93,7 @@ endif
 	@echo "Linting with golint"
 	$(shell golint $(shell find . -maxdepth 1 -type d \( ! -iname ".git" ! -iname "vendor" \)) )
 
-build: deps build_image _run_ci 
+build: deps build_image _run_ci
 build_gitlab: deps build_image _push_image
 
 #

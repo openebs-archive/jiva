@@ -5,9 +5,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/longhorn/sparse-tools/sparse"
 	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/types"
+	"github.com/openebs/sparse-tools/sparse"
 	"github.com/sirupsen/logrus"
 )
 
