@@ -64,7 +64,7 @@ deps: _build_check_go _build_check_docker mod
 
 _run_ci:
 	@echo "INFO:\tRun ci over jiva image"
-	sudo -E bash -x ./ci/start_init_test.sh
+	sudo bash ./ci/start_init_test.sh
 
 test:
 	@echo "INFO:\tRun ci over jiva image"

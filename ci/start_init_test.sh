@@ -2086,8 +2086,6 @@ if [ "$ARCH" != "linux_amd64" ]; then
 fi
 
 prepare_test_env
-test_delete_snapshot
-test_replica_restart_while_snap_deletion
 test_write_io_timeout
 test_write_io_timeout_with_readwrite_env
 test_volume_resize
