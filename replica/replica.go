@@ -1075,7 +1075,7 @@ func (r *Replica) readMetadata() (bool, error) {
 		}
 	}
 
-	r.volume.UsedBlocks += 1 // for revision.counter file while is of 4k
+	r.volume.UsedBlocks++ // for revision.counter file which is of 4k
 
 	return len(r.diskData) > 0, nil
 }
