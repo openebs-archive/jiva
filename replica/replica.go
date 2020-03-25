@@ -718,7 +718,7 @@ func (r *Replica) close() error {
 		}
 	}
 
-	return r.writeVolumeMetaData(false, r.info.Rebuilding)
+	return r.writeVolumeMetaData(false, false)
 }
 
 func (r *Replica) encodeToFile(obj interface{}, file string) error {
