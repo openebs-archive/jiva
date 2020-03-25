@@ -179,6 +179,7 @@ func startReplica(c *cli.Context) error {
 	replicaType := c.String("type")
 	s := replica.NewServer(dir, 512, replicaType)
 	go replica.CreateHoles()
+	s.Close()
 
 	address := c.String("listen")
 	frontendIP := c.String("frontendIP")
