@@ -337,12 +337,12 @@ verify_rep_state() {
 		passed=0
 		#if [ "$replica_cnt" == 0 ]; then
 		rep_state=$(curl -s http://$3:9502/v1/replicas | jq '.data[0].state' | tr -d '"')
-		if [ "$rep_state" == "closed" ]; then
+		if [ "$rep_state" == "dirty" ]; then
 			passed=`expr $passed + 1`
 		fi
 		if [ "$5" != "" ]; then
 			rep_state=$(curl -s http://$5:9502/v1/replicas | jq '.data[0].state' | tr -d '"')
-			if [ "$rep_state" == "closed" ]; then
+			if [ "$rep_state" == "dirty" ]; then
 				passed=`expr $passed + 1`
 			fi
 		fi
