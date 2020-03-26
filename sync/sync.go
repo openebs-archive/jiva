@@ -159,20 +159,11 @@ func (t *Task) CloneReplica(s *replica.Server, url string, address string, clone
 		if snapFound == false {
 			return fmt.Errorf("Snapshot Not found at source")
 		}
-		if err := s.SetRebuilding(true); err != nil {
+		if err = s.SetRebuilding(true); err != nil {
 			return fmt.Errorf("Failed to setRebuilding = true, %s", err)
 		}
-		rwReplica, err := fromClient.GetReplica()
-		if err != nil {
-			return err
-		}
-
-		curReplica, err := toClient.GetReplica()
-		if err != nil {
-			return err
-		}
 		logrus.Infof("syncFiles from:%v to:%v", fromClient, toClient)
-		if err = t.syncFiles(s.Replica(), fromClient, toClient, chain, rwReplica, curReplica); err != nil {
+		if err = t.syncFiles(fromClient, toClient, chain); err != nil {
 			logrus.Errorf("Sync failed, retry after 2s, error: %s", err.Error())
 			time.Sleep(2 * time.Second)
 			continue
@@ -180,15 +171,17 @@ func (t *Task) CloneReplica(s *replica.Server, url string, address string, clone
 
 		err = s.UpdateCloneInfo(snapName, strconv.FormatInt(repl.Disks[snapshotName].RevisionCounter, 10))
 		if err != nil {
-			return fmt.Errorf("Failed to update clone info, err: %v", err)
+			return fmt.Errorf("Failed to update clone info, err: %v", err.Error())
 		}
 		err = s.Reload()
 		if err != nil {
 			return fmt.Errorf("Failed to reload clone replica, error: %s", err.Error())
 		}
 		types.ShouldPunchHoles = true
-		s.UpdateLUNMap()
-		if err := s.SetRebuilding(false); err != nil {
+		if err := s.UpdateLUNMap(); err != nil {
+			return fmt.Errorf("UpdateLUNMap() failed, err: %v", err.Error())
+		}
+		if err = s.SetRebuilding(false); err != nil {
 			return fmt.Errorf("Failed to setRebuilding = false, error: %s", err.Error())
 		}
 		return err
@@ -232,7 +225,7 @@ Register:
 	}
 	if action == "start" {
 		inject.AddPreloadTimeout()
-		if err := replica.PreloadVolume(s.Replica()); err != nil {
+		if err = replica.PreloadVolume(s.Replica()); err != nil {
 			return fmt.Errorf("failed to load Lun map, error: %v", err)
 		}
 		logrus.Info("Read extents successful")
@@ -272,7 +265,7 @@ Register:
 	}
 
 	logrus.Infof("SetRebuilding to true in %v", replicaAddress)
-	if err := s.SetRebuilding(true); err != nil {
+	if err = s.SetRebuilding(true); err != nil {
 		return fmt.Errorf("failed to set rebuilding: true, error: %s", err.Error())
 	}
 
@@ -292,14 +285,14 @@ Register:
 	if err != nil {
 		return err
 	}
-	ok, err := t.isRevisionCountAndChainSame(fromClient, toClient, rwReplica, curReplica)
+	ok := t.isRevisionCountAndChainSame(fromClient, toClient, rwReplica, curReplica)
 	if err != nil {
 		return err
 	}
 
 	if !ok {
 		logrus.Infof("syncFiles from:%v to:%v", fromClient, toClient)
-		if err = t.syncFiles(s.Replica(), fromClient, toClient, output.Disks, rwReplica, curReplica); err != nil {
+		if err = t.syncFiles(fromClient, toClient, output.Disks); err != nil {
 			return err
 		}
 		err = s.Reload()
@@ -309,15 +302,16 @@ Register:
 		}
 	}
 	types.ShouldPunchHoles = true
-	s.UpdateLUNMap()
-
+	if err := s.UpdateLUNMap(); err != nil {
+		return fmt.Errorf("UpdateLUNMap() failed, err: %v", err.Error())
+	}
 	logrus.Infof("VerifyRebuild %v", replicaAddress)
 	return t.verifyRebuild(replicaAddress, toClient)
 }
 
 func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.ReplicaClient,
 	rwReplica replicaRest.Replica, curReplica replicaRest.Replica,
-) (bool, error) {
+) bool {
 	logrus.Infof("RevisionCount of RW replica (%v): %v, Current replica (%v): %v",
 		fromClient.GetAddress(), rwReplica.RevisionCounter, toClient.GetAddress(),
 		curReplica.RevisionCounter)
@@ -326,12 +320,12 @@ func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.R
 		// ignoring Chain[0] since it's head file and it is opened for writing the latest data.
 		if !reflect.DeepEqual(rwReplica.Chain[1:], curReplica.Chain[1:]) {
 			logrus.Warningf("Replica %v's chain not equal to RW replica %v's chain", toClient.GetAddress(), fromClient.GetAddress())
-			return false, nil
+			return false
 		}
-		return true, nil
+		return true
 	}
 
-	return false, nil
+	return false
 }
 
 // checkAndResetFailedRebuild set the rebuilding to false if
@@ -394,8 +388,7 @@ func isRevisionCountSame(fromClient, toClient *replicaClient.ReplicaClient, disk
 	return true, nil
 }
 
-func (t *Task) syncFiles(r *replica.Replica, fromClient, toClient *replicaClient.ReplicaClient, disks []string,
-	rwReplica replicaRest.Replica, curReplica replicaRest.Replica) error {
+func (t *Task) syncFiles(fromClient, toClient *replicaClient.ReplicaClient, disks []string) error {
 	for i := range disks {
 		//We are syncing from the oldest snapshots to newer ones
 		disk := disks[len(disks)-1-i]

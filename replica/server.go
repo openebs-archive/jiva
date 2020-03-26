@@ -139,7 +139,9 @@ func (s *Server) Create(size int64) error {
 	state, _ := s.Status()
 
 	if state != Initial {
-		s.Open()
+		if err := s.Open(); err != nil {
+			return err
+		}
 		fmt.Println("STATE = ", state)
 		return nil
 	}
@@ -335,14 +337,16 @@ func (s *Server) Revert(name, created string) error {
 
 // UpdateLUNMap updates the the original LUNmap with any changes which have been
 // encountered after PreloadVolume
-func (s *Server) UpdateLUNMap() {
+func (s *Server) UpdateLUNMap() error {
 
 	s.Lock()
 	volume := s.r.volume
 	//copyLUNMap(r, s.Replica())
 	volume.location = make([]uint16, len(s.r.volume.location))
 	s.Unlock()
-	PreloadLunMap(&volume)
+	if err := PreloadLunMap(&volume); err != nil {
+		return err
+	}
 	s.Lock()
 	var (
 		holeLength          int64
@@ -384,6 +388,7 @@ func (s *Server) UpdateLUNMap() {
 		}
 	}
 	s.Unlock()
+	return nil
 }
 
 func (s *Server) Snapshot(name string, userCreated bool, createdTime string) error {

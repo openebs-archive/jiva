@@ -179,8 +179,9 @@ func startReplica(c *cli.Context) error {
 	replicaType := c.String("type")
 	s := replica.NewServer(dir, 512, replicaType)
 	go replica.CreateHoles()
-	s.Close()
-
+	if err := s.Close(); err != nil {
+		logrus.Fatalf("Close replica call failed: %v", err)
+	}
 	address := c.String("listen")
 	frontendIP := c.String("frontendIP")
 	cloneIP := c.String("cloneIP")
