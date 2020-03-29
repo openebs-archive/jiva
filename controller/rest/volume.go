@@ -39,18 +39,12 @@ func (s *Server) GetVolume(rw http.ResponseWriter, req *http.Request) error {
 	return nil
 }
 
-func (s *Server) GetReplicaInfo() []types.ReplicaInfo {
+func (s *Server) GetReplicaInfo(replicas []types.Replica) []types.ReplicaInfo {
 	var (
-		info     []types.ReplicaInfo
-		replicas []types.Replica
-		wg       sync.WaitGroup
+		info []types.ReplicaInfo
+		wg   sync.WaitGroup
 	)
 	infoLock := &sync.Mutex{}
-	s.c.RLock()
-	for _, rep := range s.c.ListReplicas() {
-		replicas = append(replicas, rep)
-	}
-	s.c.RUnlock()
 	wg.Add(len(replicas))
 	for _, replica := range replicas {
 		addr := replica.Address
@@ -76,18 +70,22 @@ func (s *Server) GetReplicaInfo() []types.ReplicaInfo {
 }
 
 func (s *Server) GetVolumeStats(rw http.ResponseWriter, req *http.Request) error {
-	var status string
+	var (
+		status   string
+		replicas []types.Replica
+	)
 	apiContext := api.GetApiContext(req)
 	stats, _ := s.c.Stats()
-	replicas := s.c.ListReplicas()
-
+	s.c.RLock()
+	replicas = append(replicas, s.c.ListReplicas()...)
+	s.c.RUnlock()
 	if s.c.ReadOnly == true {
 		status = "RO"
 	} else {
 		status = "RW"
 	}
 
-	replicaInfo := s.GetReplicaInfo()
+	replicaInfo := s.GetReplicaInfo(replicas)
 
 	volumeStats := &VolumeStats{
 		Resource:          client.Resource{Type: "stats"},
