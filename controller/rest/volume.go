@@ -41,11 +41,16 @@ func (s *Server) GetVolume(rw http.ResponseWriter, req *http.Request) error {
 
 func (s *Server) GetReplicaInfo() []types.ReplicaInfo {
 	var (
-		info []types.ReplicaInfo
-		wg   sync.WaitGroup
+		info     []types.ReplicaInfo
+		replicas []types.Replica
+		wg       sync.WaitGroup
 	)
 	infoLock := &sync.Mutex{}
-	replicas := s.c.ListReplicas()
+	s.c.RLock()
+	for _, rep := range s.c.ListReplicas() {
+		replicas = append(replicas, rep)
+	}
+	s.c.RUnlock()
 	wg.Add(len(replicas))
 	for _, replica := range replicas {
 		addr := replica.Address
