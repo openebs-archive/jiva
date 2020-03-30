@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
+	replicaClient "github.com/openebs/jiva/replica/client"
+	"github.com/openebs/jiva/types"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
 	"github.com/sirupsen/logrus"
@@ -36,17 +39,53 @@ func (s *Server) GetVolume(rw http.ResponseWriter, req *http.Request) error {
 	return nil
 }
 
+func (s *Server) GetReplicaInfo(replicas []types.Replica) []types.ReplicaInfo {
+	var (
+		info []types.ReplicaInfo
+		wg   sync.WaitGroup
+	)
+	infoLock := &sync.Mutex{}
+	wg.Add(len(replicas))
+	for _, replica := range replicas {
+		addr := replica.Address
+		go func(addr string) {
+			defer wg.Done()
+			repClient, err := replicaClient.NewReplicaClient(addr)
+			if err != nil {
+				return
+			}
+			repClient.SetTimeout(5 * time.Second)
+			repInfo, err := repClient.GetReplica()
+			if err != nil {
+				logrus.Infof("Error in getting info of replica: %v , error %v", addr, err)
+				return
+			}
+			infoLock.Lock()
+			info = append(info, repInfo.ReplicaInfo)
+			infoLock.Unlock()
+		}(addr)
+	}
+	wg.Wait()
+	return info
+}
+
 func (s *Server) GetVolumeStats(rw http.ResponseWriter, req *http.Request) error {
-	var status string
+	var (
+		status   string
+		replicas []types.Replica
+	)
 	apiContext := api.GetApiContext(req)
 	stats, _ := s.c.Stats()
-	replicas := s.c.ListReplicas()
-
+	s.c.RLock()
+	replicas = append(replicas, s.c.ListReplicas()...)
+	s.c.RUnlock()
 	if s.c.ReadOnly == true {
 		status = "RO"
 	} else {
 		status = "RW"
 	}
+
+	replicaInfo := s.GetReplicaInfo(replicas)
 
 	volumeStats := &VolumeStats{
 		Resource:          client.Resource{Type: "stats"},
@@ -70,6 +109,7 @@ func (s *Server) GetVolumeStats(rw http.ResponseWriter, req *http.Request) error
 		UpTime:            fmt.Sprintf("%f", time.Since(s.c.StartTime).Seconds()),
 		Name:              s.c.Name,
 		Replica:           replicas,
+		ReplicaInfo:       replicaInfo,
 		ControllerStatus:  status,
 	}
 	apiContext.Write(volumeStats)

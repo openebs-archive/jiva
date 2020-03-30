@@ -1075,7 +1075,7 @@ func (r *Replica) readMetadata() (bool, error) {
 		}
 	}
 
-	r.volume.UsedBlocks += 2 // One each for peer.details and revision.counter
+	r.volume.UsedBlocks++ // for revision.counter file which is of 4k
 
 	return len(r.diskData) > 0, nil
 }
@@ -1249,14 +1249,26 @@ func (r *Replica) ReadAt(buf []byte, offset int64) (int, error) {
 	return c, err
 }
 
-func (r *Replica) ListDisks() map[string]DiskInfo {
+func (r *Replica) GetUsedBlocks() string {
+	r.RLock()
+	defer r.RUnlock()
+	return strconv.FormatInt(r.volume.UsedBlocks, 10)
+}
+
+func (r *Replica) GetUsedLogicalBlocks() string {
+	r.RLock()
+	defer r.RUnlock()
+	return strconv.FormatInt(r.volume.UsedLogicalBlocks, 10)
+}
+
+func (r *Replica) ListDisks() map[string]types.DiskInfo {
 	r.RLock()
 	defer r.RUnlock()
 
-	result := map[string]DiskInfo{}
+	result := map[string]types.DiskInfo{}
 	for _, disk := range r.diskData {
 		diskSize := strconv.FormatInt(r.getDiskSize(disk.Name), 10)
-		diskInfo := DiskInfo{
+		diskInfo := types.DiskInfo{
 			Name:            disk.Name,
 			Parent:          disk.Parent,
 			Removed:         disk.Removed,

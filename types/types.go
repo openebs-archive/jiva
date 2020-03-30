@@ -114,6 +114,35 @@ type Mode string
 
 type State string
 
+type DiskInfo struct {
+	Name            string   `json:"name"`
+	Parent          string   `json:"parent"`
+	Children        []string `json:"children"`
+	Removed         bool     `json:"removed"`
+	UserCreated     bool     `json:"usercreated"`
+	Created         string   `json:"created"`
+	Size            string   `json:"size"`
+	RevisionCounter int64    `json:"revisionCount"`
+}
+
+type ReplicaInfo struct {
+	Dirty             bool                `json:"dirty"`
+	Rebuilding        bool                `json:"rebuilding"`
+	Head              string              `json:"head"`
+	Parent            string              `json:"parent"`
+	Size              string              `json:"size"`
+	SectorSize        int64               `json:"sectorSize"`
+	State             string              `json:"state"`
+	Chain             []string            `json:"chain"`
+	Disks             map[string]DiskInfo `json:"disks"`
+	RemainSnapshots   int                 `json:"remainsnapshots"`
+	ReplicaMode       string              `json:"replicamode"`
+	RevisionCounter   string              `json:"revisioncounter"`
+	UsedLogicalBlocks string              `json:"usedlogicalblocks"`
+	UsedBlocks        string              `json:"usedblocks"`
+	CloneStatus       string              `json:"clonestatus"`
+}
+
 type Replica struct {
 	Address string `json:"Address"`
 	Mode    Mode   `json:"Mode"`
