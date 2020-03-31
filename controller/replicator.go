@@ -384,13 +384,12 @@ func (r *replicator) GetVolUsage() (types.VolUsage, error) {
 		volUsage types.VolUsage
 	)
 	for _, backend := range r.backends {
-		if backend.mode == types.ERR {
-			continue
+		if backend.mode == types.RW {
+			if volUsage, err = backend.backend.GetVolUsage(); err != nil {
+				continue
+			}
+			return volUsage, err
 		}
-		if volUsage, err = backend.backend.GetVolUsage(); err != nil {
-			continue
-		}
-		return volUsage, err
 	}
 	return types.VolUsage{}, err
 }

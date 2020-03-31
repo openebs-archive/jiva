@@ -4,28 +4,14 @@ import (
 	"strconv"
 
 	"github.com/openebs/jiva/replica"
+	"github.com/openebs/jiva/types"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
 )
 
 type Replica struct {
 	client.Resource
-	Dirty             bool                        `json:"dirty"`
-	Rebuilding        bool                        `json:"rebuilding"`
-	Head              string                      `json:"head"`
-	Parent            string                      `json:"parent"`
-	Size              string                      `json:"size"`
-	SectorSize        int64                       `json:"sectorSize"`
-	State             string                      `json:"state"`
-	Chain             []string                    `json:"chain"`
-	Disks             map[string]replica.DiskInfo `json:"disks"`
-	RemainSnapshots   int                         `json:"remainsnapshots"`
-	ReplicaMode       string                      `json:"replicamode"`
-	RevisionCounter   string                      `json:"revisioncounter"`
-	ReplicaCounter    int64                       `json:"replicacounter"`
-	UsedLogicalBlocks string                      `json:"usedlogicalblocks"`
-	UsedBlocks        string                      `json:"usedblocks"`
-	CloneStatus       string                      `json:"clonestatus"`
+	types.ReplicaInfo
 }
 
 type DeleteReplicaOutput struct {
@@ -210,6 +196,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 	r.SectorSize = info.SectorSize
 	r.Size = strconv.FormatInt(info.Size, 10)
 	r.RevisionCounter = strconv.FormatInt(info.RevisionCounter, 10)
+	r.UsedBlocks, r.UsedLogicalBlocks = "0", "0" // replica must be initializing
 	if rep != nil {
 		r.Chain, _ = rep.DisplayChain()
 		r.Disks = rep.ListDisks()
@@ -217,6 +204,8 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		r.RevisionCounter = strconv.FormatInt(rep.GetRevisionCounter(), 10)
 		r.ReplicaMode = rep.GetReplicaMode()
 		r.CloneStatus = rep.GetCloneStatus()
+		r.UsedBlocks = rep.GetUsedBlocks()
+		r.UsedLogicalBlocks = rep.GetUsedLogicalBlocks()
 	}
 	return r
 }
