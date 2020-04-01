@@ -15,7 +15,6 @@ import (
 	"unsafe"
 
 	units "github.com/docker/go-units"
-	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
 	"github.com/openebs/sparse-tools/sparse"

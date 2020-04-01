@@ -330,6 +330,7 @@ func PreloadLunMap(d *diffDisk) error {
 	if err := preload(d); err != nil {
 		return err
 	}
+	logrus.Info("Read extents successful")
 
 	for _, val := range d.location {
 		if val != 0 {

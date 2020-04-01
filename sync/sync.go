@@ -224,12 +224,11 @@ Register:
 		}
 	}
 	if action == "start" {
+		logrus.Infof("Received start from controller")
 		inject.AddPreloadTimeout()
 		if err = replica.PreloadVolume(s.Replica()); err != nil {
 			return fmt.Errorf("failed to load Lun map, error: %v", err)
 		}
-		logrus.Info("Read extents successful")
-		logrus.Infof("Received start from controller")
 		types.ShouldPunchHoles = true
 		if err := t.client.Start(replicaAddress); err != nil {
 			types.ShouldPunchHoles = false
