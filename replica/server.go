@@ -142,7 +142,6 @@ func (s *Server) Create(size int64) error {
 		if err := s.Open(); err != nil {
 			return err
 		}
-		fmt.Println("STATE = ", state)
 		return nil
 	}
 	size = s.getSize(size)
@@ -295,14 +294,6 @@ func (s *Server) SetRebuilding(rebuilding bool) error {
 	s.Lock()
 	defer s.Unlock()
 
-	//state, _ := s.Status()
-	// Must be Open/Dirty to set true or must be Rebuilding to set false
-	/*
-		if (rebuilding && state != Open && state != Dirty) ||
-			(!rebuilding && state != Rebuilding) {
-			return fmt.Errorf("Can not set rebuilding=%v from state %s", rebuilding, state)
-		}
-	*/
 	return s.r.SetRebuilding(rebuilding)
 }
 
@@ -339,11 +330,16 @@ func (s *Server) Revert(name, created string) error {
 // encountered after PreloadVolume
 func (s *Server) UpdateLUNMap() error {
 
+	// With this lock r.volume data structure is copied, and a new slice is
+	// created different than the one in r.volume.location. After this we will
+	// be having 2 LUNMaps, one being filled by the parallel write operations
+	// and the other being filled by preload operation.
 	s.Lock()
 	volume := s.r.volume
-	//copyLUNMap(r, s.Replica())
 	volume.location = make([]uint16, len(s.r.volume.location))
 	s.Unlock()
+	// LUNmap is populated with the extents after the sync operation is
+	// completed
 	if err := PreloadLunMap(&volume); err != nil {
 		return err
 	}
@@ -356,12 +352,20 @@ func (s *Server) UpdateLUNMap() error {
 		offset              int
 		userCreatedSnapIndx uint16
 	)
+	// userCreatedSnapIndx holds the latest user created snapshot index
 	for i, isUserCreated := range volume.UserCreatedSnap {
 		if isUserCreated {
 			userCreatedSnapIndx = uint16(i)
 		}
 	}
 
+	// While this loop is being executed IOs have been stopped(s.Lock()) which
+	// inturn halts the updates on the original LunMap.
+	// Empty offsets in the original LunMap are filled by corresponding entries
+	// in preloaded lunmap.
+	// If offsets are present in both LunMaps and are different,
+	// hole is punched in the file at that offset contained in Preloaded LunMap.
+	// Sequesnce of holes are being punched at once.
 	for offset, fileIndx = range volume.location {
 		if fileIndx == 0 {
 			continue

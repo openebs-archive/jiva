@@ -237,10 +237,6 @@ Register:
 		}
 		return nil
 	}
-	logrus.Infof("CheckAndResetFailedRebuild %v", replicaAddress)
-	if err := t.checkAndResetFailedRebuild(replicaAddress, s); err != nil {
-		return fmt.Errorf("CheckAndResetFailedRebuild failed, error: %s", err.Error())
-	}
 
 	logrus.Infof("Adding replica %s in WO mode", replicaAddress)
 	_, err = t.client.CreateReplica(replicaAddress)
@@ -326,27 +322,6 @@ func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.R
 	}
 
 	return false
-}
-
-// checkAndResetFailedRebuild set the rebuilding to false if
-// it is true.This is required since volume.meta files
-// may not be updated with it's correct rebuilding state.
-func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server) error {
-
-	state, info := server.Status()
-
-	if state == "closed" && info.Rebuilding {
-		if err := server.Open(); err != nil {
-			logrus.Errorf("Error during open in checkAndResetFailedRebuild")
-			return err
-		}
-		if err := server.SetRebuilding(false); err != nil {
-			logrus.Errorf("Error during setRebuilding in checkAndResetFailedRebuild")
-			return err
-		}
-		return server.Close()
-	}
-	return nil
 }
 
 func (t *Task) verifyRebuild(address string, repClient *replicaClient.ReplicaClient) (err error) {
