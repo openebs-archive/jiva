@@ -12,7 +12,7 @@ require (
 	github.com/gorilla/websocket v1.4.1 // indirect
 	github.com/gostor/gotgt v0.1.1-0.20191128095459-2f1d32710a93
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
-	github.com/openebs/sparse-tools v0.0.0-20191231185723-50ffab4d4329
+	github.com/openebs/sparse-tools v0.0.0-20200401051016-9192f3db845e
 	github.com/prometheus/client_golang v1.5.1
 	github.com/rancher/go-rancher v0.1.1-0.20190307222549-9756097e5e4c
 	github.com/satori/go.uuid v1.2.0
@@ -23,7 +23,4 @@ require (
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
 )
 
-replace (
-	github.com/frostschutz/go-fibmap => github.com/rancher/go-fibmap v0.0.0-20160418233256-5fc9f8c1ed47
-	github.com/openebs/sparse-tools => github.com/utkarshmani1997/sparse-tools v0.0.0-20200317110547-1118e86438d0
-)
+replace github.com/frostschutz/go-fibmap => github.com/rancher/go-fibmap v0.0.0-20160418233256-5fc9f8c1ed47
