@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"strconv"
@@ -113,7 +114,8 @@ func (r *Remote) doAction(action string, obj interface{}) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Bad status: %d %s", resp.StatusCode, resp.Status)
+		content, _ := ioutil.ReadAll(resp.Body)
+		return fmt.Errorf("Bad status: %d %s: %s", resp.StatusCode, resp.Status, content)
 	}
 
 	return nil

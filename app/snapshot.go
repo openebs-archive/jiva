@@ -3,15 +3,16 @@ package app
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/openebs/jiva/alertlog"
 	"os"
 	"strings"
 	"text/tabwriter"
 
+	"github.com/openebs/jiva/alertlog"
 	"github.com/openebs/jiva/controller/rest"
 	"github.com/openebs/jiva/replica"
 	replicaClient "github.com/openebs/jiva/replica/client"
 	"github.com/openebs/jiva/sync"
+	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -262,7 +263,7 @@ func lsSnapshot(c *cli.Context) error {
 func infoSnapshot(c *cli.Context) error {
 	var output []byte
 
-	outputDisks := make(map[string]replica.DiskInfo)
+	outputDisks := make(map[string]types.DiskInfo)
 	cli := getCli(c)
 
 	replicas, err := cli.ListReplicas()
@@ -311,14 +312,15 @@ func infoSnapshot(c *cli.Context) error {
 					return err
 				}
 			}
-			info := replica.DiskInfo{
-				Name:        snapshot,
-				Parent:      parent,
-				Removed:     disk.Removed,
-				UserCreated: disk.UserCreated,
-				Children:    children,
-				Created:     disk.Created,
-				Size:        disk.Size,
+			info := types.DiskInfo{
+				Name:            snapshot,
+				Parent:          parent,
+				Removed:         disk.Removed,
+				UserCreated:     disk.UserCreated,
+				Children:        children,
+				Created:         disk.Created,
+				Size:            disk.Size,
+				RevisionCounter: disk.RevisionCounter,
 			}
 			if _, exists := outputDisks[snapshot]; !exists {
 				outputDisks[snapshot] = info
@@ -346,7 +348,7 @@ func infoSnapshot(c *cli.Context) error {
 	return nil
 }
 
-func getDisks(address string) (map[string]replica.DiskInfo, error) {
+func getDisks(address string) (map[string]types.DiskInfo, error) {
 	repClient, err := replicaClient.NewReplicaClient(address)
 	if err != nil {
 		return nil, err
