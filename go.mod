@@ -1,8 +1,6 @@
 module github.com/openebs/jiva
 
-go 1.12
-
-replace github.com/frostschutz/go-fibmap => github.com/rancher/go-fibmap v0.0.0-20160418233256-5fc9f8c1ed47
+go 1.13
 
 require (
 	github.com/docker/docker v1.13.1
@@ -10,19 +8,19 @@ require (
 	github.com/frostschutz/go-fibmap v0.0.0-20160825162329-b32c231bfe6a
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/handlers v1.4.2
-	github.com/gorilla/mux v1.7.3
+	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/websocket v1.4.1 // indirect
 	github.com/gostor/gotgt v0.1.1-0.20191128095459-2f1d32710a93
-	github.com/kr/pretty v0.1.0 // indirect
-	github.com/longhorn/sparse-tools v0.0.0-20190808234252-ddb6d8733e43
-	github.com/prometheus/client_golang v1.1.0
+	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
+	github.com/openebs/sparse-tools v0.0.0-20200401051016-9192f3db845e
+	github.com/prometheus/client_golang v1.5.1
 	github.com/rancher/go-rancher v0.1.1-0.20190307222549-9756097e5e4c
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.4.2
-	github.com/urfave/cli v1.22.1
-	go.uber.org/atomic v1.4.0 // indirect
-	go.uber.org/multierr v1.1.0 // indirect
-	go.uber.org/zap v1.10.0
-	golang.org/x/sys v0.0.0-20190919044723-0c1ff786ef13
-	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15
+	github.com/urfave/cli v1.22.3
+	go.uber.org/zap v1.14.1
+	golang.org/x/sys v0.0.0-20200302150141-5c8b2ff67527
+	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
 )
+
+replace github.com/frostschutz/go-fibmap => github.com/rancher/go-fibmap v0.0.0-20160418233256-5fc9f8c1ed47

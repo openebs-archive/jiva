@@ -9,7 +9,7 @@ import (
 
 	"github.com/openebs/jiva/types"
 
-	"github.com/longhorn/sparse-tools/sparse"
+	"github.com/openebs/sparse-tools/sparse"
 	"github.com/sirupsen/logrus"
 )
 

@@ -9,9 +9,9 @@ import (
 	"runtime/pprof"
 
 	"github.com/docker/docker/pkg/reexec"
-	"github.com/longhorn/sparse-tools/cli/sfold"
-	"github.com/longhorn/sparse-tools/cli/ssync"
 	"github.com/openebs/jiva/app"
+	"github.com/openebs/sparse-tools/cli/sfold"
+	"github.com/openebs/sparse-tools/cli/ssync"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )

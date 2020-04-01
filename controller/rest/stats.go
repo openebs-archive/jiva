@@ -3,7 +3,7 @@ package rest
 import (
 	"net/http"
 
-	journal "github.com/longhorn/sparse-tools/stats"
+	journal "github.com/openebs/sparse-tools/stats"
 	"github.com/rancher/go-rancher/api"
 )
 
