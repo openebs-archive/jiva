@@ -1784,6 +1784,7 @@ verify_delete_snapshot_failure() {
 	local snap=""
 	local msg=""
 	local snap_ls="docker exec "$orig_controller_id" jivactl snapshot ls"
+	docker exec "$orig_controller_id" jivactl snapshot info
 	snap=$(eval $snap_ls | tail -1)
 	cmd="docker exec "$orig_controller_id" jivactl snapshot rm "$snap""
 	msg=$(eval $cmd 2>&1)
@@ -1823,6 +1824,7 @@ delete_snapshots() {
 	lines=$(echo "$snaps" | wc -w)
 	while [ "$i" -lt "$lines" ]
 	do
+	  docker exec "$orig_controller_id" jivactl snapshot info
 		snaps=$(docker exec "$orig_controller_id" jivactl snapshot ls)
 		snap=$(echo $snaps | awk '{print $3}')
 		docker exec -it "$orig_controller_id" jivactl snapshot rm $snap
@@ -1935,7 +1937,7 @@ test_delete_snapshot() {
 	# start stop replica such that data is written across various
 	# snapshots
 	sleep 1
-	start_stop_replica "4" "$replica3_id"
+	start_stop_replica "5" "$replica3_id"
 	wait
 
 	verify_replica_cnt "3" "Three replica count test"

@@ -1,6 +1,6 @@
 package rpc
 
-import journal "github.com/longhorn/sparse-tools/stats"
+import journal "github.com/openebs/sparse-tools/stats"
 
 const (
 	TypeRead = iota
