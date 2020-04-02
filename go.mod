@@ -12,7 +12,7 @@ require (
 	github.com/gorilla/websocket v1.4.1 // indirect
 	github.com/gostor/gotgt v0.1.1-0.20191128095459-2f1d32710a93
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
-	github.com/openebs/sparse-tools v0.0.0-20200401051016-9192f3db845e
+	github.com/openebs/sparse-tools v0.0.0-20200401072849-c3bccb89a06b
 	github.com/prometheus/client_golang v1.5.1
 	github.com/rancher/go-rancher v0.1.1-0.20190307222549-9756097e5e4c
 	github.com/satori/go.uuid v1.2.0
