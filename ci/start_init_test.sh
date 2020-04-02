@@ -779,8 +779,21 @@ test_two_replica_stop_start() {
 	verify_vol_status "RO" "When there are 2 replicas and one is stopped"
 	verify_controller_rep_state "$REPLICA_IP2" "RW" "Replica2 status after stopping replica1 in 2 replicas case"
 
+	local head=""
+	local newIndx=""
+	local newFile=""
+	head=$(cat /tmp/vol2/volume.meta | jq '.Head')
+	newIndx=$(echo ${head:15:1})
+	let newIndx=newIndx+1
+	newFile="volume-head-00$newIndx.img"
+	sudo truncate -s 2g /tmp/vol2/$newFile
+    
 	docker start $replica1_id
 	verify_replica_cnt "2" "Two replica count test2"
+	file_exists=`docker logs $replica2_id 2>&1 | grep -c "Head file: $newFile already exists, removing"`
+	if [ "$file_exists" -eq 0 ]; then
+		collect_logs_and_exit
+	fi
 
 	verify_controller_quorum "2" "when there are 2 replicas and one is restarted"
 	verify_vol_status "RW" "when there are 2 replicas and one is restarted"
@@ -813,10 +826,11 @@ test_two_replica_stop_start() {
 	docker start $replica1_id
 	verify_vol_status "RO" "when there are 2 replicas and are brought down. Then, only one started"
 	verify_rep_state 1 "Replica1 status after stopping both, and starting it" "$REPLICA_IP1" "NA"
-
+    
 	docker start $replica2_id
 	verify_vol_status "RW" "when there are 2 replicas and are brought down. Then, both are started"
 	verify_replica_cnt "2" "when there are 2 replicas and are brought down. Then, both are started"
+
 
 	reader_exit=`docker logs $orig_controller_id 2>&1 | grep "Exiting rpc reader" | wc -l`
 	writer_exit=`docker logs $orig_controller_id 2>&1 | grep "Exiting rpc writer" | wc -l`

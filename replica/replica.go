@@ -808,7 +808,10 @@ func (r *Replica) createNewHead(oldHead, parent, created string) (types.DiffDisk
 	}
 
 	if _, err := os.Stat(r.diskPath(newHeadName)); err == nil {
-		return nil, disk{}, fmt.Errorf("%s already exists", newHeadName)
+		logrus.Warningf("Head file: %v already exists, removing", newHeadName)
+		if err = r.rmDisk(newHeadName); err != nil {
+			logrus.Errorf("Fail to remove disk, err: %v", err)
+		}
 	}
 
 	f, err := r.openFile(newHeadName, os.O_TRUNC)
@@ -945,8 +948,11 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 
 	f, newHeadDisk, err := r.createNewHead(oldHead, newSnapName, created)
 	if err != nil {
+		rmDiskErr := r.rmDisk(newHeadDisk.Name)
+		logrus.Errorf("Failed to remove newHeadDisk: %v", rmDiskErr)
 		return err
 	}
+
 	defer func() {
 		if !done {
 			r.rmDisk(newHeadDisk.Name)
