@@ -1,5 +1,6 @@
 
 #!/bin/bash
+set -x
 
 PS4='${LINENO}: '
 CONTROLLER_IP="172.18.0.2"
@@ -15,14 +16,14 @@ collect_logs_and_exit() {
 	echo "--------------------------docker ps -a-------------------------------------"
 	docker ps -a
 
-	echo "--------------------------CONTROLLER REST output---------------------------"
+	echo "--------------------------CONTROLLER REST Output---------------------------"
 	curl http://$CONTROLLER_IP:9501/v1/volumes | jq
 	curl http://$CONTROLLER_IP:9501/v1/replicas | jq
-	echo "--------------------------REPLICA 1 LOGS ----------------------------------"
+	echo "--------------------------REPLICA 1 REST Output ----------------------------------"
 	curl http://$REPLICA_IP1:9502/v1/replicas | jq
-	echo "--------------------------REPLICA 2 LOGS ----------------------------------"
+	echo "--------------------------REPLICA 2 REST Output ----------------------------------"
 	curl http://$REPLICA_IP2:9502/v1/replicas | jq
-	echo "--------------------------REPLICA 3  LOGS ---------------------------------"
+	echo "--------------------------REPLICA 3 REST Output ----------------------------------"
 	curl http://$REPLICA_IP3:9502/v1/replicas | jq
 
 	#Take system output
@@ -112,7 +113,7 @@ verify_replica_cnt() {
 		fi
 		sleep 2
 	done
-	echo $2 " -- passed"
+	echo "Verify_replica_cnt for " $2 " -- passed"
 	return
 }
 
@@ -157,7 +158,7 @@ verify_rw_status() {
 }
 
 verify_rw_rep_count() {
-	echo "---------------Verify RW Replica Status------------------"
+	echo "---------------Verify RW Replica Count------------------"
 	i=0
 	count=""
 	while [ "$count" != "$1" ]; do
@@ -169,7 +170,7 @@ verify_rw_rep_count() {
 		fi
 		sleep 5
 	done
-	echo "Verify RW Replica status test -- passed"
+	echo "Verify RW Replica Count -- passed"
 }
 
 #returns number of replicas connected to controller in RW mode
@@ -262,7 +263,7 @@ verify_go_routine_leak() {
 	new_no_of_goroutine=$(curl http://$2:9502/debug/pprof/goroutine?debug=1 | grep goroutine | awk '{ print $4}')
 	old=`expr $no_of_goroutine + 3`
 	if [ $new_no_of_goroutine -lt $old ]; then
-		echo $1 --passed
+		echo "Verify_go_routine for " $1 --passed
 		return
 	fi
 	echo $1 " -- failed"
@@ -796,6 +797,7 @@ test_two_replica_stop_start() {
 		verify_rep_state 1 "Replica1 status after restarting it, and stopping other one in 2 replicas case" "$REPLICA_IP1" "RW"
 
 		docker start $replica2_id
+		wait
 		verify_replica_cnt "2" "Two replica count test3"
 		verify_vol_status "RW" "when there are 2 replicas and replicas restarted multiple times"
 
@@ -1902,7 +1904,7 @@ verify_replica_restart_while_snap_deletion() {
 	sudo docker start "$3"
 	verify_replica_cnt "3" "Three replica count test"
 	verify_rw_rep_count "3"
-	verify_delete_snapshot_failure "$4" & "false"
+	verify_delete_snapshot_failure "$4" "false" &
 	sleep 2
 	sudo docker stop "$3"
 	wait
