@@ -779,6 +779,8 @@ test_two_replica_stop_start() {
 	verify_vol_status "RO" "When there are 2 replicas and one is stopped"
 	verify_controller_rep_state "$REPLICA_IP2" "RW" "Replica2 status after stopping replica1 in 2 replicas case"
 
+    # recover replica in case of head file already exists due to
+    # ungraceful cleanup upon any error
 	local head=""
 	local newIndx=""
 	local newFile=""
@@ -790,7 +792,7 @@ test_two_replica_stop_start() {
     
 	docker start $replica1_id
 	verify_replica_cnt "2" "Two replica count test2"
-	file_exists=`docker logs $replica2_id 2>&1 | grep -c "Head file: $newFile already exists, removing"`
+	file_exists=`docker logs $replica2_id 2>&1 | grep -c "Head file: $newFile already exists"`
 	if [ "$file_exists" -eq 0 ]; then
 		collect_logs_and_exit
 	fi
@@ -810,6 +812,7 @@ test_two_replica_stop_start() {
 		verify_rep_state 1 "Replica1 status after restarting it, and stopping other one in 2 replicas case" "$REPLICA_IP1" "RW"
 
 		docker start $replica2_id
+		wait
 		verify_replica_cnt "2" "Two replica count test3"
 		verify_vol_status "RW" "when there are 2 replicas and replicas restarted multiple times"
 
@@ -1917,7 +1920,7 @@ verify_replica_restart_while_snap_deletion() {
 	sudo docker start "$3"
 	verify_replica_cnt "3" "Three replica count test"
 	verify_rw_rep_count "3"
-	verify_delete_snapshot_failure "$4" & "false"
+	verify_delete_snapshot_failure "$4" "false" &
 	sleep 2
 	sudo docker stop "$3"
 	wait
