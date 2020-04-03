@@ -179,7 +179,7 @@ func startReplica(c *cli.Context) error {
 	replicaType := c.String("type")
 	s := replica.NewServer(dir, 512, replicaType)
 	go replica.CreateHoles(s)
-	// close replica gracefully upon kill signal
+	// close replica gracefully upon recieving SIGTERM or SIGINT
 	addShutdown(func() {
 		_ = s.Close()
 	})

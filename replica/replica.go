@@ -767,7 +767,10 @@ func (r *Replica) encodeToFile(obj interface{}, file string) error {
 		return err
 	}
 
-	return os.Rename(r.diskPath(file+".tmp"), r.diskPath(file))
+	if err := os.Rename(r.diskPath(file+".tmp"), r.diskPath(file)); err != nil {
+		return err
+	}
+	return r.syncDir()
 }
 
 func (r *Replica) nextFile(parsePattern *regexp.Regexp, pattern, parent string) (string, error) {
@@ -957,12 +960,13 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 
 	f, newHeadDisk, err := r.createNewHead(oldHead, newSnapName, created)
 	if err != nil {
+		r.doCleanup(newHeadDisk.Name)
 		return err
 	}
 	defer func() {
 		if !done {
 			r.doCleanup(newHeadDisk.Name, newSnapName)
-			f.Close()
+			f.Close() // rm only unlink the file since fd is still open
 			return
 		}
 		r.doCleanup(oldHead)
