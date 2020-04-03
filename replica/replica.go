@@ -808,7 +808,10 @@ func (r *Replica) createNewHead(oldHead, parent, created string) (types.DiffDisk
 	}
 
 	if _, err := os.Stat(r.diskPath(newHeadName)); err == nil {
-		logrus.Warningf("Head file: %v already exists, removing", newHeadName)
+		logrus.Warningf("Head file: %v already exists", newHeadName)
+		if r.getDiskSize(newHeadName) > 0 {
+			return nil, disk{}, fmt.Errorf("Can't remove head file %v as it contains some data", newHeadName)
+		}
 		if err = r.rmDisk(newHeadName); err != nil {
 			logrus.Errorf("Fail to remove disk, err: %v", err)
 		}
