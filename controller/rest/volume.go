@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/mux"
 	replicaClient "github.com/openebs/jiva/replica/client"
 	"github.com/openebs/jiva/types"
+	"github.com/openebs/jiva/util"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
 	"github.com/sirupsen/logrus"
@@ -67,6 +68,39 @@ func (s *Server) GetReplicaInfo(replicas []types.Replica) []types.ReplicaInfo {
 	}
 	wg.Wait()
 	return info
+}
+
+func appendError(errList []error, err error, lock *sync.Mutex) {
+	lock.Lock()
+	errList = append(errList, err)
+	lock.Unlock()
+}
+
+func (s *Server) PostSetLoggingRequest(replicas []types.Replica, lf util.LogToFile, errList []error) {
+	var (
+		wg sync.WaitGroup
+	)
+	errLock := &sync.Mutex{}
+	wg.Add(len(replicas))
+	for _, replica := range replicas {
+		addr := replica.Address
+		go func(addr string) {
+			defer wg.Done()
+			repClient, err := replicaClient.NewReplicaClient(addr)
+			if err != nil {
+				appendError(errList, err, errLock)
+				return
+			}
+			repClient.SetTimeout(5 * time.Second)
+			err = repClient.SetLogging(lf)
+			if err != nil {
+				appendError(errList, err, errLock)
+				logrus.Infof("Error in setting logging to replica: %v , error %v", addr, err)
+				return
+			}
+		}(addr)
+	}
+	wg.Wait()
 }
 
 func (s *Server) GetVolumeStats(rw http.ResponseWriter, req *http.Request) error {
@@ -152,6 +186,40 @@ func (s *Server) RevertVolume(rw http.ResponseWriter, req *http.Request) error {
 		return err
 	}
 
+	return s.GetVolume(rw, req)
+}
+
+func (s *Server) SetLogging(rw http.ResponseWriter, req *http.Request) error {
+	var replicas []types.Replica
+	apiContext := api.GetApiContext(req)
+	id := mux.Vars(req)["id"]
+
+	v := s.getVolume(apiContext, id)
+	if v == nil {
+		rw.WriteHeader(http.StatusNotFound)
+		return nil
+	}
+
+	var input LoggingInput
+	if err := apiContext.Read(&input); err != nil {
+		return err
+	}
+
+	s.c.RLock()
+	replicas = append(replicas, s.c.ListReplicas()...)
+	s.c.RUnlock()
+
+	if len(replicas) != s.c.ReplicationFactor {
+		return fmt.Errorf("Can't set logging, replication factor: %v, replica count: %v", s.c.ReplicationFactor, len(replicas))
+	}
+
+	var errList []error
+	s.PostSetLoggingRequest(replicas, input.LogToFile, errList)
+	if errList != nil {
+		return fmt.Errorf("Fail to post set logging request, err: %v", errList)
+	}
+
+	logrus.Infof("Set logging in replicas to %+v", input.LogToFile)
 	return s.GetVolume(rw, req)
 }
 

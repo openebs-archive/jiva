@@ -5,6 +5,7 @@ import (
 
 	"github.com/openebs/jiva/replica"
 	"github.com/openebs/jiva/types"
+	"github.com/openebs/jiva/util"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
 )
@@ -38,6 +39,11 @@ type RevertInput struct {
 type RebuildingInput struct {
 	client.Resource
 	Rebuilding bool `json:"rebuilding"`
+}
+
+type LoggingInput struct {
+	client.Resource
+	LogToFile util.LogToFile `json:"logtofile"`
 }
 
 type SnapshotInput struct {
@@ -136,6 +142,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["updatediskmode"] = true
 		actions["resize"] = true
 		actions["setrebuilding"] = true
+		actions["setlogging"] = true
 		actions["snapshot"] = true
 		actions["reload"] = true
 		actions["removedisk"] = true
@@ -160,6 +167,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["start"] = true
 		actions["resize"] = true
 		actions["setrebuilding"] = true
+		actions["setlogging"] = true
 		actions["close"] = true
 		actions["snapshot"] = true
 		actions["reload"] = true
@@ -176,6 +184,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["resize"] = true
 		actions["snapshot"] = true
 		actions["setrebuilding"] = true
+		actions["setlogging"] = true
 		actions["close"] = true
 		actions["reload"] = true
 		actions["setreplicamode"] = true
@@ -233,6 +242,10 @@ func setReplicaResourceActions(replica *client.Schema) {
 			Input:  "rebuildingInput",
 			Output: "replica",
 		},
+		"setlogging": {
+			Input:  "loggingInput",
+			Output: "replica",
+		},
 		"create": {
 			Input:  "createInput",
 			Output: "replica",
@@ -269,6 +282,7 @@ func NewSchema() *client.Schemas {
 	schemas.AddType("schema", client.Schema{})
 	schemas.AddType("createInput", CreateInput{})
 	schemas.AddType("rebuildingInput", RebuildingInput{})
+	schemas.AddType("LoggerInput", LoggingInput{})
 	schemas.AddType("snapshotInput", SnapshotInput{})
 	schemas.AddType("removediskInput", RemoveDiskInput{})
 	schemas.AddType("revertInput", RevertInput{})

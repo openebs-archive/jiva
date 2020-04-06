@@ -26,6 +26,7 @@ const (
 	metadataSuffix     = ".meta"
 	imgSuffix          = ".img"
 	volumeMetaData     = "volume.meta"
+	logMeta            = "log.meta"
 	defaultSectorSize  = 4096
 	headPrefix         = "volume-head-"
 	headSuffix         = ".img"

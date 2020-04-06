@@ -2,7 +2,6 @@ package app
 
 import (
 	"errors"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -13,7 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/natefinch/lumberjack"
 	"github.com/openebs/jiva/alertlog"
 	"github.com/openebs/jiva/sync"
 
@@ -34,7 +32,7 @@ const (
 	retentionPeriod        = "retentionPeriod"
 	maxBackups             = "maxBackups"
 	defaultLogFileSize     = 100
-	defaultRetentionPeriod = 28
+	defaultRetentionPeriod = 180
 	defaultMaxBackups      = 5
 )
 
@@ -74,7 +72,7 @@ func ReplicaCmd() cli.Command {
 				Name:  "type",
 				Value: "",
 			},
-			cli.BoolFlag{
+			cli.BoolTFlag{
 				Name:  "logtofile",
 				Usage: "Logs of replica will also be written to the file along with stdout",
 			},
@@ -187,17 +185,35 @@ func CloneReplica(s *replica.Server, address string, cloneIP string, snapName st
 	return err
 }
 
-func startLoggingToFile(c *cli.Context) {
-	fileName := c.Args()[0] + "/replica.log"
-	logrus.SetOutput(io.MultiWriter(os.Stderr, &lumberjack.Logger{
-		Filename:   fileName,
-		MaxSize:    c.Int(maxLogFileSize),
-		MaxAge:     c.Int(retentionPeriod),
-		MaxBackups: c.Int(maxBackups),
-		LocalTime:  true,
-	}))
-	logrus.Infof("Configured logging with retentionPeriod: %v, maxLogFileSize: %v, maxBackups: %v",
-		c.Int(retentionPeriod), c.Int(maxLogFileSize), c.Int(maxBackups))
+func startLoggingToFile(c *cli.Context) error {
+	dir := c.Args()[0]
+	lf := util.LogToFile{
+		Enable:          true,
+		MaxLogFileSize:  c.Int(maxLogFileSize),
+		MaxBackups:      c.Int(maxBackups),
+		RetentionPeriod: c.Int(retentionPeriod),
+	}
+
+	path := dir + "/" + util.LogInfo
+	_, err := os.Stat(path)
+	if err == nil {
+		logrus.Info("Read log info")
+		lf, err = util.ReadLogInfo(dir)
+		if err != nil {
+			return err
+		}
+	} else if err != nil && os.IsNotExist(err) {
+		// do nothing as file will be created in StartLoggingToFile
+	} else if err != nil {
+		return err
+	}
+
+	if !lf.Enable {
+		logrus.Info("Logging to file is not enabled")
+		return nil
+	}
+
+	return util.StartLoggingToFile(dir, lf)
 }
 
 func startReplica(c *cli.Context) error {
@@ -226,7 +242,9 @@ func startReplica(c *cli.Context) error {
 	}
 
 	if c.Bool("logtofile") {
-		startLoggingToFile(c)
+		if err := startLoggingToFile(c); err != nil {
+			return err
+		}
 	}
 	s := replica.NewServer(dir, 512, replicaType)
 	go replica.CreateHoles()
