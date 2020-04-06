@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/openebs/jiva/controller/rest"
+	"github.com/openebs/jiva/util"
 	"github.com/sirupsen/logrus"
 )
 
@@ -113,6 +114,17 @@ func (c *ControllerClient) CreateQuorumReplica(address string) (*rest.Replica, e
 		Address: address,
 	}, &resp)
 	return &resp, err
+}
+
+// SetLogging ...
+func (c *ControllerClient) SetLogging(lf util.LogToFile) error {
+	volume, err := c.GetVolume()
+	if err != nil {
+		return err
+	}
+	return c.post(volume.Actions["setlogging"], &rest.LoggingInput{
+		LogToFile: lf,
+	}, nil)
 }
 
 // DeleteSnapshot ...
