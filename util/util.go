@@ -98,13 +98,15 @@ func WriteLogInfo(dir string, lf LogToFile) error {
 }
 
 func SetLogging(dir string, lf LogToFile) error {
+	// close existing one if already configured
+	if Logrotator != nil {
+		if err := Logrotator.Close(); err != nil {
+			return err
+		}
+	}
+
 	if !lf.Enable {
 		logrus.Infof("Disable logging to file")
-		if Logrotator != nil {
-			if err := Logrotator.Close(); err != nil {
-				return err
-			}
-		}
 		return WriteLogInfo(dir, lf)
 	}
 	return StartLoggingToFile(dir, lf)
