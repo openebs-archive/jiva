@@ -159,9 +159,9 @@ func (s *Server) Create(size int64) error {
 
 func (s *Server) Open() error {
 	s.Lock()
+	defer s.Unlock()
 
 	if s.r != nil {
-		s.Unlock()
 		return fmt.Errorf("Replica is already open")
 	}
 
@@ -171,12 +171,10 @@ func (s *Server) Open() error {
 	logrus.Infof("Opening volume %s, size %d/%d", s.dir, size, sectorSize)
 	r, err := New(size, sectorSize, s.dir, s.backing, s.ServerType)
 	if err != nil {
-		s.Unlock()
 		logrus.Errorf("Error %v during open", err)
 		return err
 	}
 	s.r = r
-	s.Unlock()
 	return nil
 }
 

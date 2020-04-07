@@ -183,7 +183,6 @@ func (s *Server) handleRead(msg *Message) {
 	if err != nil {
 		logrus.Errorf("Failed to read data, error: %v", err)
 		if s.isIOError(err) {
-			_ = s.data.Close()
 			logrus.Fatal("Exiting...")
 		}
 	}
@@ -195,7 +194,6 @@ func (s *Server) handleWrite(msg *Message) {
 	if err != nil {
 		logrus.Errorf("Failed to write data, error: %v", err)
 		if s.isIOError(err) {
-			_ = s.data.Close()
 			logrus.Fatal("Exiting...")
 		}
 	}
@@ -213,7 +211,6 @@ func (s *Server) handleSync(msg *Message) {
 	if err != nil {
 		logrus.Errorf("Failed to sync data, error: %v", err)
 		if s.isIOError(err) {
-			_ = s.data.Close()
 			logrus.Fatal("Exiting...")
 		}
 	}
@@ -224,7 +221,6 @@ func (s *Server) handleUnmap(msg *Message) {
 	if err != nil {
 		logrus.Errorf("Failed to unmap data, error: %v", err)
 		if s.isIOError(err) {
-			_ = s.data.Close()
 			logrus.Fatal("Exiting...")
 		}
 	}

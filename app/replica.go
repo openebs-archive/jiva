@@ -178,11 +178,7 @@ func startReplica(c *cli.Context) error {
 	dir := c.Args()[0]
 	replicaType := c.String("type")
 	s := replica.NewServer(dir, 512, replicaType)
-	go replica.CreateHoles(s)
-	// close replica gracefully upon recieving SIGTERM or SIGINT
-	addShutdown(func() {
-		_ = s.Close()
-	})
+	go replica.CreateHoles()
 
 	address := c.String("listen")
 	frontendIP := c.String("frontendIP")

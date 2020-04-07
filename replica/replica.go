@@ -457,7 +457,6 @@ func (r *Replica) ReplaceDisk(target, source string) error {
 	}
 
 	if err := r.rmDisk(source); err != nil {
-		_ = r.close()
 		logrus.Fatalf("Failed to remove disk: %v, err: %v", source, err)
 		return err
 	}
@@ -474,7 +473,6 @@ func (r *Replica) ReplaceDisk(target, source string) error {
 
 	// Close the removed file
 	if err := r.volume.files[index].Close(); err != nil {
-		_ = r.close()
 		logrus.Fatalf("Failed to close old instance of target: %v, err: %v", target, err)
 		return err
 	}
@@ -482,7 +480,6 @@ func (r *Replica) ReplaceDisk(target, source string) error {
 	// Open for R/W
 	newFile, err := r.openFile(r.activeDiskData[index].Name, 0)
 	if err != nil {
-		_ = r.close()
 		logrus.Fatalf("Failed to open new instance of target: %v, err: %v", target, err)
 		return err
 	}
@@ -733,11 +730,7 @@ func (r *Replica) closeAndSyncDir(f types.DiffDisk) error {
 func (r *Replica) close() error {
 	for i, f := range r.volume.files {
 		if f != nil && !r.isBackingFile(i) {
-			// continue on err to close other files as well, as returning
-			// error means keeping the rest files open while fataling.
-			if err := r.closeAndSyncDir(f); err != nil {
-				logrus.Errorf("Fail to close and sync file, err: %v", err)
-			}
+			f.Close()
 		}
 	}
 
@@ -896,14 +889,6 @@ func (r *Replica) rmDisk(name string) error {
 	return lastErr
 }
 
-func (r *Replica) doCleanup(files ...string) {
-	for _, f := range files {
-		if err := r.rmDisk(f); err != nil {
-			logrus.Warningf("Fail to remove disks while doCleanup, err: %v", err)
-		}
-	}
-}
-
 func (r *Replica) revertDisk(parent, created string) (*Replica, error) {
 	if _, err := os.Stat(r.diskPath(parent)); err != nil {
 		return nil, err
@@ -960,16 +945,16 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 
 	f, newHeadDisk, err := r.createNewHead(oldHead, newSnapName, created)
 	if err != nil {
-		r.doCleanup(newHeadDisk.Name)
 		return err
 	}
 	defer func() {
 		if !done {
-			r.doCleanup(newHeadDisk.Name, newSnapName)
+			r.rmDisk(newHeadDisk.Name)
+			r.rmDisk(newSnapName)
 			f.Close() // rm only unlink the file since fd is still open
 			return
 		}
-		r.doCleanup(oldHead)
+		r.rmDisk(oldHead)
 	}()
 
 	if err := r.linkDisk(r.info.Head, newSnapName); err != nil {

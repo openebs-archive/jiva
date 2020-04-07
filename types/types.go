@@ -35,17 +35,18 @@ const (
 type ReaderWriterAt interface {
 	io.ReaderAt
 	io.WriterAt
-	io.Closer
 }
 
 type IOs interface {
 	ReaderWriterAt
+	io.Closer
 	Sync() (int, error)
 	Unmap(int64, int64) (int, error)
 }
 
 type DiffDisk interface {
 	ReaderWriterAt
+	io.Closer
 	Fd() uintptr
 }
 
