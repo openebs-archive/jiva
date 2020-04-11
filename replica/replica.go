@@ -424,7 +424,7 @@ func (r *Replica) hardlinkDisk(target, source string) error {
 	if err := os.Link(r.diskPath(source), r.diskPath(target)); err != nil {
 		return fmt.Errorf("Fail to link %s to %s", source, target)
 	}
-	return nil
+	return r.syncDir()
 }
 
 // ReplaceDisk replace the source with target snapshot
@@ -744,19 +744,20 @@ func (r *Replica) encodeToFile(obj interface{}, file string) error {
 
 	f, err := os.Create(r.diskPath(file + ".tmp"))
 	if err != nil {
-		logrus.Errorf("failed to create temp file: %s while encoding the data to file", file)
+		logrus.Errorf("Failed to create temp file: %s while encoding the data to file", file)
 		return err
 	}
 
-	defer f.Close()
-
-	if err := json.NewEncoder(f).Encode(&obj); err != nil {
-		logrus.Errorf("failed to encode the data to file: %s", f.Name())
-		return err
+	if lastErr := json.NewEncoder(f).Encode(&obj); err != nil {
+		if err := f.Close(); err != nil {
+			logrus.Errorf("Failed to close file: %v, err: %v", f.Name(), err)
+		}
+		logrus.Errorf("Failed to encode the data to file: %s", f.Name())
+		return lastErr
 	}
 
-	if err := r.closeAndSyncDir(f); err != nil {
-		logrus.Errorf("failed to close and sync file after encoding to file: %s", f.Name())
+	if err := f.Close(); err != nil {
+		logrus.Errorf("Failed to close file: %v after encoding", f.Name())
 		return err
 	}
 
@@ -815,11 +816,7 @@ func (r *Replica) createNewHead(oldHead, parent, created string) (types.DiffDisk
 		return nil, disk{}, err
 	}
 
-	err = r.syncDir()
-	if err != nil {
-		return nil, disk{}, fmt.Errorf("Fail to sync dir, err: %v", err)
-	}
-
+	// file created before this needs to be deleted in case of error
 	if err := syscall.Truncate(r.diskPath(newHeadName), r.info.Size); err != nil {
 		return nil, disk{}, err
 	}
@@ -853,7 +850,10 @@ func (r *Replica) linkDisk(oldname, newname string) error {
 		return err
 	}
 
-	return os.Link(r.diskPath(oldname+metadataSuffix), r.diskPath(newname+metadataSuffix))
+	if err := os.Link(r.diskPath(oldname+metadataSuffix), r.diskPath(newname+metadataSuffix)); err != nil {
+		return err
+	}
+	return r.syncDir()
 }
 
 func (r *Replica) markDiskAsRemoved(name string) error {
@@ -1157,10 +1157,13 @@ func (r *Replica) unmarshalFile(file string, obj interface{}) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 
-	dec := json.NewDecoder(f)
-	return dec.Decode(obj)
+	err = json.NewDecoder(f).Decode(obj)
+	if err != nil {
+		return err
+	}
+
+	return f.Close()
 }
 
 func (r *Replica) Close() error {
@@ -1194,7 +1197,7 @@ func (r *Replica) Delete() error {
 		logrus.Error("Error in removing revision counter file, error : ", err.Error())
 		return err
 	}
-	return nil
+	return r.syncDir()
 }
 
 func (r *Replica) DeleteAll() error {
