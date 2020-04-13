@@ -1161,7 +1161,7 @@ func (r *Replica) unmarshalFile(file string, obj interface{}) error {
 	err = json.NewDecoder(f).Decode(obj)
 	if err != nil {
 		if closeErr := f.Close(); closeErr != nil {
-			logrus.Errorf("Fail to close file: %v, err: %v", f.Name(), err)
+			logrus.Errorf("Fail to close file: %v, err: %v", f.Name(), closeErr)
 		}
 		return err
 	}
