@@ -949,6 +949,7 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 		newSnapName = ""
 	}
 
+	// new head file created will be deleted in next call if replica crashes just after this
 	f, newHeadDisk, err := r.createNewHead(oldHead, newSnapName, created)
 	if err != nil {
 		rmDiskErr := r.rmDisk(newHeadDisk.Name)
@@ -963,6 +964,8 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 			f.Close() // rm only unlink the file since fd is still open
 			return
 		}
+		// crash at this point leads to stale old head and its meta file will remain
+		// which will not be part of the chain as its already updated below.
 		r.rmDisk(oldHead)
 	}()
 
@@ -970,16 +973,8 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 		return err
 	}
 
-	info := r.info
-	info.Head = newHeadDisk.Name
-	info.Dirty = true
-	info.Parent = newSnapName
+	// crash at this point leads to stale snapshot files
 
-	if err := r.encodeToFile(&info, volumeMetaData); err != nil {
-		return err
-	}
-
-	done = true
 	r.diskData[newHeadDisk.Name] = &newHeadDisk
 	if newSnapName != "" {
 		r.addChildDisk(newSnapName, newHeadDisk.Name)
@@ -988,9 +983,11 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 		r.diskData[newSnapName].UserCreated = userCreated
 		r.diskData[newSnapName].Created = created
 		r.diskData[newSnapName].RevisionCounter = r.GetRevisionCounter()
+		// create new metafile for snapshot
 		if err := r.encodeToFile(r.diskData[newSnapName], newSnapName+metadataSuffix); err != nil {
 			return err
 		}
+		// crash here will leave stale snapshot files
 		size := int64(unsafe.Sizeof(r.diskData[newSnapName]))
 		if size%defaultSectorSize == 0 {
 			r.volume.UsedBlocks += size / defaultSectorSize
@@ -1003,7 +1000,6 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 	}
 	delete(r.diskData, oldHead)
 
-	r.info = info
 	r.volume.files = append(r.volume.files, f)
 	if userCreated {
 		//Indx 0 is nil, indx 1 is base snapshot,
@@ -1013,6 +1009,23 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 	r.volume.UserCreatedSnap = append(r.volume.UserCreatedSnap, userCreated)
 	r.activeDiskData = append(r.activeDiskData, &newHeadDisk)
 
+	// assign it to temp variable, so that	r.info remains
+	// intact in case of crash
+	info := r.info
+	info.Head = newHeadDisk.Name
+	info.Dirty = true
+	info.Parent = newSnapName
+	info.RevisionCounter = newHeadDisk.RevisionCounter
+
+	// new head encoded to metadata
+	if err := r.encodeToFile(&info, volumeMetaData); err != nil {
+		return err
+	}
+
+	// crash at this point leads to stale old head and it meta file
+	done = true
+	// update in memory info as its persisted on the disk
+	r.info = info
 	return nil
 }
 
