@@ -23,7 +23,7 @@ func (f *Wrapper) Close() error {
 	return f.File.Close()
 }
 
-func (f *Wrapper) Snapshot(name string, userCreated bool, created string) error {
+func (f *Wrapper) Snapshot(name, newHead string, userCreated bool, created string) error {
 	return nil
 }
 
@@ -43,8 +43,8 @@ func (f *Wrapper) SectorSize() (int64, error) {
 	return 4096, nil
 }
 
-func (f *Wrapper) RemainSnapshots() (int, error) {
-	return 1, nil
+func (f *Wrapper) RemainSnapshots() (int, string, error) {
+	return 1, "", nil
 }
 
 func (f *Wrapper) GetRevisionCounter() (int64, error) {

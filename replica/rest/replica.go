@@ -212,16 +212,16 @@ func (s *Server) SnapshotReplica(rw http.ResponseWriter, req *http.Request) erro
 		return err
 	}
 
-	if input.Name == "" {
-		return fmt.Errorf("Cannot accept empty snapshot name")
+	if input.NewHead == "" {
+		return fmt.Errorf("Cannot accept empty head name")
 	}
 
 	if input.Created == "" {
 		return fmt.Errorf("Need to specific created time")
 	}
-	logrus.Infof("SnapshotReplica name: %v created: %v", input.Name, input.Created)
+	logrus.Infof("SnapshotReplica name: %v NewHead: %v created: %v", input.Name, input.NewHead, input.Created)
 
-	return s.doOp(req, s.s.Snapshot(input.Name, input.UserCreated, input.Created))
+	return s.doOp(req, s.s.Snapshot(input.Name, input.NewHead, input.UserCreated, input.Created))
 }
 
 func (s *Server) RevertReplica(rw http.ResponseWriter, req *http.Request) error {

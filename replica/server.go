@@ -364,7 +364,7 @@ func (s *Server) Revert(name, created string) error {
 	return nil
 }
 
-func (s *Server) Snapshot(name string, userCreated bool, createdTime string) error {
+func (s *Server) Snapshot(name, newHead string, userCreated bool, createdTime string) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -373,9 +373,9 @@ func (s *Server) Snapshot(name string, userCreated bool, createdTime string) err
 		return nil
 	}
 
-	logrus.Infof("Snapshotting [%s] volume, user created %v, created time %v",
-		name, userCreated, createdTime)
-	return s.r.Snapshot(name, userCreated, createdTime)
+	logrus.Infof("Snapshotting [%s] volume, newHead %v, user created %v, created time %v",
+		name, newHead, userCreated, createdTime)
+	return s.r.Snapshot(name, newHead, userCreated, createdTime)
 }
 
 func (s *Server) RemoveDiffDisk(name string) error {

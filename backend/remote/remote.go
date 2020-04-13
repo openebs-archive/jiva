@@ -53,12 +53,13 @@ func (r *Remote) open() error {
 	return r.doAction("open", nil)
 }
 
-func (r *Remote) Snapshot(name string, userCreated bool, created string) error {
+func (r *Remote) Snapshot(name, newHead string, userCreated bool, created string) error {
 	logrus.Infof("Snapshot: %s %s UserCreated %v Created at %v",
 		r.Name, name, userCreated, created)
 	return r.doAction("snapshot",
 		&map[string]interface{}{
 			"name":        name,
+			"newhead":     newHead,
 			"usercreated": userCreated,
 			"created":     created,
 		})
@@ -137,15 +138,15 @@ func (r *Remote) SectorSize() (int64, error) {
 	return replica.SectorSize, nil
 }
 
-func (r *Remote) RemainSnapshots() (int, error) {
+func (r *Remote) RemainSnapshots() (int, string, error) {
 	replica, err := r.info()
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	if replica.State != "open" && replica.State != "dirty" && replica.State != "rebuilding" {
-		return 0, fmt.Errorf("Invalid state %v for counting snapshots", replica.State)
+		return 0, "", fmt.Errorf("Invalid state %v for counting snapshots", replica.State)
 	}
-	return replica.RemainSnapshots, nil
+	return replica.RemainSnapshots, replica.Head, nil
 }
 
 func (r *Remote) GetRevisionCounter() (int64, error) {

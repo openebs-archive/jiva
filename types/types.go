@@ -69,11 +69,11 @@ var (
 
 type Backend interface {
 	IOs
-	Snapshot(name string, userCreated bool, created string) error
+	Snapshot(name, newHead string, userCreated bool, created string) error
 	Resize(name string, size string) error
 	Size() (int64, error)
 	SectorSize() (int64, error)
-	RemainSnapshots() (int, error)
+	RemainSnapshots() (int, string, error)
 	GetRevisionCounter() (int64, error)
 	GetCloneStatus() (string, error)
 	GetVolUsage() (VolUsage, error)

@@ -230,7 +230,7 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 	} else if size <= 0 {
 		return nil, os.ErrNotExist
 	} else {
-		if err := r.createDisk("000", false, util.Now()); err != nil {
+		if err := r.createDisk("", "volume-head-000.img", false, util.Now()); err != nil {
 			return nil, err
 		}
 	}
@@ -248,7 +248,7 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 }
 
 func GenerateSnapshotDiskName(name string) string {
-	return fmt.Sprintf(diskName, name)
+	return strings.Replace(name, headPrefix, diskPrefix, 1)
 }
 
 func GetSnapshotNameFromDiskName(diskName string) (string, error) {
@@ -801,11 +801,7 @@ func (r *Replica) syncDir() error {
 	return closeErr
 }
 
-func (r *Replica) createNewHead(oldHead, parent, created string) (types.DiffDisk, disk, error) {
-	newHeadName, err := r.nextFile(diskPattern, headName, oldHead)
-	if err != nil {
-		return nil, disk{}, err
-	}
+func (r *Replica) createNewHead(newHeadName, parent, created string) (types.DiffDisk, disk, error) {
 
 	if _, err := os.Stat(r.diskPath(newHeadName)); err == nil {
 		return nil, disk{}, fmt.Errorf("%s already exists", newHeadName)
@@ -921,7 +917,7 @@ func (r *Replica) revertDisk(parent, created string) (*Replica, error) {
 	return rNew, nil
 }
 
-func (r *Replica) createDisk(name string, userCreated bool, created string) error {
+func (r *Replica) createDisk(name, newHead string, userCreated bool, created string) error {
 	if r.readOnly {
 		return fmt.Errorf("Can not create disk on read-only replica")
 	}
@@ -937,13 +933,14 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 
 	done := false
 	oldHead := r.info.Head
-	newSnapName := GenerateSnapshotDiskName(name)
+	logrus.Infof("NAME: %v: %v", oldHead, newHead)
+	newSnapName := GenerateSnapshotDiskName(oldHead)
 
 	if oldHead == "" {
 		newSnapName = ""
 	}
 
-	f, newHeadDisk, err := r.createNewHead(oldHead, newSnapName, created)
+	f, newHeadDisk, err := r.createNewHead(newHead, newSnapName, created)
 	if err != nil {
 		return err
 	}
@@ -975,6 +972,11 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 	if newSnapName != "" {
 		r.addChildDisk(newSnapName, newHeadDisk.Name)
 		r.diskData[newSnapName] = r.diskData[oldHead]
+		if userCreated {
+			r.diskData[newSnapName].Name = fmt.Sprintf(diskName, name)
+		} else {
+			r.diskData[newSnapName].Name = newSnapName
+		}
 		r.diskData[newSnapName].Name = newSnapName
 		r.diskData[newSnapName].UserCreated = userCreated
 		r.diskData[newSnapName].Created = created
@@ -1214,11 +1216,11 @@ func (r *Replica) DeleteAll() error {
 	return nil
 }
 
-func (r *Replica) Snapshot(name string, userCreated bool, created string) error {
+func (r *Replica) Snapshot(name, newHead string, userCreated bool, created string) error {
 	r.Lock()
 	defer r.Unlock()
 
-	return r.createDisk(name, userCreated, created)
+	return r.createDisk(name, newHead, userCreated, created)
 }
 
 func (r *Replica) Revert(name, created string) (*Replica, error) {

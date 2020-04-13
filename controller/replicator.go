@@ -274,7 +274,7 @@ func (r *replicator) SetMode(address string, mode types.Mode) {
 	r.buildReadWriters()
 }
 
-func (r *replicator) Snapshot(name string, userCreated bool, created string) error {
+func (r *replicator) Snapshot(name, newHead string, userCreated bool, created string) error {
 	retErrorLock := sync.Mutex{}
 	retError := &BackendError{
 		Errors: map[string]error{},
@@ -286,7 +286,7 @@ func (r *replicator) Snapshot(name string, userCreated bool, created string) err
 		if backend.mode != types.ERR {
 			wg.Add(1)
 			go func(address string, backend types.Backend) {
-				if err := backend.Snapshot(name, userCreated, created); err != nil {
+				if err := backend.Snapshot(name, newHead, userCreated, created); err != nil {
 					logrus.Infof("failed taking snapshot at %s with err %v", addr, err)
 					retErrorLock.Lock()
 					retError.Errors[address] = err
@@ -399,13 +399,18 @@ type backendWrapper struct {
 	mode    types.Mode
 }
 
-func (r *replicator) RemainSnapshots() (int, error) {
+func (r *replicator) RemainSnapshots() (int, string, error) {
 	// addReplica may call here even without any backend
 	if len(r.backends) == 0 {
-		return 1, nil
+		return 1, "", nil
 	}
 
 	ret := math.MaxInt32
+	var (
+		remain         int
+		oldHead, tHead string
+		err            error
+	)
 	for _, backend := range r.backends {
 		if backend.mode == types.ERR {
 			logrus.Infof("backend %v is in ERR mode.. cant find RemainSnapshots",
@@ -414,17 +419,20 @@ func (r *replicator) RemainSnapshots() (int, error) {
 		}
 		// ignore error and try next one. We can deal with all
 		// error situation later
-		if remain, err := backend.backend.RemainSnapshots(); err == nil {
+		if remain, tHead, err = backend.backend.RemainSnapshots(); err == nil {
 			if remain < ret {
 				ret = remain
 			}
 		}
+		if backend.mode == types.RW {
+			oldHead = tHead
+		}
 	}
 	if ret == math.MaxInt32 {
-		return 0, fmt.Errorf("Cannot get valid result for remain snapshot from %d backends",
+		return 0, "", fmt.Errorf("Cannot get valid result for remain snapshot from %d backends",
 			len(r.backends))
 	}
-	return ret, nil
+	return ret, oldHead, nil
 }
 
 func (r *replicator) SetReplicaMode(address string, mode types.Mode) error {

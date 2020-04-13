@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"math"
+	"regexp"
 	"strconv"
 	"sync"
 	"time"
@@ -453,6 +454,27 @@ func IsSnapShotExist(snapName string, addr string) (bool, error) {
 	return false, nil
 }
 
+var (
+	headPrefix  = "volume-head-"
+	headSuffix  = ".img"
+	headName    = headPrefix + "%03d" + headSuffix
+	diskPattern = regexp.MustCompile(`volume-head-(\d)+.img`)
+)
+
+func nextHead(parsePattern *regexp.Regexp, pattern, oldHead string) (string, error) {
+	if oldHead == "" {
+		return fmt.Sprintf(pattern, 0), nil
+	}
+
+	matches := parsePattern.FindStringSubmatch(oldHead)
+	if matches == nil {
+		return "", fmt.Errorf("Invalid name %s does not match pattern: %v", oldHead, parsePattern)
+	}
+
+	index, _ := strconv.Atoi(matches[1])
+	return fmt.Sprintf(pattern, index+1), nil
+}
+
 func (c *Controller) Snapshot(name string) (string, error) {
 	c.Lock()
 	defer c.Unlock()
@@ -460,8 +482,13 @@ func (c *Controller) Snapshot(name string) (string, error) {
 	if name == "" {
 		name = util.UUID()
 	}
+	var (
+		remain  int
+		err     error
+		oldHead string
+	)
 
-	if remain, err := c.backend.RemainSnapshots(); err != nil {
+	if remain, oldHead, err = c.backend.RemainSnapshots(); err != nil {
 		return "", err
 	} else if remain <= 0 {
 		return "", fmt.Errorf("Too many snapshots created, remaining snapshots are: %v", remain)
@@ -481,7 +508,11 @@ func (c *Controller) Snapshot(name string) (string, error) {
 		return name, fmt.Errorf("Snapshot: %s already exists", name)
 	}
 	created := util.Now()
-	return name, c.handleErrorNoLock(c.backend.Snapshot(name, true, created))
+	newHead, err := nextHead(diskPattern, headName, oldHead)
+	if err != nil {
+		return "", err
+	}
+	return name, c.handleErrorNoLock(c.backend.Snapshot(name, newHead, true, created))
 }
 
 func (c *Controller) Resize(name string, size string) error {
@@ -527,20 +558,29 @@ func (c *Controller) addQuorumReplicaNoLock(newBackend types.Backend, address st
 	}
 
 	if snapshot {
-		uuid := util.UUID()
 		created := util.Now()
 
-		if remain, err := c.backend.RemainSnapshots(); err != nil {
+		var (
+			remain  int
+			err     error
+			oldHead string
+		)
+
+		if remain, oldHead, err = c.backend.RemainSnapshots(); err != nil {
 			return err
 		} else if remain <= 0 {
 			return fmt.Errorf("Too many snapshots created")
 		}
+		newHead, err := nextHead(diskPattern, headName, oldHead)
+		if err != nil {
+			return err
+		}
 
-		if err := c.backend.Snapshot(uuid, false, created); err != nil {
+		if err := c.backend.Snapshot("", newHead, false, created); err != nil {
 			newBackend.Close()
 			return err
 		}
-		if err := newBackend.Snapshot(uuid, false, created); err != nil {
+		if err := newBackend.Snapshot("", newHead, false, created); err != nil {
 			newBackend.Close()
 			return err
 		}
@@ -569,23 +609,29 @@ func (c *Controller) addReplicaNoLock(newBackend types.Backend, address string, 
 	}
 
 	if snapshot {
-		uuid := util.UUID()
 		created := util.Now()
-		var remain int
-		var err error
+		var (
+			remain  int
+			err     error
+			oldHead string
+		)
 
-		if remain, err = c.backend.RemainSnapshots(); err != nil {
+		if remain, oldHead, err = c.backend.RemainSnapshots(); err != nil {
 			return err
 		} else if remain <= 0 {
 			return fmt.Errorf("Too many snapshots created, remaining snapshots are: %v ", remain)
 		}
 
-		if err = c.backend.Snapshot(uuid, false, created); err != nil {
+		newHead, err := nextHead(diskPattern, headName, oldHead)
+		if err != nil {
+			return err
+		}
+		if err = c.backend.Snapshot("", newHead, false, created); err != nil {
 			newBackend.Close()
 			return err
 		}
 		// This replica is not added to backend yet
-		if err = newBackend.Snapshot(uuid, false, created); err != nil {
+		if err = newBackend.Snapshot("", newHead, false, created); err != nil {
 			newBackend.Close()
 			return err
 		}
