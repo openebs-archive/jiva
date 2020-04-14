@@ -43,7 +43,7 @@ type RebuildingInput struct {
 type SnapshotInput struct {
 	client.Resource
 	Name        string `json:"name"`
-	NewHead     string `json: "newhead"`
+	NewHead     string `json:"newhead"`
 	UserCreated bool   `json:"usercreated"`
 	Created     string `json:"created"`
 }
