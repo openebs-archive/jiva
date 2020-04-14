@@ -248,6 +248,10 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 }
 
 func GenerateSnapshotDiskName(name string) string {
+	return fmt.Sprintf(diskName, name)
+}
+
+func GenerateSnapshotDiskNameFromHeadName(name string) string {
 	return strings.Replace(name, headPrefix, diskPrefix, 1)
 }
 
@@ -891,7 +895,11 @@ func (r *Replica) revertDisk(parent, created string) (*Replica, error) {
 	}
 
 	oldHead := r.info.Head
-	f, newHeadDisk, err := r.createNewHead(oldHead, parent, created)
+	newHeadName, err := r.nextFile(diskPattern, headName, oldHead)
+	if err != nil {
+		return nil, err
+	}
+	f, newHeadDisk, err := r.createNewHead(newHeadName, parent, created)
 	if err != nil {
 		return nil, err
 	}
@@ -933,8 +941,7 @@ func (r *Replica) createDisk(name, newHead string, userCreated bool, created str
 
 	done := false
 	oldHead := r.info.Head
-	logrus.Infof("NAME: %v: %v", oldHead, newHead)
-	newSnapName := GenerateSnapshotDiskName(oldHead)
+	newSnapName := GenerateSnapshotDiskNameFromHeadName(oldHead)
 
 	if oldHead == "" {
 		newSnapName = ""
