@@ -39,6 +39,7 @@ type ReaderWriterAt interface {
 
 type IOs interface {
 	ReaderWriterAt
+	io.Closer
 	Sync() (int, error)
 	Unmap(int64, int64) (int, error)
 }
@@ -68,7 +69,6 @@ var (
 
 type Backend interface {
 	IOs
-	io.Closer
 	Snapshot(name string, userCreated bool, created string) error
 	Resize(name string, size string) error
 	Size() (int64, error)

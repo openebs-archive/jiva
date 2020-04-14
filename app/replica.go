@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/openebs/jiva/alertlog"
+	"github.com/openebs/jiva/sync"
 
 	"github.com/openebs/jiva/types"
 
@@ -21,7 +22,6 @@ import (
 	"github.com/openebs/jiva/replica"
 	"github.com/openebs/jiva/replica/rest"
 	"github.com/openebs/jiva/replica/rpc"
-	"github.com/openebs/jiva/sync"
 	"github.com/openebs/jiva/util"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -309,6 +309,7 @@ func startReplica(c *cli.Context) error {
 			return err
 		}
 	}
+
 	select {
 	case resp = <-controlResp:
 		alertlog.Logger.Errorw("",
