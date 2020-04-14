@@ -166,17 +166,5 @@ func (c *Controller) PrepareRebuildReplica(address string) ([]string, error) {
 		return nil, err
 	}
 
-	fromHead := rwChain[0]
-
-	chain, err := getReplicaChain(address)
-	if err != nil {
-		return nil, err
-	}
-	toHead := chain[0]
-
-	if err := syncFile(fromHead+".meta", toHead+".meta", rwReplica, replica); err != nil {
-		return nil, err
-	}
-
-	return rwChain[1:], nil
+	return rwChain, nil
 }
