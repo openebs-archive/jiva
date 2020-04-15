@@ -458,7 +458,7 @@ var (
 	headPrefix  = "volume-head-"
 	headSuffix  = ".img"
 	headName    = headPrefix + "%03d" + headSuffix
-	diskPattern = regexp.MustCompile(`volume-head-(\d)+.img`)
+	diskPattern = regexp.MustCompile(`volume-head-(\d+).img`)
 )
 
 func nextHead(parsePattern *regexp.Regexp, pattern, oldHead string) (string, error) {
