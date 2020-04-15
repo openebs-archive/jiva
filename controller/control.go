@@ -438,16 +438,16 @@ func (c *Controller) signalReplica() error {
 // IsSnapShotExist verifies whether snapshot with the given name
 // already exists in the given replica.
 func IsSnapShotExist(snapName string, addr string) (bool, error) {
-	chain, err := getReplicaChain(addr)
+	disks, err := getReplicaDiskInfo(addr)
 	if err != nil {
 		return false, fmt.Errorf("Failed to get replica chain, error: %v", err)
 	}
-	if len(chain) == 0 {
+	if len(disks) == 0 {
 		return false, fmt.Errorf("No chain list found in replica")
 	}
 	snapshot := fmt.Sprintf("volume-snap-%s.img", snapName)
-	for _, val := range chain {
-		if val == snapshot {
+	for _, disk := range disks {
+		if disk.Name == snapshot {
 			return true, nil
 		}
 	}

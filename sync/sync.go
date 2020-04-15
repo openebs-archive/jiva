@@ -139,7 +139,6 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 		if err != nil {
 			return fmt.Errorf("Failed to get replica info of the source, error: %s", err.Error())
 		}
-		chain := repl.Chain
 
 		logrus.Infof("Using replica %s as the source for rebuild ", fromReplica.Address)
 
@@ -147,14 +146,23 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 		if err != nil {
 			return fmt.Errorf("Failed to create client of the clone replica, error: %s", err.Error())
 		}
+		var diskName string
+		chain := repl.Chain
 		snapshotName := "volume-snap-" + snapName + ".img"
-		for i, name := range chain {
-			if name == snapshotName {
+		for fileName, disk := range repl.Disks {
+			if disk.Name == snapshotName {
+				diskName = fileName
 				snapFound = true
+				break
+			}
+		}
+		for i, name := range chain {
+			if name == diskName {
 				chain = chain[i:]
 				break
 			}
 		}
+
 		if snapFound == false {
 			return fmt.Errorf("Snapshot Not found at source")
 		}
@@ -167,7 +175,7 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 			continue
 		}
 
-		_, err = toClient.UpdateCloneInfo(snapName, strconv.FormatInt(repl.Disks[snapshotName].RevisionCounter, 10))
+		_, err = toClient.UpdateCloneInfo(diskName, strconv.FormatInt(repl.Disks[snapshotName].RevisionCounter, 10))
 		if err != nil {
 			return fmt.Errorf("Failed to update clone info, err: %v", err)
 		}

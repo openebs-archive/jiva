@@ -355,7 +355,7 @@ func (r *Replica) Reload() (*Replica, error) {
 // UpdateCloneInfo update the clone information such as snapshot name and
 // revisionCount
 func (r *Replica) UpdateCloneInfo(snapName, revCount string) error {
-	r.info.Parent = "volume-snap-" + snapName + ".img"
+	r.info.Parent = snapName
 	if err := r.encodeToFile(&r.info, volumeMetaData); err != nil {
 		return err
 	}
@@ -984,7 +984,6 @@ func (r *Replica) createDisk(name, newHead string, userCreated bool, created str
 		} else {
 			r.diskData[newSnapName].Name = newSnapName
 		}
-		r.diskData[newSnapName].Name = newSnapName
 		r.diskData[newSnapName].UserCreated = userCreated
 		r.diskData[newSnapName].Created = created
 		r.diskData[newSnapName].RevisionCounter = r.GetRevisionCounter()
@@ -999,7 +998,9 @@ func (r *Replica) createDisk(name, newHead string, userCreated bool, created str
 		}
 
 		r.updateChildDisk(oldHead, newSnapName)
-		r.activeDiskData[len(r.activeDiskData)-1].Name = newSnapName
+		// Not Required as diskData and activeDiskData are pointing to same
+		// disks
+		//r.activeDiskData[len(r.activeDiskData)-1].Name = newSnapName
 	}
 	delete(r.diskData, oldHead)
 
@@ -1139,7 +1140,6 @@ func (r *Replica) readDiskData(file string) error {
 	}
 
 	name := file[:len(file)-len(metadataSuffix)]
-	data.Name = name
 	r.diskData[name] = &data
 	// we are updating the revision count of snapshot with the latest
 	// revision count. This is done to know how many io's have been served
@@ -1323,7 +1323,7 @@ func (r *Replica) ListDisks() map[string]types.DiskInfo {
 	defer r.RUnlock()
 
 	result := map[string]types.DiskInfo{}
-	for _, disk := range r.diskData {
+	for diskName, disk := range r.diskData {
 		diskSize := strconv.FormatInt(r.getDiskSize(disk.Name), 10)
 		diskInfo := types.DiskInfo{
 			Name:            disk.Name,
@@ -1339,7 +1339,7 @@ func (r *Replica) ListDisks() map[string]types.DiskInfo {
 			children = append(children, child)
 		}
 		diskInfo.Children = children
-		result[disk.Name] = diskInfo
+		result[diskName] = diskInfo
 	}
 	return result
 }

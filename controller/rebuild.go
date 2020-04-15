@@ -24,6 +24,21 @@ func getReplicaChain(address string) ([]string, error) {
 	return rep.Chain, nil
 }
 
+func getReplicaDiskInfo(address string) (map[string]types.DiskInfo, error) {
+	repClient, err := client.NewReplicaClient(address)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot get replica client for %v: %v",
+			address, err)
+	}
+
+	rep, err := repClient.GetReplica()
+	if err != nil {
+		return nil, fmt.Errorf("Cannot get replica for %v: %v",
+			address, err)
+	}
+	return rep.Disks, nil
+}
+
 func (c *Controller) getCurrentAndRWReplica(address string) (*types.Replica, *types.Replica, error) {
 	var (
 		current, rwReplica *types.Replica
