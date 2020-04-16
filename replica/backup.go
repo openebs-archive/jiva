@@ -213,7 +213,7 @@ func drainHoleCreatorChan() {
 }
 
 //CreateHoles removes the offsets from corresponding sparse files
-func CreateHoles() error {
+func CreateHoles() {
 	var (
 		fd uintptr
 	)
