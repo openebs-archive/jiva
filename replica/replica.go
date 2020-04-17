@@ -808,7 +808,13 @@ func (r *Replica) createNewHead(oldHead, parent, created string) (types.DiffDisk
 	}
 
 	if _, err := os.Stat(r.diskPath(newHeadName)); err == nil {
-		return nil, disk{}, fmt.Errorf("%s already exists", newHeadName)
+		logrus.Warningf("Head file: %v already exists", newHeadName)
+		if r.getDiskSize(newHeadName) > 0 {
+			return nil, disk{}, fmt.Errorf("Can't remove head file %v as it contains some data", newHeadName)
+		}
+		if err = r.rmDisk(newHeadName); err != nil {
+			return nil, disk{}, fmt.Errorf("Failed to remove disk, err: %v", err)
+		}
 	}
 
 	f, err := r.openFile(newHeadName, os.O_TRUNC)
@@ -840,10 +846,12 @@ func (r *Replica) linkDisk(oldname, newname string) error {
 
 	dest := r.diskPath(newname)
 	if _, err := os.Stat(dest); err == nil {
-		logrus.Infof("Old file %s exists, deleting", dest)
-		if err := os.Remove(dest); err != nil {
-			return err
-		}
+		return fmt.Errorf("Old file :%v already exists", newname)
+	}
+
+	metaDest := r.diskPath(newname + metadataSuffix)
+	if _, err := os.Stat(metaDest); err == nil {
+		return fmt.Errorf("Old file :%v already exists", newname+metadataSuffix)
 	}
 
 	if err := os.Link(r.diskPath(oldname), dest); err != nil {
@@ -877,16 +885,15 @@ func (r *Replica) rmDisk(name string) error {
 		return nil
 	}
 
-	lastErr := os.Remove(r.diskPath(name))
-	if err := os.Remove(r.diskPath(name + metadataSuffix)); err != nil {
-		lastErr = err
+	if err := os.Remove(r.diskPath(name)); err != nil && !os.IsNotExist(err) {
+		return err
 	}
 
-	if lastErr == nil {
-		lastErr = r.syncDir()
+	if err := os.Remove(r.diskPath(name + metadataSuffix)); err != nil && !os.IsNotExist(err) {
+		return err
 	}
 
-	return lastErr
+	return r.syncDir()
 }
 
 func (r *Replica) revertDisk(parent, created string) (*Replica, error) {
@@ -912,7 +919,9 @@ func (r *Replica) revertDisk(parent, created string) (*Replica, error) {
 	}
 
 	// Need to execute before r.Reload() to update r.diskChildrenMap
-	r.rmDisk(oldHead)
+	if err := r.rmDisk(oldHead); err != nil {
+		return nil, err
+	}
 
 	rNew, err := r.Reload()
 	if err != nil {
@@ -943,34 +952,41 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 		newSnapName = ""
 	}
 
+	// new head file created will be deleted in next call if replica crashes just after this
 	f, newHeadDisk, err := r.createNewHead(oldHead, newSnapName, created)
 	if err != nil {
+		if rmDiskErr := r.rmDisk(newHeadDisk.Name); rmDiskErr != nil {
+			logrus.Errorf("Failed to remove newHeadDisk: %v", rmDiskErr)
+		}
 		return err
 	}
+
 	defer func() {
 		if !done {
-			r.rmDisk(newHeadDisk.Name)
-			r.rmDisk(newSnapName)
-			f.Close() // rm only unlink the file since fd is still open
+			if err := r.rmDisk(newHeadDisk.Name); err != nil {
+				logrus.Errorf("Failed to remove disk: %v in defer, err: %v", newHeadDisk.Name, err)
+			}
+			if err := r.rmDisk(newSnapName); err != nil {
+				logrus.Errorf("Failed to remove disk: %v in defer, err: %v", newSnapName, err)
+			}
+			if err := f.Close(); err != nil {
+				logrus.Errorf("Failed to close file: %v in defer, err: %v", newHeadDisk.Name, err)
+			} // rm only unlink the file since fd is still open
 			return
 		}
-		r.rmDisk(oldHead)
+		// crash at this point leads to stale old head and its meta file will remain
+		// which will not be part of the chain as its already updated below.
+		if err := r.rmDisk(oldHead); err != nil {
+			logrus.Errorf("Failed to remove disk: %v in defer, err: %v", oldHead, err)
+		}
 	}()
 
 	if err := r.linkDisk(r.info.Head, newSnapName); err != nil {
 		return err
 	}
 
-	info := r.info
-	info.Head = newHeadDisk.Name
-	info.Dirty = true
-	info.Parent = newSnapName
+	// crash at this point leads to stale snapshot files
 
-	if err := r.encodeToFile(&info, volumeMetaData); err != nil {
-		return err
-	}
-
-	done = true
 	r.diskData[newHeadDisk.Name] = &newHeadDisk
 	if newSnapName != "" {
 		r.addChildDisk(newSnapName, newHeadDisk.Name)
@@ -979,9 +995,12 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 		r.diskData[newSnapName].UserCreated = userCreated
 		r.diskData[newSnapName].Created = created
 		r.diskData[newSnapName].RevisionCounter = r.GetRevisionCounter()
+
+		// create new metafile for snapshot
 		if err := r.encodeToFile(r.diskData[newSnapName], newSnapName+metadataSuffix); err != nil {
 			return err
 		}
+		// crash here will leave stale snapshot files
 		size := int64(unsafe.Sizeof(r.diskData[newSnapName]))
 		if size%defaultSectorSize == 0 {
 			r.volume.UsedBlocks += size / defaultSectorSize
@@ -994,7 +1013,6 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 	}
 	delete(r.diskData, oldHead)
 
-	r.info = info
 	r.volume.files = append(r.volume.files, f)
 	if userCreated {
 		//Indx 0 is nil, indx 1 is base snapshot,
@@ -1004,6 +1022,24 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 	r.volume.UserCreatedSnap = append(r.volume.UserCreatedSnap, userCreated)
 	r.activeDiskData = append(r.activeDiskData, &newHeadDisk)
 
+	// panic only exits current goroutine, so any modification
+	// to global data structure will be visible to other goroutines,
+	// process also will not exit until all goroutine stops.
+	// fatal exits entire process.
+	info := r.info
+	info.Head = newHeadDisk.Name
+	info.Dirty = true
+	info.Parent = newSnapName
+	info.RevisionCounter = newHeadDisk.RevisionCounter
+	// new head encoded to metadata
+	if err := r.encodeToFile(&info, volumeMetaData); err != nil {
+		return err
+	}
+
+	// crash at this point leads to stale old head and it meta file
+	done = true
+	// update in memory info as its persisted on the disk
+	r.info = info
 	return nil
 }
 
