@@ -849,6 +849,11 @@ func (r *Replica) linkDisk(oldname, newname string) error {
 		return fmt.Errorf("Old file :%v already exists", newname)
 	}
 
+	metaDest := r.diskPath(newname + metadataSuffix)
+	if _, err := os.Stat(metaDest); err == nil {
+		return fmt.Errorf("Old file :%v already exists", newname+metadataSuffix)
+	}
+
 	if err := os.Link(r.diskPath(oldname), dest); err != nil {
 		return err
 	}
@@ -880,11 +885,11 @@ func (r *Replica) rmDisk(name string) error {
 		return nil
 	}
 
-	if err := os.Remove(r.diskPath(name)); err != nil {
+	if err := os.Remove(r.diskPath(name)); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 
-	if err := os.Remove(r.diskPath(name + metadataSuffix)); err != nil {
+	if err := os.Remove(r.diskPath(name + metadataSuffix)); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 

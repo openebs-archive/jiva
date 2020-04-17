@@ -240,6 +240,76 @@ func (s *TestSuite) TestRevert(c *C) {
 	c.Assert(r.diskChildrenMap["volume-snap-003.img"], IsNil)
 }
 
+func (s *TestSuite) TestFileAlreadyExists(c *C) {
+	dir, err := ioutil.TempDir("", "replica")
+	c.Assert(err, IsNil)
+	defer os.RemoveAll(dir)
+
+	r, err := New(9, 3, dir, nil, "Backend")
+	c.Assert(err, IsNil)
+	defer r.Close()
+	err = r.SetReplicaMode("RW")
+	c.Assert(err, IsNil)
+	now := getNow()
+	f, err := os.Create(dir + "/volume-head-001.img")
+	c.Assert(err, IsNil)
+	f.Close()
+	// head already exists, and will be deleted
+	err = r.Snapshot("000", true, now)
+	c.Assert(err, IsNil)
+
+	// Snapshot already exists, linkDisk err
+	err = r.Snapshot("000", true, now)
+	c.Assert(err, NotNil)
+
+	f, err = os.Create(dir + "/volume-head-002.img")
+	c.Assert(err, IsNil)
+	buf := make([]byte, 9)
+	fill(buf, 9)
+	n, err := f.Write(buf)
+	c.Assert(n, Equals, 9)
+	c.Assert(err, IsNil)
+	f.Close()
+
+	// head already exists, and it has some data
+	err = r.Snapshot("001", true, now)
+	c.Assert(err, NotNil)
+
+	f, err = os.Create(dir + "/volume-snap-001.img.meta")
+	c.Assert(err, IsNil)
+	f.Close()
+
+	// linkDisk error metafile already exists
+	err = r.Snapshot("001", true, now)
+	c.Assert(err, NotNil)
+}
+
+func (s *TestSuite) TestRmdisk(c *C) {
+	dir, err := ioutil.TempDir("", "replica")
+	c.Assert(err, IsNil)
+	defer os.RemoveAll(dir)
+
+	r, err := New(9, 3, dir, nil, "Backend")
+	c.Assert(err, IsNil)
+	defer r.Close()
+	err = r.SetReplicaMode("RW")
+	c.Assert(err, IsNil)
+	now := getNow()
+	err = r.Snapshot("000", true, now)
+	c.Assert(err, IsNil)
+
+	err = r.Snapshot("001", true, now)
+	c.Assert(err, IsNil)
+
+	err = r.rmDisk("volume-snap-000")
+	c.Assert(err, IsNil)
+
+	// snap-002 does not exist
+	err = r.rmDisk("volume-snap-002")
+	c.Assert(err, IsNil)
+
+}
+
 func (s *TestSuite) TestRemoveLeafNode(c *C) {
 	dir, err := ioutil.TempDir("", "replica")
 	c.Assert(err, IsNil)
