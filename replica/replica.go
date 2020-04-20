@@ -786,20 +786,8 @@ func (r *Replica) openFile(name string, flag int) (types.DiffDisk, error) {
 	return sparse.NewDirectFileIoProcessor(r.diskPath(name), os.O_RDWR|flag, 06666, true)
 }
 
-// after creating or deleting the file the directory also needs to be synced
-// in order to guarantee the file is visible across system crashes. See man
-// page of fsync for more details.
 func (r *Replica) syncDir() error {
-	f, err := os.Open(r.dir)
-	if err != nil {
-		return err
-	}
-	err = f.Sync()
-	closeErr := f.Close()
-	if err != nil {
-		return err
-	}
-	return closeErr
+	return util.SyncDir(r.dir)
 }
 
 func (r *Replica) createNewHead(oldHead, parent, created string) (types.DiffDisk, disk, error) {

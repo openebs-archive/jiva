@@ -82,10 +82,12 @@ func WriteLogInfo(dir string, lf LogToFile) error {
 		logrus.Errorf("failed to create temp file: %s while WriteLogInfo", LogInfo)
 		return err
 	}
-	defer f.Close()
 
 	if err := json.NewEncoder(f).Encode(&lf); err != nil {
 		logrus.Errorf("failed to encode the data to file: %s", f.Name())
+		if closeErr := f.Close(); closeErr != nil {
+			logrus.Errorf("failed to close file: %v, err: %v", f.Name(), closeErr)
+		}
 		return err
 	}
 
@@ -94,7 +96,26 @@ func WriteLogInfo(dir string, lf LogToFile) error {
 		return err
 	}
 
-	return os.Rename(path+".tmp", path)
+	if err := os.Rename(path+".tmp", path); err != nil {
+		return err
+	}
+	return SyncDir(dir)
+}
+
+// SyncDir sync dir after creating or deleting the file the directory
+// also needs to be synced in order to guarantee the file is visible
+// across system crashes. See man page of fsync for more details.
+func SyncDir(dir string) error {
+	f, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	err = f.Sync()
+	closeErr := f.Close()
+	if err != nil {
+		return err
+	}
+	return closeErr
 }
 
 func SetLogging(dir string, lf LogToFile) error {
