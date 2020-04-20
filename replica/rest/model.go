@@ -167,8 +167,6 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["updatecloneinfo"] = true
 	case replica.Rebuilding:
 		actions["start"] = true
-		actions["resize"] = true
-		actions["snapshot"] = true
 		actions["setrebuilding"] = true
 		actions["setreplicamode"] = true
 		actions["setrevisioncounter"] = true

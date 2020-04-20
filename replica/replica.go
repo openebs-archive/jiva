@@ -1204,6 +1204,7 @@ func (r *Replica) unmarshalFile(file string, obj interface{}) error {
 	return f.Close()
 }
 
+// Close closes the replica
 // TODO Pod evictions sending signals should be catched and Close should be
 // called.
 func (r *Replica) Close() error {
@@ -1254,18 +1255,12 @@ func (r *Replica) DeleteAll() error {
 func (r *Replica) Snapshot(name string, userCreated bool, created string) error {
 	r.Lock()
 	defer r.Unlock()
-	if r.mode == types.WO {
-		return fmt.Errorf("Can't create snaphot in WO mode")
-	}
 	return r.createDisk(name, userCreated, created)
 }
 
 func (r *Replica) Revert(name, created string) (*Replica, error) {
 	r.Lock()
 	defer r.Unlock()
-	if r.mode == types.WO {
-		return nil, fmt.Errorf("Can't revert snaphot in WO mode")
-	}
 
 	return r.revertDisk(name, created)
 }
