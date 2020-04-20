@@ -230,6 +230,8 @@ Register:
 			return fmt.Errorf("failed to load Lun map, error: %v", err)
 		}
 		types.ShouldPunchHoles = true
+		// TODO What if controller is restarted and Start is signalled to a different
+		// replica
 		if err := t.client.Start(replicaAddress); err != nil {
 			types.ShouldPunchHoles = false
 			return err
@@ -281,9 +283,6 @@ Register:
 		return err
 	}
 	ok := t.isRevisionCountAndChainSame(fromClient, toClient, rwReplica, curReplica)
-	if err != nil {
-		return err
-	}
 
 	if !ok {
 		logrus.Infof("syncFiles from:%v to:%v", fromClient, toClient)

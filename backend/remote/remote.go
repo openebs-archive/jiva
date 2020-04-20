@@ -48,11 +48,6 @@ func (r *Remote) Close() error {
 	return nil
 }
 
-func (r *Remote) open() error {
-	logrus.Infof("Opening: %s", r.Name)
-	return r.doAction("open", nil)
-}
-
 func (r *Remote) Snapshot(name string, userCreated bool, created string) error {
 	logrus.Infof("Snapshot: %s %s UserCreated %v Created at %v",
 		r.Name, name, userCreated, created)

@@ -141,7 +141,7 @@ func (s *Server) Create(size int64) error {
 	state, _ := s.Status()
 
 	if state != Initial {
-		if err := s.Open(); err != nil {
+		if err := s.open(); err != nil {
 			return err
 		}
 		return nil
@@ -158,7 +158,7 @@ func (s *Server) Create(size int64) error {
 	return nil
 }
 
-func (s *Server) Open() error {
+func (s *Server) open() error {
 	//s.Lock()
 	//defer s.Unlock()
 

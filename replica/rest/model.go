@@ -126,18 +126,15 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 	switch state {
 	case replica.Initial:
 		actions["start"] = true
-		actions["create"] = true
 		actions["resize"] = true
 		actions["updatecloneinfo"] = true
 	case replica.Open:
 		actions["start"] = true
 		actions["resize"] = true
-		actions["close"] = true
 		actions["updatediskmode"] = true
 		actions["resize"] = true
 		actions["setrebuilding"] = true
 		actions["snapshot"] = true
-		actions["reload"] = true
 		actions["removedisk"] = true
 		actions["replacedisk"] = true
 		actions["revert"] = true
@@ -148,7 +145,6 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["setreplicacounter"] = true
 	case replica.Closed:
 		actions["start"] = true
-		actions["open"] = true
 		actions["resize"] = true
 		actions["removedisk"] = true
 		actions["replacedisk"] = true
@@ -160,9 +156,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["start"] = true
 		actions["resize"] = true
 		actions["setrebuilding"] = true
-		actions["close"] = true
 		actions["snapshot"] = true
-		actions["reload"] = true
 		actions["removedisk"] = true
 		actions["replacedisk"] = true
 		actions["updatediskmode"] = true
@@ -176,8 +170,6 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["resize"] = true
 		actions["snapshot"] = true
 		actions["setrebuilding"] = true
-		actions["close"] = true
-		actions["reload"] = true
 		actions["setreplicamode"] = true
 		actions["setrevisioncounter"] = true
 		actions["setreplicacounter"] = true
@@ -212,15 +204,6 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 
 func setReplicaResourceActions(replica *client.Schema) {
 	replica.ResourceActions = map[string]client.Action{
-		"close": {
-			Output: "replica",
-		},
-		"open": {
-			Output: "replica",
-		},
-		"reload": {
-			Output: "replica",
-		},
 		"snapshot": {
 			Input:  "snapshotInput",
 			Output: "replica",
@@ -231,10 +214,6 @@ func setReplicaResourceActions(replica *client.Schema) {
 		},
 		"setrebuilding": {
 			Input:  "rebuildingInput",
-			Output: "replica",
-		},
-		"create": {
-			Input:  "createInput",
 			Output: "replica",
 		},
 		"revert": {

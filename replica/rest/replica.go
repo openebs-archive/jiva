@@ -118,33 +118,6 @@ func (s *Server) SetRebuilding(rw http.ResponseWriter, req *http.Request) error 
 	return s.doOp(req, s.s.SetRebuilding(input.Rebuilding))
 }
 
-func (s *Server) Create(rw http.ResponseWriter, req *http.Request) error {
-	var input CreateInput
-	apiContext := api.GetApiContext(req)
-	if err := apiContext.Read(&input); err != nil && err != io.EOF {
-		logrus.Errorf("Err %v in reading for create", err)
-		return err
-	}
-
-	size := int64(0)
-	if input.Size != "" {
-		var err error
-		size, err = strconv.ParseInt(input.Size, 10, 0)
-		if err != nil {
-			logrus.Errorf("Err %v in getting size for create", err)
-			return err
-		}
-	}
-	logrus.Infof("Create for size %v", size)
-
-	return s.doOp(req, s.s.Create(size))
-}
-
-func (s *Server) OpenReplica(rw http.ResponseWriter, req *http.Request) error {
-	logrus.Infof("Got signal: 'open', proceed to open replica")
-	return s.doOp(req, s.s.Open())
-}
-
 func (s *Server) Resize(rw http.ResponseWriter, req *http.Request) error {
 	var input ResizeInput
 	apiContext := api.GetApiContext(req)
@@ -245,15 +218,6 @@ func (s *Server) RevertReplica(rw http.ResponseWriter, req *http.Request) error 
 	return s.doOp(req, s.s.Revert(input.Name, input.Created))
 }
 
-func (s *Server) ReloadReplica(rw http.ResponseWriter, req *http.Request) error {
-	var err error
-	logrus.Infof("Reload Replica")
-	if err = s.doOp(req, s.s.Reload()); err != nil {
-		logrus.Errorf("error in reloadReplica %v", err)
-	}
-	return err
-}
-
 func (s *Server) UpdateCloneInfo(rw http.ResponseWriter, req *http.Request) error {
 	var input CloneUpdateInput
 	apiContext := api.GetApiContext(req)
@@ -263,11 +227,6 @@ func (s *Server) UpdateCloneInfo(rw http.ResponseWriter, req *http.Request) erro
 	}
 	logrus.Infof("Update Clone Info for snap %v", input.SnapName)
 	return s.doOp(req, s.s.UpdateCloneInfo(input.SnapName, input.RevisionCount))
-}
-
-func (s *Server) CloseReplica(rw http.ResponseWriter, req *http.Request) error {
-	logrus.Infof("CloseReplica")
-	return s.doOp(req, s.s.Close())
 }
 
 func (s *Server) DeleteReplica(rw http.ResponseWriter, req *http.Request) error {

@@ -125,6 +125,7 @@ func (c *ReplicaClient) Revert(name, created string) error {
 		return err
 	}
 
+	c.httpClient.Timeout = 0
 	return c.post(r.Actions["revert"], rest.RevertInput{
 		Name:    name,
 		Created: created,
