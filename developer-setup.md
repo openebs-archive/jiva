@@ -54,7 +54,7 @@ make build
 * Test your changes
 Integration tests are written in shell script and jiva controller and replicas are run as docker containers.
 To run the run the integration tests locally, run
-```sh
+```
 make _run_ci
 ```
 
@@ -63,13 +63,13 @@ make _run_ci
 ### Always sync your local repository:
 Open a terminal on your local host. Change directory to the jiva fork root.
 
-```sh
+```
 $ cd $GOPATH/src/github.com/openebs/jiva
 ```
 
  Checkout the master branch.
 
- ```sh
+ ```
  $ git checkout master
  Switched to branch 'master'
  Your branch is up-to-date with 'origin/master'.
@@ -78,7 +78,7 @@ $ cd $GOPATH/src/github.com/openebs/jiva
  Recall that origin/master is a branch on your remote GitHub repository.
  Make sure you have the upstream remote openebs/jiva by listing them.
 
- ```sh
+ ```
  $ git remote -v
  origin	https://github.com/$user/jiva.git (fetch)
  origin	https://github.com/$user/jiva.git (push)
@@ -88,12 +88,12 @@ $ cd $GOPATH/src/github.com/openebs/jiva
 
  If the upstream is missing, add it by using below command.
 
- ```sh
+ ```
  $ git remote add upstream https://github.com/openebs/jiva.git
  ```
  Fetch all the changes from the upstream master branch.
 
- ```sh
+ ```
  $ git fetch upstream master
  remote: Counting objects: 141, done.
  remote: Compressing objects: 100% (29/29), done.
@@ -106,7 +106,7 @@ $ cd $GOPATH/src/github.com/openebs/jiva
 
  Rebase your local master with the upstream/master.
 
- ```sh
+ ```
  $ git rebase upstream/master
  First, rewinding head to replay your work on top of it...
  Fast-forwarded master to upstream/master.
@@ -115,7 +115,7 @@ $ cd $GOPATH/src/github.com/openebs/jiva
 
  Check the status of your local branch.
 
- ```sh
+ ```
  $ git status
  On branch master
  Your branch is ahead of 'origin/master' by 12 commits.
@@ -126,7 +126,7 @@ $ cd $GOPATH/src/github.com/openebs/jiva
 
  Push the rebased master to origin master.
 
- ```sh
+ ```
  $ git push origin master
  Username for 'https://github.com': $user
  Password for 'https://$user@github.com':
@@ -142,7 +142,7 @@ $ cd $GOPATH/src/github.com/openebs/jiva
 
 Always start with creating a new branch from master to work on a new feature or bugfix. Your branch name should have the format XX-descriptive where XX is the issue number you are working on followed by some descriptive text. For example:
 
- ```sh
+ ```
  $ git checkout master
  # Make sure the master is rebased with the latest changes as described in previous step.
  $ git checkout -b 1234-fix-developer-docs
@@ -154,7 +154,7 @@ Happy Hacking!
 
 [Rebasing](https://git-scm.com/docs/git-rebase) is very import to keep your branch in sync with the changes being made by others and to avoid huge merge conflicts while raising your Pull Requests. You will always have to rebase before raising the PR.
 
-```sh
+```
 # While on your myfeature branch (see above)
 git fetch upstream
 git rebase upstream/master
