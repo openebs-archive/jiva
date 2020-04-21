@@ -15,7 +15,6 @@ import (
 	"unsafe"
 
 	units "github.com/docker/go-units"
-	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
 	"github.com/openebs/sparse-tools/sparse"
@@ -240,7 +239,6 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 	r.insertBackingFile()
 	r.ReplicaType = replicaType
 	if types.PreloadDuringOpen {
-		inject.AddPreloadTimeout()
 		if err := PreloadLunMap(&r.volume); err != nil {
 			return r, fmt.Errorf("failed to load Lun map, error: %v", err)
 		}
