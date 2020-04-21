@@ -280,12 +280,6 @@ func preload(d *diffDisk) error {
 		if i == 0 {
 			continue
 		}
-		if i == 1 {
-			// Reinitialize to zero so that we can detect holes in the base snapshot
-			for j := 0; j < len(d.location); j++ {
-				d.location[j] = 0
-			}
-		}
 		if d.UserCreatedSnap[i] {
 			userCreatedSnapIndx = uint16(i)
 		}
@@ -332,6 +326,7 @@ func preload(d *diffDisk) error {
 }
 
 func PreloadLunMap(d *diffDisk) error {
+	logrus.Info("Start reading extents")
 	if err := preload(d); err != nil {
 		return err
 	}
@@ -341,5 +336,6 @@ func PreloadLunMap(d *diffDisk) error {
 			d.UsedLogicalBlocks++
 		}
 	}
+	logrus.Info("Read extents successful")
 	return nil
 }

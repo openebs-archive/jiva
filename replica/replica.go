@@ -214,6 +214,7 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 	r.volume.location = make([]uint16, locationSize)
 	r.volume.files = []types.DiffDisk{nil}
 	r.volume.UserCreatedSnap = []bool{false}
+	r.volume.rmLock = &sync.Mutex{}
 
 	if r.readOnly && !exists {
 		return nil, os.ErrNotExist
@@ -238,12 +239,12 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 
 	r.insertBackingFile()
 	r.ReplicaType = replicaType
-	logrus.Info("Start reading extents")
-	inject.AddPreloadTimeout()
-	if err := PreloadLunMap(&r.volume); err != nil {
-		return r, fmt.Errorf("failed to load Lun map, error: %v", err)
+	if types.PreloadDuringOpen {
+		inject.AddPreloadTimeout()
+		if err := PreloadLunMap(&r.volume); err != nil {
+			return r, fmt.Errorf("failed to load Lun map, error: %v", err)
+		}
 	}
-	logrus.Info("Read extents successful")
 	return r, r.writeVolumeMetaData(true, r.info.Rebuilding)
 }
 
@@ -922,11 +923,12 @@ func (r *Replica) revertDisk(parent, created string) (*Replica, error) {
 	if err := r.rmDisk(oldHead); err != nil {
 		return nil, err
 	}
-
+	types.PreloadDuringOpen = true
 	rNew, err := r.Reload()
 	if err != nil {
 		return nil, err
 	}
+	types.PreloadDuringOpen = false
 	return rNew, nil
 }
 

@@ -16,7 +16,7 @@ type fileType struct {
 }
 
 type diffDisk struct {
-	rmLock sync.Mutex
+	rmLock *sync.Mutex
 	// mapping of sector to index in the files array. a value of 0
 	// is special meaning we don't know the location yet.
 	location          []uint16

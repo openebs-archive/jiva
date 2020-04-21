@@ -65,6 +65,9 @@ var (
 	// ShouldPunchHoles is a flag used to verify if
 	// we should punch holes.
 	ShouldPunchHoles bool
+	// PreloadDuringOpen is a flag used to set unset preload activity during
+	// open call
+	PreloadDuringOpen bool
 )
 
 type Backend interface {
