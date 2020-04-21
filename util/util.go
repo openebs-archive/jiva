@@ -1,6 +1,7 @@
 package util
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gorilla/handlers"
+	"github.com/natefinch/lumberjack"
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
@@ -20,11 +22,120 @@ import (
 var (
 	MaximumVolumeNameSize = 64
 	parsePattern          = regexp.MustCompile(`(.*):(\d+)`)
+	Logrotator            *lumberjack.Logger
 )
 
 const (
+	LogInfo        = "log.info"
 	BlockSizeLinux = 512
+
+	MaxLogFileSize         = "maxLogFileSize"
+	RetentionPeriod        = "retentionPeriod"
+	MaxBackups             = "maxBackups"
+	DefaultLogFileSize     = 100
+	DefaultRetentionPeriod = 180
+	DefaultMaxBackups      = 5
 )
+
+type LogToFile struct {
+	Enable          bool `json:"enable"`
+	MaxLogFileSize  int  `json:"maxlogfilesize"`
+	RetentionPeriod int  `json:"retentionperiod"`
+	MaxBackups      int  `json:"maxbackups"`
+}
+
+func StartLoggingToFile(dir string, lf LogToFile) error {
+	fileName := dir + "/replica.log"
+	Logrotator = &lumberjack.Logger{
+		Filename:   fileName,
+		MaxSize:    lf.MaxLogFileSize,
+		MaxAge:     lf.RetentionPeriod,
+		MaxBackups: lf.MaxBackups,
+		LocalTime:  true,
+	}
+	logrus.SetOutput(io.MultiWriter(os.Stderr, Logrotator))
+	if err := WriteLogInfo(dir, lf); err != nil {
+		return err
+	}
+	logrus.Infof("Configured logging with retentionPeriod: %v, maxLogFileSize: %v, maxBackups: %v",
+		lf.RetentionPeriod, lf.MaxLogFileSize, lf.MaxBackups)
+	return nil
+}
+
+func ReadLogInfo(dir string) (LogToFile, error) {
+	lf := &LogToFile{}
+	p := dir + "/" + LogInfo
+	f, err := os.Open(p)
+	if err != nil {
+		return LogToFile{}, err
+	}
+	defer f.Close()
+
+	err = json.NewDecoder(f).Decode(lf)
+	return *lf, err
+}
+
+func WriteLogInfo(dir string, lf LogToFile) error {
+	path := dir + "/" + LogInfo
+	f, err := os.Create(path + ".tmp")
+	if err != nil {
+		logrus.Errorf("failed to create temp file: %s while WriteLogInfo", LogInfo)
+		return err
+	}
+
+	if err := json.NewEncoder(f).Encode(&lf); err != nil {
+		logrus.Errorf("failed to encode the data to file: %s", f.Name())
+		if closeErr := f.Close(); closeErr != nil {
+			logrus.Errorf("failed to close file: %v, err: %v", f.Name(), closeErr)
+		}
+		return err
+	}
+
+	if err := f.Close(); err != nil {
+		logrus.Errorf("failed to close file after encoding to file: %s", f.Name())
+		return err
+	}
+
+	if err := os.Rename(path+".tmp", path); err != nil {
+		return err
+	}
+	return SyncDir(dir)
+}
+
+// SyncDir sync dir after creating or deleting the file the directory
+// also needs to be synced in order to guarantee the file is visible
+// across system crashes. See man page of fsync for more details.
+func SyncDir(dir string) error {
+	f, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	err = f.Sync()
+	closeErr := f.Close()
+	if err != nil {
+		return err
+	}
+	return closeErr
+}
+
+func SetLogging(dir string, lf LogToFile) error {
+	// close existing one if already configured
+	if Logrotator != nil {
+		if err := Logrotator.Close(); err != nil {
+			return err
+		}
+	}
+
+	if !lf.Enable {
+		logrus.Infof("Disable logging to file")
+		return WriteLogInfo(dir, lf)
+	}
+	return StartLoggingToFile(dir, lf)
+}
+
+func LogRotate(dir string) error {
+	return Logrotator.Rotate()
+}
 
 // ParseAddresses returns the base address and two with subsequent ports
 func ParseAddresses(address string) (string, string, string, error) {

@@ -7,7 +7,9 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/openebs/jiva/replica"
 	"github.com/openebs/jiva/types"
+	"github.com/openebs/jiva/util"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
 	"github.com/sirupsen/logrus"
@@ -104,6 +106,18 @@ func (s *Server) doOp(req *http.Request, err error) error {
 	apiContext := api.GetApiContext(req)
 	apiContext.Write(s.Replica(apiContext))
 	return nil
+}
+
+func (s *Server) SetLogging(rw http.ResponseWriter, req *http.Request) error {
+	var input LoggingInput
+	apiContext := api.GetApiContext(req)
+	if err := apiContext.Read(&input); err != nil && err != io.EOF {
+		logrus.Errorf("Err %v in reading for setLogging", err)
+		return err
+	}
+	logrus.Infof("SetLogging to %v", input.LogToFile)
+
+	return s.doOp(req, util.SetLogging(replica.Dir, input.LogToFile))
 }
 
 func (s *Server) SetRebuilding(rw http.ResponseWriter, req *http.Request) error {

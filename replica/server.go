@@ -131,10 +131,6 @@ func (s *Server) isExtentSupported() error {
 func (s *Server) Create(size int64) error {
 	s.Lock()
 	defer s.Unlock()
-	if err := os.Mkdir(s.dir, 0700); err != nil && !os.IsExist(err) {
-		logrus.Errorf("failed to create directory: %s", s.dir)
-		return err
-	}
 	if err := s.isExtentSupported(); err != nil {
 		return err
 	}

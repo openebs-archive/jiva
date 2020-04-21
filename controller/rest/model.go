@@ -6,6 +6,7 @@ import (
 
 	"github.com/openebs/jiva/controller"
 	"github.com/openebs/jiva/types"
+	"github.com/openebs/jiva/util"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
 )
@@ -101,6 +102,11 @@ type ResizeInput struct {
 	Size string `json:"size"`
 }
 
+type LoggingInput struct {
+	client.Resource
+	LogToFile util.LogToFile `json:"logtofile"`
+}
+
 type JournalInput struct {
 	client.Resource
 	Limit int `json:"limit"`
@@ -147,6 +153,7 @@ func NewVolume(context *api.ApiContext, name string, readOnly bool, replicas int
 		v.Actions["revert"] = context.UrlBuilder.ActionLink(v.Resource, "revert")
 		v.Actions["deleteSnapshot"] = context.UrlBuilder.ActionLink(v.Resource, "deleteSnapshot")
 		v.Actions["resize"] = context.UrlBuilder.ActionLink(v.Resource, "resize")
+		v.Actions["setlogging"] = context.UrlBuilder.ActionLink(v.Resource, "setlogging")
 	}
 	return v
 }
@@ -188,6 +195,7 @@ func NewSchema() *client.Schemas {
 	schemas.AddType("startInput", StartInput{})
 	schemas.AddType("snapshotInput", SnapshotInput{})
 	schemas.AddType("snapshotOutput", SnapshotOutput{})
+	schemas.AddType("setlogging", LoggingInput{})
 	schemas.AddType("revertInput", RevertInput{})
 	schemas.AddType("journalInput", JournalInput{})
 	schemas.AddType("prepareRebuildOutput", PrepareRebuildOutput{})
@@ -233,6 +241,9 @@ func NewSchema() *client.Schemas {
 		},
 		"deleteSnapshot": {
 			Input: "snapshotInput",
+		},
+		"setlogging": {
+			Input: "loggingInput",
 		},
 	}
 

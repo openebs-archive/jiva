@@ -13,6 +13,7 @@ import (
 
 	"github.com/openebs/jiva/replica/rest"
 	"github.com/openebs/jiva/sync/agent"
+	"github.com/openebs/jiva/util"
 	"github.com/sirupsen/logrus"
 )
 
@@ -128,6 +129,16 @@ func (c *ReplicaClient) Revert(name, created string) error {
 	return c.post(r.Actions["revert"], rest.RevertInput{
 		Name:    name,
 		Created: created,
+	}, nil)
+}
+
+func (c *ReplicaClient) SetLogging(lf util.LogToFile) error {
+	r, err := c.GetReplica()
+	if err != nil {
+		return err
+	}
+	return c.post(r.Actions["setlogging"], rest.LoggingInput{
+		LogToFile: lf,
 	}, nil)
 }
 
