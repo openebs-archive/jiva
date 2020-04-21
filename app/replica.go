@@ -27,6 +27,15 @@ import (
 	"github.com/urfave/cli"
 )
 
+const (
+	maxLogFileSize         = "maxLogFileSize"
+	retentionPeriod        = "retentionPeriod"
+	maxBackups             = "maxBackups"
+	defaultLogFileSize     = 100
+	defaultRetentionPeriod = 180
+	defaultMaxBackups      = 5
+)
+
 func ReplicaCmd() cli.Command {
 	return cli.Command{
 		Name:      "replica",
@@ -62,6 +71,25 @@ func ReplicaCmd() cli.Command {
 			cli.StringFlag{
 				Name:  "type",
 				Value: "",
+			},
+			cli.BoolTFlag{
+				Name:  "logtofile",
+				Usage: "Logs of replica will also be written to the file along with stdout",
+			},
+			cli.IntFlag{
+				Name:  retentionPeriod,
+				Usage: "Retention period of log file in days",
+				Value: defaultRetentionPeriod,
+			},
+			cli.IntFlag{
+				Name:  maxLogFileSize,
+				Usage: "Max size of log file in mb",
+				Value: defaultLogFileSize,
+			},
+			cli.IntFlag{
+				Name:  maxBackups,
+				Usage: "Max number of log files to keep while creating new log file once size of log exceeds to maxLogFileSize",
+				Value: defaultMaxBackups,
 			},
 		},
 		Action: func(c *cli.Context) {
@@ -157,6 +185,37 @@ func CloneReplica(s *replica.Server, address string, cloneIP string, snapName st
 	return err
 }
 
+func startLoggingToFile(c *cli.Context) error {
+	dir := c.Args()[0]
+	lf := util.LogToFile{
+		Enable:          true,
+		MaxLogFileSize:  c.Int(maxLogFileSize),
+		MaxBackups:      c.Int(maxBackups),
+		RetentionPeriod: c.Int(retentionPeriod),
+	}
+
+	path := dir + "/" + util.LogInfo
+	_, err := os.Stat(path)
+	if err == nil {
+		logrus.Info("Read log info")
+		lf, err = util.ReadLogInfo(dir)
+		if err != nil {
+			return err
+		}
+	} else if err != nil && os.IsNotExist(err) {
+		// do nothing as file will be created in StartLoggingToFile
+	} else if err != nil {
+		return err
+	}
+
+	if !lf.Enable {
+		logrus.Info("Logging to file is not enabled")
+		return nil
+	}
+
+	return util.StartLoggingToFile(dir, lf)
+}
+
 func startReplica(c *cli.Context) error {
 
 	formatter := &logrus.TextFormatter{
@@ -177,6 +236,16 @@ func startReplica(c *cli.Context) error {
 
 	dir := c.Args()[0]
 	replicaType := c.String("type")
+	if err := os.Mkdir(dir, 0700); err != nil && !os.IsExist(err) {
+		logrus.Errorf("failed to create directory: %s", dir)
+		return err
+	}
+
+	if c.Bool("logtofile") {
+		if err := startLoggingToFile(c); err != nil {
+			return err
+		}
+	}
 	s := replica.NewServer(dir, 512, replicaType)
 	go replica.CreateHoles()
 
