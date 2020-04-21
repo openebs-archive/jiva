@@ -123,6 +123,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 
 	actions := map[string]bool{}
 
+	// TODO Remove Invalid operations based on states
 	switch state {
 	case replica.Initial:
 		actions["start"] = true
