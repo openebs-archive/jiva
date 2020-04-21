@@ -2085,8 +2085,8 @@ test_write_io_timeout_with_readwrite_env() {
         else
                 echo "Unable to detect iSCSI device during test_restart_add_replica"; collect_logs_and_exit
         fi
-        verify_rw_rep_count "2"
-        verify_replica_cnt "2" "write io timeout ENV test passed"
+        verify_rw_rep_count "3"
+        verify_replica_cnt "3" "write io timeout ENV test passed"
         logout_of_volume
         cleanup
 }
