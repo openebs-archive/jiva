@@ -171,7 +171,7 @@ func (t *Task) CloneReplica(s *replica.Server, url string, address string, clone
 		if err != nil {
 			return fmt.Errorf("Failed to update clone info, err: %v", err)
 		}
-		types.PreloadDuringOpen = false
+		s.SetPreload(false)
 		_, err = toClient.ReloadReplica()
 		if err != nil {
 			return fmt.Errorf("Failed to reload clone replica, error: %s", err.Error())
@@ -232,17 +232,14 @@ Register:
 		case action = <-replica.ActionChannel:
 		}
 	}
-	types.PreloadDuringOpen = false
 	if action == "start" {
 		logrus.Infof("Received start from controller")
 		types.ShouldPunchHoles = true
-		types.PreloadDuringOpen = true
+		s.SetPreload(true)
 		if err := t.client.Start(replicaAddress); err != nil {
 			types.ShouldPunchHoles = false
-			types.PreloadDuringOpen = false
 			return err
 		}
-		types.PreloadDuringOpen = false
 		return nil
 	}
 	logrus.Infof("CheckAndResetFailedRebuild %v", replicaAddress)
@@ -250,6 +247,7 @@ Register:
 		return fmt.Errorf("CheckAndResetFailedRebuild failed, error: %s", err.Error())
 	}
 
+	s.SetPreload(false)
 	logrus.Infof("Adding replica %s in WO mode", replicaAddress)
 	_, err = t.client.CreateReplica(replicaAddress)
 	if err != nil {

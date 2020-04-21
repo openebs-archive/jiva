@@ -39,6 +39,7 @@ type Server struct {
 	//the replica attempts to connect back to controller
 	MonitorChannel chan struct{}
 	//closeSync      chan struct{}
+	preload bool
 }
 
 func NewServer(dir string, sectorSize int64, serverType string) *Server {
@@ -52,6 +53,14 @@ func NewServer(dir string, sectorSize int64, serverType string) *Server {
 		MonitorChannel:    make(chan struct{}),
 		//	closeSync:         make(chan struct{}),
 	}
+}
+
+// SetPreload sets/unsets preloadDuringOpen flag
+func (s *Server) SetPreload(preload bool) error {
+	s.Lock()
+	defer s.Unlock()
+	s.preload = true
+	return nil
 }
 
 func (s *Server) Start(action string) error {
@@ -149,7 +158,7 @@ func (s *Server) Create(size int64) error {
 	sectorSize := s.getSectorSize()
 
 	logrus.Infof("Creating volume %s, size %d/%d", s.dir, size, sectorSize)
-	r, err := New(size, sectorSize, s.dir, s.backing, s.ServerType)
+	r, err := New(false, size, sectorSize, s.dir, s.backing, s.ServerType)
 	if err != nil {
 		return err
 	}
@@ -169,7 +178,7 @@ func (s *Server) Open() error {
 	size := s.getSize(info.Size)
 	sectorSize := s.getSectorSize()
 	logrus.Infof("Opening volume %s, size %d/%d", s.dir, size, sectorSize)
-	r, err := New(size, sectorSize, s.dir, s.backing, s.ServerType)
+	r, err := New(s.preload, size, sectorSize, s.dir, s.backing, s.ServerType)
 	if err != nil {
 		logrus.Errorf("Error %v during open", err)
 		return err
@@ -217,7 +226,7 @@ func (s *Server) Reload() error {
 
 	types.ShouldPunchHoles = true
 	logrus.Infof("Reloading volume")
-	newReplica, err := s.r.Reload()
+	newReplica, err := s.r.Reload(s.preload)
 	if err != nil {
 		logrus.Errorf("error in Reload")
 		types.ShouldPunchHoles = false

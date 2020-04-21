@@ -156,16 +156,16 @@ func ReadInfo(dir string) (Info, error) {
 	return info, err
 }
 
-func New(size, sectorSize int64, dir string, backingFile *BackingFile, replicaType string) (*Replica, error) {
-	return construct(false, size, sectorSize, dir, "", backingFile, replicaType)
+func New(preload bool, size, sectorSize int64, dir string, backingFile *BackingFile, replicaType string) (*Replica, error) {
+	return construct(preload, false, size, sectorSize, dir, "", backingFile, replicaType)
 }
 
-func NewReadOnly(dir, head string, backingFile *BackingFile) (*Replica, error) {
+func NewReadOnly(preload bool, dir, head string, backingFile *BackingFile) (*Replica, error) {
 	// size and sectorSize don't matter because they will be read from metadata
-	return construct(true, 0, 512, dir, head, backingFile, "")
+	return construct(preload, true, 0, 512, dir, head, backingFile, "")
 }
 
-func construct(readonly bool, size, sectorSize int64, dir, head string, backingFile *BackingFile, replicaType string) (*Replica, error) {
+func construct(preload, readonly bool, size, sectorSize int64, dir, head string, backingFile *BackingFile, replicaType string) (*Replica, error) {
 	if size%sectorSize != 0 {
 		return nil, fmt.Errorf("Size %d not a multiple of sector size %d", size, sectorSize)
 	}
@@ -238,7 +238,7 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 
 	r.insertBackingFile()
 	r.ReplicaType = replicaType
-	if types.PreloadDuringOpen {
+	if preload {
 		if err := PreloadLunMap(&r.volume); err != nil {
 			return r, fmt.Errorf("failed to load Lun map, error: %v", err)
 		}
@@ -337,8 +337,8 @@ func (r *Replica) Resize(obj interface{}) error {
 	return r.encodeToFile(&r.info, volumeMetaData)
 }
 
-func (r *Replica) Reload() (*Replica, error) {
-	newReplica, err := New(r.info.Size, r.info.SectorSize, r.dir, r.info.BackingFile, r.ReplicaType)
+func (r *Replica) Reload(preload bool) (*Replica, error) {
+	newReplica, err := New(preload, r.info.Size, r.info.SectorSize, r.dir, r.info.BackingFile, r.ReplicaType)
 	if err != nil {
 		return nil, err
 	}
@@ -921,12 +921,10 @@ func (r *Replica) revertDisk(parent, created string) (*Replica, error) {
 	if err := r.rmDisk(oldHead); err != nil {
 		return nil, err
 	}
-	types.PreloadDuringOpen = true
-	rNew, err := r.Reload()
+	rNew, err := r.Reload(true)
 	if err != nil {
 		return nil, err
 	}
-	types.PreloadDuringOpen = false
 	return rNew, nil
 }
 
