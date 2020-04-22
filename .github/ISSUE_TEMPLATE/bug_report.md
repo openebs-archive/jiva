@@ -14,8 +14,9 @@ about: Tell us about a problem you are experiencing
 **The output of the following commands will help us better understand what's going on**:
 (Pasting long output into a [GitHub gist](https://gist.github.com) or other pastebin is fine.)
 
-* `kubectl logs <jiva controller pod name> -n openebs`
-* `kubectl logs <jiva replica pod name> -n openebs`
+* `kubectl logs <jiva controller pod name> -n openebs` (Optional)
+* `kubectl logs <jiva replica pod name> -n openebs` (Optional)
+* `kubectl exec -it <jiva controller pod name> -n openebs -- jivactl ls`
 
 **Anything else you would like to add:**
 [Miscellaneous information that will assist in solving the issue.]

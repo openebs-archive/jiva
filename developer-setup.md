@@ -19,8 +19,7 @@
 Place openebs/jiva's code on your `GOPATH` using the following cloning procedure.
 Create your clone:
 
-```sh
-
+```
 mkdir -p $GOPATH/src/github.com/openebs
 cd $GOPATH/src/github.com/openebs
 
