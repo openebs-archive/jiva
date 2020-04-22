@@ -286,6 +286,8 @@ func preload(d *diffDisk) error {
 		generator := newGenerator(d, f)
 		for offset := range generator.Generate() {
 			if d.location[offset] != 0 {
+				// d.UsedBlocks is being incremented and decremented to accomodate user
+				// created snapshots
 				// We are looking for continuous blocks over here.
 				// If the file of the next block is changed, we punch a hole
 				// for the previous unpunched blocks, and reset the file and

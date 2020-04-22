@@ -182,17 +182,17 @@ func (d *diffDisk) fullWriteAt(buf []byte, offset int64) (int, error) {
 		offset = startSector + i
 		if val := d.location[startSector+i]; val == 0 {
 			d.UsedLogicalBlocks++
-			d.UsedBlocks++
 		} else if val != uint16(target) {
-			//We are looking for continuous blocks over here.
-			//If the file of the next block is changed, we punch a hole
-			//for the previous unpunched blocks, and reset the file and
-			//fileIndx pointed to by this block
-			// No need to decrease used blocks while punching holes as same
-			// number needs to be incremented
+			// d.UsedBlocks is being incremented and decremented to accomodate user
+			// created snapshots
+			// We are looking for continuous blocks over here.
+			// If the file of the next block is changed or offset not same,
+			// we punch a hole for the previous unpunched blocks,
+			// and reset the file and fileIndx pointed to by this block
 			if d.location[startSector+i] != fileIndx ||
 				startSector+i != lOffset+length {
-				if file != nil && int(fileIndx) > d.SnapIndx && shouldCreateHoles() && !inject.DisablePunchHoles() {
+				if (file != nil) && (int(fileIndx) > d.SnapIndx) && shouldCreateHoles() && !inject.DisablePunchHoles() {
+					d.UsedBlocks -= length
 					sendToCreateHole(d.files[val], lOffset*d.sectorSize, length*d.sectorSize)
 				}
 				file = d.files[d.location[startSector+i]]
@@ -205,15 +205,15 @@ func (d *diffDisk) fullWriteAt(buf []byte, offset int64) (int, error) {
 				length++
 			}
 		}
+		d.UsedBlocks++
 		d.location[startSector+i] = uint16(target)
 	}
 	//This will take care of the case when the last call in the above loop
-	//enters else case
+	//enters if case
 	if (file != nil) && (int(fileIndx) > d.SnapIndx) && shouldCreateHoles() && !inject.DisablePunchHoles() {
+		d.UsedBlocks -= length
 		sendToCreateHole(file, lOffset*d.sectorSize, length*d.sectorSize)
 	}
-	file = nil
-	fileIndx = 0
 	return c, err
 }
 
