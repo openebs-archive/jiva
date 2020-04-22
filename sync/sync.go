@@ -173,10 +173,10 @@ func (t *Task) CloneReplica(s *replica.Server, url string, address string, clone
 		}
 		s.SetPreload(false)
 		_, err = toClient.ReloadReplica()
+		s.SetPreload(true)
 		if err != nil {
 			return fmt.Errorf("Failed to reload clone replica, error: %s", err.Error())
 		}
-		s.SetPreload(true)
 		// Preload was not needed to be done separately in case of clone as IOs
 		// are not going on but in case if clone functionality is enhanced to
 		// multiple cloned replicas, then this might be needed
@@ -247,9 +247,10 @@ Register:
 		return fmt.Errorf("CheckAndResetFailedRebuild failed, error: %s", err.Error())
 	}
 
-	s.SetPreload(false)
 	logrus.Infof("Adding replica %s in WO mode", replicaAddress)
+	s.SetPreload(false)
 	_, err = t.client.CreateReplica(replicaAddress)
+	s.SetPreload(true)
 	if err != nil {
 		logrus.Errorf("Failed to create replica, error: %v", err)
 		// cases for above failure:
@@ -263,7 +264,6 @@ Register:
 		time.Sleep(5 * time.Second)
 		return err
 	}
-	s.SetPreload(true)
 
 	logrus.Infof("getTransferClients %v", replicaAddress)
 	fromClient, toClient, err := t.getTransferClients(replicaAddress)
@@ -349,11 +349,11 @@ func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server
 func (t *Task) reloadAndVerify(s *replica.Server, address string, repClient *replicaClient.ReplicaClient) error {
 	s.SetPreload(false)
 	_, err := repClient.ReloadReplica()
+	s.SetPreload(true)
 	if err != nil {
 		logrus.Errorf("Error in reloadreplica %s", address)
 		return err
 	}
-	s.SetPreload(true)
 	if err := s.UpdateLUNMap(); err != nil {
 		return fmt.Errorf("UpdateLUNMap() failed, err: %v", err.Error())
 	}
