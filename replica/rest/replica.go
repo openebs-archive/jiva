@@ -97,6 +97,34 @@ func (s *Server) GetVolUsage(rw http.ResponseWriter, req *http.Request) error {
 	return nil
 }
 
+func (s *Server) GetRebuildInfo(rw http.ResponseWriter, req *http.Request) error {
+	apiContext := api.GetApiContext(req)
+	info, err := s.s.GetRebuildInfo()
+	if err != nil {
+		return err
+	}
+
+	resp := &RebuildInfoOutput{
+		Resource: client.Resource{
+			Type:    "rebuildOutput",
+			Id:      "1",
+			Actions: map[string]string{},
+			Links:   map[string]string{},
+		},
+		SyncInfo: types.SyncInfo{
+			Snapshots:           info.Snapshots,
+			RWReplica:           info.RWReplica,
+			WOReplica:           info.WOReplica,
+			RWReplicaActualSize: info.RWReplicaActualSize,
+			WOReplicaActualSize: info.WOReplicaActualSize,
+		},
+	}
+
+	//fmt.Printf("%+v", resp)
+	apiContext.Write(resp)
+	return nil
+}
+
 func (s *Server) doOp(req *http.Request, err error) error {
 	if err != nil {
 		logrus.Errorf("Error %v in doOp: %v", err, req.RequestURI)

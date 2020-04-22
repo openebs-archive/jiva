@@ -269,8 +269,10 @@ func Now() string {
 
 func GetFileActualSize(file string) int64 {
 	var st syscall.Stat_t
-	if err := syscall.Stat(file, &st); err != nil {
-		logrus.Errorf("Fail to get size of file %v", file)
+	if err := syscall.Stat(file, &st); err != nil && !os.IsNotExist(err) {
+		logrus.Errorf("Fail to get size of file %v, err: %v", file, err)
+		return -1
+	} else if err != nil {
 		return -1
 	}
 	return st.Blocks * BlockSizeLinux

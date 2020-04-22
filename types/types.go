@@ -14,6 +14,10 @@ const (
 
 	StateUp   = State("Up")
 	StateDown = State("Down")
+
+	RebuildPending    = "Pending"
+	RebuildInProgress = "InProgress"
+	RebuildCompleted  = "Completed"
 )
 
 var (
@@ -123,6 +127,20 @@ type DiskInfo struct {
 	Created         string   `json:"created"`
 	Size            string   `json:"size"`
 	RevisionCounter int64    `json:"revisionCount"`
+}
+
+type Snapshot struct {
+	RWSize string `json:"rwsize"`
+	WOSize string `json:"wosize"`
+	Status string `json:"status"`
+}
+
+type SyncInfo struct {
+	Snapshots           map[string]*Snapshot `json:"snapshots"`
+	RWReplica           string               `json:"rwreplica"`
+	WOReplica           string               `json:"woreplica"`
+	RWReplicaActualSize string               `json:"rwreplicatotalsize"`
+	WOReplicaActualSize string               `json:"woreplicatotalsize"`
 }
 
 type ReplicaInfo struct {

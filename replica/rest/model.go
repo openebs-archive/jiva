@@ -73,6 +73,11 @@ type VolUsage struct {
 	SectorSize        string `json:"sectorSize"`
 }
 
+type RebuildInfoOutput struct {
+	client.Resource
+	SyncInfo types.SyncInfo `json:"syncinfo"`
+}
+
 type ResizeInput struct {
 	client.Resource
 	Name string `json:"name"`
@@ -293,6 +298,8 @@ func NewSchema() *client.Schemas {
 	schemas.AddType("replicaCounter", ReplicaCounter{})
 	schemas.AddType("replacediskInput", ReplaceDiskInput{})
 
+	rebuild := schemas.AddType("rebuildOutput", RebuildInfoOutput{})
+	rebuild.ResourceMethods = []string{"GET"}
 	delete := schemas.AddType("delete", DeleteReplicaOutput{})
 	delete.ResourceMethods = []string{"DELETE"}
 
