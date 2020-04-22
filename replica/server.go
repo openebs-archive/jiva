@@ -421,9 +421,10 @@ func (s *Server) UpdateLUNMap() error {
 			continue
 		}
 		if s.r.volume.location[offset] > fileIndx {
+			// No need to decrease used blocks while punching holes as same
+			// number needs to be incremented
 			if prevHoleFileIndx != fileIndx || int64(offset) != int64(holeOffset)+holeLength {
 				if prevHoleFileIndx > userCreatedSnapIndx && shouldCreateHoles() && prevHoleFileIndx != 0 {
-					extraUsedBlocks -= holeLength
 					sendToCreateHole(volume.files[prevHoleFileIndx], int64(holeOffset)*volume.sectorSize, holeLength*volume.sectorSize)
 				}
 				holeLength = 1
@@ -436,7 +437,6 @@ func (s *Server) UpdateLUNMap() error {
 			// No hole drilling over here as that offset is empty
 			s.r.volume.location[offset] = volume.location[offset]
 			if prevHoleFileIndx > userCreatedSnapIndx && shouldCreateHoles() && prevHoleFileIndx != 0 {
-				extraUsedBlocks -= holeLength
 				sendToCreateHole(volume.files[prevHoleFileIndx], int64(holeOffset)*volume.sectorSize, holeLength*volume.sectorSize)
 			}
 			holeOffset = 0
