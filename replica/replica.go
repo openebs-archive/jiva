@@ -12,7 +12,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-	"unsafe"
 
 	units "github.com/docker/go-units"
 	"github.com/openebs/jiva/types"
@@ -910,6 +909,7 @@ func (r *Replica) revertDisk(parent, created string) (*Replica, error) {
 	if err := r.rmDisk(oldHead); err != nil {
 		return nil, err
 	}
+	// preload is needed since one of the files has been removed from the chain
 	rNew, err := r.Reload(true)
 	if err != nil {
 		return nil, err
@@ -988,13 +988,6 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 			return err
 		}
 		// crash here will leave stale snapshot files
-		size := int64(unsafe.Sizeof(r.diskData[newSnapName]))
-		if size%defaultSectorSize == 0 {
-			r.volume.UsedBlocks += size / defaultSectorSize
-		} else {
-			r.volume.UsedBlocks += (size/defaultSectorSize + 1)
-		}
-
 		r.updateChildDisk(oldHead, newSnapName)
 		r.activeDiskData[len(r.activeDiskData)-1].Name = newSnapName
 	}

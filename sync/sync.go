@@ -182,6 +182,7 @@ func (t *Task) CloneReplica(s *replica.Server, url string, address string, clone
 		if err := s.UpdateLUNMap(); err != nil {
 			return fmt.Errorf("UpdateLUNMap() failed, err: %v", err.Error())
 		}
+		s.SetPreload(true)
 		if err := toClient.SetRebuilding(false); err != nil {
 			return fmt.Errorf("Failed to setRebuilding = false, error: %s", err.Error())
 		}
@@ -235,7 +236,6 @@ Register:
 	if action == "start" {
 		logrus.Infof("Received start from controller")
 		types.ShouldPunchHoles = true
-		s.SetPreload(true)
 		if err := t.client.Start(replicaAddress); err != nil {
 			types.ShouldPunchHoles = false
 			return err
@@ -354,6 +354,7 @@ func (t *Task) reloadAndVerify(s *replica.Server, address string, repClient *rep
 	if err := s.UpdateLUNMap(); err != nil {
 		return fmt.Errorf("UpdateLUNMap() failed, err: %v", err.Error())
 	}
+	s.SetPreload(true)
 
 	if err := t.client.VerifyRebuildReplica(rest.EncodeID(address)); err != nil {
 		logrus.Errorf("Error in verifyRebuildReplica %s", address)

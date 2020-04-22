@@ -191,6 +191,7 @@ func (d *diffDisk) fullWriteAt(buf []byte, offset int64) (int, error) {
 			if d.location[startSector+i] != fileIndx ||
 				startSector+i != lOffset+length {
 				if file != nil && int(fileIndx) > d.SnapIndx && shouldCreateHoles() && !inject.DisablePunchHoles() {
+					d.UsedBlocks -= length
 					sendToCreateHole(d.files[val], lOffset*d.sectorSize, length*d.sectorSize)
 				}
 				file = d.files[d.location[startSector+i]]
@@ -208,6 +209,7 @@ func (d *diffDisk) fullWriteAt(buf []byte, offset int64) (int, error) {
 	//This will take care of the case when the last call in the above loop
 	//enters else case
 	if (file != nil) && (int(fileIndx) > d.SnapIndx) && shouldCreateHoles() && !inject.DisablePunchHoles() {
+		d.UsedBlocks -= length
 		sendToCreateHole(file, lOffset*d.sectorSize, length*d.sectorSize)
 	}
 	file = nil

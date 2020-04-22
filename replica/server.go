@@ -51,6 +51,7 @@ func NewServer(dir string, sectorSize int64, serverType string) *Server {
 		defaultSectorSize: sectorSize,
 		ServerType:        serverType,
 		MonitorChannel:    make(chan struct{}),
+		preload:           true,
 		//	closeSync:         make(chan struct{}),
 	}
 }
@@ -59,7 +60,7 @@ func NewServer(dir string, sectorSize int64, serverType string) *Server {
 func (s *Server) SetPreload(preload bool) error {
 	s.Lock()
 	defer s.Unlock()
-	s.preload = true
+	s.preload = preload
 	return nil
 }
 
@@ -154,6 +155,7 @@ func (s *Server) Create(size int64) error {
 	sectorSize := s.getSectorSize()
 
 	logrus.Infof("Creating volume %s, size %d/%d", s.dir, size, sectorSize)
+	// Preload is not needed over here since the volume is being newly created
 	r, err := New(false, size, sectorSize, s.dir, s.backing, s.ServerType)
 	if err != nil {
 		return err
@@ -408,13 +410,20 @@ func (s *Server) UpdateLUNMap() error {
 	// If offsets are present in both LunMaps and are different,
 	// hole is punched in the file at that offset contained in Preloaded LunMap.
 	// Sequesnce of holes are being punched at once.
+	var extraUsedBlocks, extraLogicalBlocks int64
+
 	for offset, fileIndx = range volume.location {
 		if fileIndx == 0 {
+			if s.r.volume.location[offset] != 0 {
+				extraUsedBlocks++
+				extraLogicalBlocks++
+			}
 			continue
 		}
 		if s.r.volume.location[offset] > fileIndx {
 			if prevHoleFileIndx != fileIndx || int64(offset) != int64(holeOffset)+holeLength {
 				if prevHoleFileIndx > userCreatedSnapIndx && shouldCreateHoles() && prevHoleFileIndx != 0 {
+					extraUsedBlocks -= holeLength
 					sendToCreateHole(volume.files[prevHoleFileIndx], int64(holeOffset)*volume.sectorSize, holeLength*volume.sectorSize)
 				}
 				holeLength = 1
@@ -427,12 +436,15 @@ func (s *Server) UpdateLUNMap() error {
 			// No hole drilling over here as that offset is empty
 			s.r.volume.location[offset] = volume.location[offset]
 			if prevHoleFileIndx > userCreatedSnapIndx && shouldCreateHoles() && prevHoleFileIndx != 0 {
+				extraUsedBlocks -= holeLength
 				sendToCreateHole(volume.files[prevHoleFileIndx], int64(holeOffset)*volume.sectorSize, holeLength*volume.sectorSize)
 			}
 			holeOffset = 0
 			prevHoleFileIndx = 0
 		}
 	}
+	s.r.volume.UsedLogicalBlocks = volume.UsedLogicalBlocks + extraLogicalBlocks
+	s.r.volume.UsedBlocks = volume.UsedBlocks + extraUsedBlocks
 	s.Unlock()
 	return nil
 }

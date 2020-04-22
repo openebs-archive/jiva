@@ -293,6 +293,7 @@ func preload(d *diffDisk) error {
 				if d.files[d.location[offset]] != file ||
 					offset != lOffset+length {
 					if file != nil && fileIndx > userCreatedSnapIndx && shouldCreateHoles() {
+						d.UsedBlocks -= length
 						sendToCreateHole(file, lOffset*d.sectorSize, length*d.sectorSize)
 					}
 					file = d.files[d.location[offset]]
@@ -304,6 +305,8 @@ func preload(d *diffDisk) error {
 					// block will be punched outside the loop
 					length++
 				}
+			} else {
+				d.UsedLogicalBlocks++
 			}
 			d.location[offset] = uint16(i)
 			d.UsedBlocks++
@@ -311,6 +314,7 @@ func preload(d *diffDisk) error {
 		// This will take care of the case when the last call in the above loop
 		// enters else case
 		if file != nil && fileIndx > userCreatedSnapIndx && shouldCreateHoles() {
+			d.UsedBlocks -= length
 			sendToCreateHole(file, lOffset*d.sectorSize, length*d.sectorSize)
 		}
 		file = nil
@@ -330,12 +334,6 @@ func PreloadLunMap(d *diffDisk) error {
 	inject.AddPreloadTimeout()
 	if err := preload(d); err != nil {
 		return err
-	}
-
-	for _, val := range d.location {
-		if val != 0 {
-			d.UsedLogicalBlocks++
-		}
 	}
 	logrus.Info("Read extents successful")
 	return nil
