@@ -31,7 +31,7 @@ func NewTask(controller string) *Task {
 	}
 }
 
-func (t *Task) addReplicaServer(s *replica.Server) {
+func (t *Task) AddReplicaServer(s *replica.Server) {
 	t.s = s
 }
 
@@ -284,7 +284,7 @@ Register:
 	}
 
 	if !ok {
-		t.addReplicaServer(s)
+		t.AddReplicaServer(s)
 		logrus.Infof("syncFiles from:%v to:%v", fromClient, toClient)
 		if err = t.syncFiles(fromClient, toClient, output.Disks); err != nil {
 			return err
