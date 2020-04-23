@@ -52,7 +52,7 @@ make build
 
 * Test your changes
 Integration tests are written in shell script and jiva controller and replicas are run as docker containers.
-To run the run the integration tests locally, run
+To run the integration tests locally, run
 ```
 make _run_ci
 ```
