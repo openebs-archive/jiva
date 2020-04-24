@@ -62,3 +62,13 @@ func AddPunchHoleTimeout() {
 	logrus.Infof("Add punch hole timeout of %vs for debug build", timeout)
 	time.Sleep(time.Duration(timeout) * time.Second)
 }
+
+var UpdateLUNMapTimeoutTriggered bool
+
+// AddUpdateLUNMapTimeout adds delay during UpdateLUNMap
+func AddUpdateLUNMapTimeout() {
+	timeout, _ := strconv.Atoi(os.Getenv("UpdateLUNMap_TIMEOUT"))
+	logrus.Infof("AddUpdateLUNMap timeout of %vs for debug build", timeout)
+	UpdateLUNMapTimeoutTriggered = true
+	time.Sleep(time.Duration(timeout) * time.Second)
+}

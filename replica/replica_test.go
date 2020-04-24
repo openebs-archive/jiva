@@ -6,9 +6,14 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"reflect"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
+
+	inject "github.com/openebs/jiva/error-inject"
+	"github.com/openebs/jiva/types"
 
 	"github.com/openebs/jiva/util"
 	. "gopkg.in/check.v1"
@@ -602,7 +607,6 @@ func (s *TestSuite) TestRemoveOutOfChain(c *C) {
 	c.Assert(r.diskChildrenMap["volume-snap-000.img"]["volume-snap-002.img"], Equals, true)
 	c.Assert(r.diskChildrenMap["volume-snap-002.img"], IsNil)
 }
-
 func (s *TestSuite) TestPrepareRemove(c *C) {
 	dir, err := ioutil.TempDir("", "replica")
 	c.Assert(err, IsNil)
@@ -737,7 +741,6 @@ func md5Equals(c *C, expected, obtained []byte) {
 		c.Assert(r, Equals, l)
 	}
 }
-
 func fill(buf []byte, val byte) {
 	for i := 0; i < len(buf); i++ {
 		buf[i] = val
@@ -1003,4 +1006,85 @@ func (s *TestSuite) TestPartialReadZeroEndOffset(c *C) {
 	fill(expected[b/2:], 2)
 
 	byteEquals(c, expected, buf)
+}
+
+func (s *TestSuite) TestUpdateLUNMap(c *C) {
+	dir, err := ioutil.TempDir("", "replica")
+	c.Logf("Volume: %s", dir)
+	c.Assert(err, IsNil)
+	defer os.RemoveAll(dir)
+
+	r, err := New(true, 100*b, b, dir, nil, "Backend")
+	c.Assert(err, IsNil)
+	defer r.Close()
+	err = r.SetReplicaMode("WO")
+	types.ShouldPunchHoles = true
+	go CreateHoles()
+	c.Assert(err, IsNil)
+	server := &Server{
+		r:   r,
+		dir: dir,
+	}
+	// Fill data for S0
+	lunMapS0 := []int{1, 3, 5, 6}
+	fillMappedData(c, r, lunMapS0, 1)
+	c.Assert(verifyLunMap(r, r.volume.files[1], lunMapS0), Equals, true)
+	err = r.Snapshot("000", false, getNow())
+	r.Close()
+	r, err = New(false, 100*b, b, dir, nil, "Backend")
+	server.r = r
+	err = r.SetReplicaMode("WO")
+	c.Assert(err, IsNil)
+	c.Assert(verifyLunMap(r, r.volume.files[1], lunMapS0), Equals, true)
+	// Fill data for head before preload is called
+	lunMapHB := []int{4, 8, 10, 11}
+	fillMappedData(c, r, lunMapHB, 2)
+	c.Assert(verifyLunMap(r, r.volume.files[1], lunMapS0), Equals, true)
+	c.Assert(verifyLunMap(r, r.volume.files[2], lunMapHB), Equals, true)
+
+	err = r.SetRebuilding(true)
+	c.Assert(err, IsNil)
+	err = os.Setenv("UpdateLUNMap_TIMEOUT", "5")
+	c.Assert(err, IsNil)
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		server.UpdateLUNMap()
+		wg.Done()
+	}()
+	for !inject.UpdateLUNMapTimeoutTriggered {
+		time.Sleep(1 * time.Second)
+	}
+	// Fill data for head just after preload is called and before lunMaps are
+	// compared
+	lunMapHA := []int{1, 3, 5, 6, 8, 10, 11}
+	fillMappedData(c, r, lunMapHA, 3)
+
+	wg.Wait()
+	expLunMapS0 := []int{}
+	expLunMapH := []int{1, 3, 4, 5, 6, 8, 10, 11}
+	// Waiting for holes to be punched
+	time.Sleep(3 * time.Second)
+	c.Assert(verifyLunMap(r, r.volume.files[1], expLunMapS0), Equals, true)
+	c.Assert(verifyLunMap(r, r.volume.files[2], expLunMapH), Equals, true)
+}
+
+func verifyLunMap(r *Replica, f types.DiffDisk, expLunMap []int) bool {
+	generator := newGenerator(&r.volume, f)
+	outLunMap := []int{}
+	for offset := range generator.Generate() {
+		outLunMap = append(outLunMap, int(offset))
+	}
+	return reflect.DeepEqual(expLunMap, outLunMap)
+}
+
+func fillMappedData(c *C, r *Replica, LUNMap []int, val byte) {
+	buf := make([]byte, b)
+	fill(buf, val)
+	for _, i := range LUNMap {
+		count, err := r.WriteAt(buf, int64(i)*b)
+		c.Assert(err, IsNil)
+		c.Assert(count, Equals, b)
+	}
 }

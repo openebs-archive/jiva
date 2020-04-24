@@ -8,6 +8,7 @@ import (
 	"time"
 
 	fibmap "github.com/frostschutz/go-fibmap"
+	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/types"
 	"github.com/sirupsen/logrus"
 )
@@ -387,6 +388,7 @@ func (s *Server) UpdateLUNMap() error {
 	if err := PreloadLunMap(&volume); err != nil {
 		return err
 	}
+	inject.AddUpdateLUNMapTimeout()
 	s.Lock()
 	var (
 		holeLength          int64
@@ -443,6 +445,7 @@ func (s *Server) UpdateLUNMap() error {
 				sendToCreateHole(volume.files[prevHoleFileIndx], int64(holeOffset)*volume.sectorSize, holeLength*volume.sectorSize)
 			}
 			holeOffset = 0
+			holeLength = 0
 			prevHoleFileIndx = 0
 		}
 	}
