@@ -4,13 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path"
 	"sync"
 	"time"
 
 	fibmap "github.com/frostschutz/go-fibmap"
 	"github.com/openebs/jiva/types"
-	"github.com/openebs/jiva/util"
 	"github.com/sirupsen/logrus"
 )
 
@@ -31,7 +29,6 @@ var StartTime time.Time
 
 type Server struct {
 	sync.RWMutex
-	rebuildLock       sync.RWMutex
 	r                 *Replica
 	ServerType        string
 	dir               string
@@ -42,7 +39,6 @@ type Server struct {
 	//the replica attempts to connect back to controller
 	MonitorChannel chan struct{}
 	//closeSync      chan struct{}
-	RebuildInfo *types.SyncInfo
 }
 
 func NewServer(dir string, sectorSize int64, serverType string) *Server {
@@ -562,36 +558,4 @@ func (s *Server) PingResponse() error {
 		return fmt.Errorf("ping failure: replica state %v", state)
 	}
 	return nil
-}
-
-func (s *Server) AddRebuildInfo(info *types.SyncInfo) {
-	s.rebuildLock.Lock()
-	s.RebuildInfo = info
-	s.rebuildLock.Unlock()
-}
-
-func (s *Server) SetStatus(disk, status string) {
-	s.rebuildLock.Lock()
-	s.RebuildInfo.Snapshots[disk].Status = status
-	s.rebuildLock.Unlock()
-}
-
-func (s *Server) GetRebuildInfo() (*types.SyncInfo, error) {
-	if s.RebuildInfo == nil {
-		return nil, fmt.Errorf("Failed to get rebuild info, rebuild is either skipped or not started yet")
-	}
-	var totSize int64
-	s.rebuildLock.Lock()
-	defer s.rebuildLock.Unlock()
-	for snap := range s.RebuildInfo.Snapshots {
-		size := util.GetFileActualSize(path.Join(s.dir, snap))
-		if size == -1 {
-			s.RebuildInfo.Snapshots[snap].WOSize = "NA"
-		} else {
-			totSize += size
-			s.RebuildInfo.Snapshots[snap].WOSize = fmt.Sprint(size)
-		}
-	}
-	s.RebuildInfo.WOReplicaActualSize = fmt.Sprint(totSize)
-	return s.RebuildInfo, nil
 }

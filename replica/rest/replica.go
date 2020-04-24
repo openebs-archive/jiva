@@ -8,6 +8,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/openebs/jiva/replica"
+	"github.com/openebs/jiva/sync/rebuild"
 	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
 	"github.com/rancher/go-rancher/api"
@@ -99,28 +100,18 @@ func (s *Server) GetVolUsage(rw http.ResponseWriter, req *http.Request) error {
 
 func (s *Server) GetRebuildInfo(rw http.ResponseWriter, req *http.Request) error {
 	apiContext := api.GetApiContext(req)
-	info, err := s.s.GetRebuildInfo()
-	if err != nil {
-		return err
-	}
-
+	info := rebuild.GetRebuildInfo()
 	resp := &RebuildInfoOutput{
 		Resource: client.Resource{
-			Type:    "rebuildOutput",
+			Type:    "rebuildinfo",
 			Id:      "1",
 			Actions: map[string]string{},
 			Links:   map[string]string{},
 		},
-		SyncInfo: types.SyncInfo{
-			Snapshots:           info.Snapshots,
-			RWReplica:           info.RWReplica,
-			WOReplica:           info.WOReplica,
-			RWReplicaActualSize: info.RWReplicaActualSize,
-			WOReplicaActualSize: info.WOReplicaActualSize,
-		},
 	}
-
-	//fmt.Printf("%+v", resp)
+	if info != nil {
+		resp.SyncInfo = *info
+	}
 	apiContext.Write(resp)
 	return nil
 }

@@ -157,7 +157,6 @@ func CloneReplica(s *replica.Server, address string, cloneIP string, snapName st
 	var err error
 	url := "http://" + cloneIP + ":9501"
 	task := sync.NewTask(url)
-	task.AddReplicaServer(s)
 	if err = task.CloneReplica(url, address, cloneIP, snapName); err != nil {
 		alertlog.Logger.Errorw("",
 			"eventcode", "jiva.volume.replica.clone.failure",

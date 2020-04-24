@@ -12,6 +12,7 @@ import (
 	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/replica"
 	replicaClient "github.com/openebs/jiva/replica/client"
+	"github.com/openebs/jiva/sync/rebuild"
 	"github.com/openebs/jiva/types"
 	"github.com/sirupsen/logrus"
 )
@@ -22,17 +23,12 @@ var (
 
 type Task struct {
 	client *client.ControllerClient
-	s      *replica.Server
 }
 
 func NewTask(controller string) *Task {
 	return &Task{
 		client: client.NewControllerClient(controller),
 	}
-}
-
-func (t *Task) AddReplicaServer(s *replica.Server) {
-	t.s = s
 }
 
 func (t *Task) DeleteSnapshot(snapshot string) error {
@@ -284,7 +280,6 @@ Register:
 	}
 
 	if !ok {
-		t.AddReplicaServer(s)
 		logrus.Infof("syncFiles from:%v to:%v", fromClient, toClient)
 		if err = t.syncFiles(fromClient, toClient, output.Disks); err != nil {
 			return err
@@ -386,7 +381,7 @@ func isRevisionCountSame(fromClient, toClient *replicaClient.ReplicaClient, disk
 	return true, nil
 }
 
-func (t *Task) initSyncProgress(fromClient, toClient *replicaClient.ReplicaClient, disks []string) error {
+func (t *Task) initalizeSyncProgress(fromClient, toClient *replicaClient.ReplicaClient, disks []string) error {
 	rwReplica, err := fromClient.GetReplica()
 	if err != nil {
 		return err
@@ -431,18 +426,18 @@ func (t *Task) initSyncProgress(fromClient, toClient *replicaClient.ReplicaClien
 	}
 
 	syncInfo := types.SyncInfo{
-		RWReplica:           fromClient.GetAddress(),
-		WOReplica:           toClient.GetAddress(),
-		Snapshots:           snapshots,
-		RWReplicaActualSize: strconv.FormatInt(rwSize, 10),
-		WOReplicaActualSize: strconv.FormatInt(woSize, 10),
+		RWReplica:            fromClient.GetAddress(),
+		WOReplica:            toClient.GetAddress(),
+		Snapshots:            snapshots,
+		RWSnapshotsTotalSize: strconv.FormatInt(rwSize, 10),
+		WOSnapshotsTotalSize: strconv.FormatInt(woSize, 10),
 	}
-	t.s.AddRebuildInfo(&syncInfo)
+	rebuild.AddSyncInfo(&syncInfo)
 	return nil
 }
 
 func (t *Task) syncFiles(fromClient, toClient *replicaClient.ReplicaClient, disks []string) error {
-	err := t.initSyncProgress(fromClient, toClient, disks)
+	err := t.initalizeSyncProgress(fromClient, toClient, disks)
 	if err != nil {
 		return err
 	}
@@ -460,7 +455,7 @@ func (t *Task) syncFiles(fromClient, toClient *replicaClient.ReplicaClient, disk
 				}
 		*/
 		//		if !ok {
-		t.s.SetStatus(disk, types.RebuildInProgress)
+		rebuild.SetStatus(disk, types.RebuildInProgress)
 		if err := t.syncFile(disk, "", fromClient, toClient); err != nil {
 			return err
 		}
@@ -468,7 +463,7 @@ func (t *Task) syncFiles(fromClient, toClient *replicaClient.ReplicaClient, disk
 		if err := t.syncFile(disk+".meta", "", fromClient, toClient); err != nil {
 			return err
 		}
-		t.s.SetStatus(disk, types.RebuildCompleted)
+		rebuild.SetStatus(disk, types.RebuildCompleted)
 	}
 
 	return nil

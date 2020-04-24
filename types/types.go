@@ -130,17 +130,17 @@ type DiskInfo struct {
 }
 
 type Snapshot struct {
-	RWSize string `json:"rwsize"`
-	WOSize string `json:"wosize"`
-	Status string `json:"status"`
+	RWSize string `json:"rwsize,omitempty"`
+	WOSize string `json:"wosize,omitempty"`
+	Status string `json:"status,omitempty"`
 }
 
 type SyncInfo struct {
-	Snapshots           map[string]*Snapshot `json:"snapshots"`
-	RWReplica           string               `json:"rwreplica"`
-	WOReplica           string               `json:"woreplica"`
-	RWReplicaActualSize string               `json:"rwreplicatotalsize"`
-	WOReplicaActualSize string               `json:"woreplicatotalsize"`
+	Snapshots            map[string]*Snapshot `json:"snapshots,omitempty"`
+	RWReplica            string               `json:"rwreplica,omitempty"`
+	WOReplica            string               `json:"woreplica,omitempty"`
+	RWSnapshotsTotalSize string               `json:"rwreplicatotalsize,omitempty"`
+	WOSnapshotsTotalSize string               `json:"woreplicatotalsize,omitempty"`
 }
 
 type ReplicaInfo struct {

@@ -46,13 +46,21 @@ func getSyncInfo(c *cli.Context) error {
 	}
 
 	if info == nil {
-		fmt.Println("All replicas are healthy")
+		fmt.Println("No replicas are undergoing sync process")
+		return nil
+	} else if info.Snapshots == nil {
+		fmt.Println("Sync process not yet started")
 		return nil
 	}
-	fmt.Fprintf(tw, "%v\t%v\n", "ActualLocalUsedSize", info.WOReplicaActualSize)
-	fmt.Fprintf(tw, "%v\t%v\n", "ActualHealthyUsedSize", info.RWReplicaActualSize)
-	fmt.Fprintf(tw, "%s\n", "=========================================================================")
-	fmt.Fprintf(tw, format, "Snapshot", "Status", "LocalSize", "HealthySize")
+
+	fmt.Fprintf(tw, "%v\t%v,\t%v\t%v\n", "DegradedReplica: ", strings.
+		TrimSuffix(strings.TrimPrefix(info.WOReplica, "http://"), ":9502/v1"),
+		"WOSnapshotsTotalSize: ", info.WOSnapshotsTotalSize)
+	fmt.Fprintf(tw, "%v\t%v,\t%v\t%v\n", "HealthyReplica: ", strings.
+		TrimSuffix(strings.TrimPrefix(info.RWReplica, "http://"), ":9502/v1"),
+		"RWSnapshotsTotalSize: ", info.RWSnapshotsTotalSize)
+	fmt.Fprintf(tw, "%s\n", "============================================================================")
+	fmt.Fprintf(tw, format, "Snapshot", "Status", "DegradedSize", "HealthySize")
 	for snap, snapInfo := range info.Snapshots {
 		fmt.Fprintf(tw, format, strings.TrimPrefix(snap, "volume-snap-"), snapInfo.Status, snapInfo.WOSize, snapInfo.RWSize)
 	}
