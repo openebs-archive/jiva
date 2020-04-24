@@ -111,6 +111,13 @@ func (t *Task) CloneReplica(s *replica.Server, url string, address string, clone
 		fromReplica rest.Replica
 		snapFound   bool
 	)
+	if s == nil {
+		return fmt.Errorf("Server not present for %v, Add replica using CLI not supported", address)
+	}
+	logrus.Infof("CheckAndResetFailedRebuild %v", address)
+	if err := t.checkAndResetFailedRebuild(address, s); err != nil {
+		return fmt.Errorf("CheckAndResetFailedRebuild failed, error: %s", err.Error())
+	}
 	for {
 		ControllerClient := client.NewControllerClient(url)
 		reps, err := ControllerClient.ListReplicas()
@@ -196,6 +203,10 @@ func (t *Task) AddReplica(replicaAddress string, s *replica.Server) error {
 	if s == nil {
 		return fmt.Errorf("Server not present for %v, Add replica using CLI not supported", replicaAddress)
 	}
+	logrus.Infof("CheckAndResetFailedRebuild %v", replicaAddress)
+	if err := t.checkAndResetFailedRebuild(replicaAddress, s); err != nil {
+		return fmt.Errorf("CheckAndResetFailedRebuild failed, error: %s", err.Error())
+	}
 	types.ShouldPunchHoles = false
 	logrus.Infof("Addreplica %v", replicaAddress)
 	ticker := time.NewTicker(5 * time.Second)
@@ -208,6 +219,7 @@ func (t *Task) AddReplica(replicaAddress string, s *replica.Server) error {
 	if err != nil {
 		return fmt.Errorf("failed to create temp server, error: %s", err.Error())
 	}
+
 Register:
 	logrus.Infof("Get Volume info from controller")
 	volume, err := t.client.GetVolume()
@@ -242,11 +254,6 @@ Register:
 		}
 		return nil
 	}
-	logrus.Infof("CheckAndResetFailedRebuild %v", replicaAddress)
-	if err := t.checkAndResetFailedRebuild(replicaAddress, s); err != nil {
-		return fmt.Errorf("CheckAndResetFailedRebuild failed, error: %s", err.Error())
-	}
-
 	logrus.Infof("Adding replica %s in WO mode", replicaAddress)
 	s.SetPreload(false)
 	_, err = t.client.CreateReplica(replicaAddress)
