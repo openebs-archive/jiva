@@ -140,7 +140,6 @@ verify_container_dead() {
 verify_rw_status() {
 	i=0
 	rw_status=""
-	test_sync_progress
 	while [ "$rw_status" != "$1" ]; do
 		ro_status=$(curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"')
 		if [ "$ro_status" == "true" ]; then
@@ -967,6 +966,8 @@ test_three_replica_stop_start() {
 	fi
 
 	docker start $replica3_id
+	sleep 5
+	test_sync_progress
 	if [ $(verify_rw_status "RW") == 0 ]; then
 		echo "stop/start test passed when there are 3 replicas and all are restarted"
 	else
@@ -2112,6 +2113,8 @@ if [ "$ARCH" != "linux_amd64" ]; then
 fi
 
 prepare_test_env
+test_two_replica_stop_start
+test_three_replica_stop_start
 test_write_io_timeout
 test_write_io_timeout_with_readwrite_env
 test_volume_resize
@@ -2121,8 +2124,6 @@ test_replica_restart_while_snap_deletion
 test_duplicate_data_delete
 test_single_replica_stop_start
 test_restart_during_prepare_rebuild
-test_two_replica_stop_start
-test_three_replica_stop_start
 test_ctrl_stop_start
 test_replica_controller_continuous_stop_start
 test_restart_during_prepare_rebuild
