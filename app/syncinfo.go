@@ -14,11 +14,10 @@ import (
 
 func SyncInfoCmd() cli.Command {
 	return cli.Command{
-		Name:      "syncinfo",
-		ShortName: "ls",
+		Name: "syncinfo",
 		Action: func(c *cli.Context) {
 			if err := getSyncInfo(c); err != nil {
-				logrus.Fatalf("Error running ls command: %v", err)
+				logrus.Fatalf("Error running syncinfo command: %v", err)
 			}
 		},
 	}
@@ -32,24 +31,29 @@ func getSyncInfo(c *cli.Context) error {
 		return err
 	}
 
-	var info *types.SyncInfo
+	var (
+		info      *types.SyncInfo
+		woReplica string
+	)
 	format := "%v\t%v\t%v\t%v\n"
 	tw := tabwriter.NewWriter(os.Stdout, 0, 20, 1, ' ', 0)
 	for _, r := range reps {
-		if r.Mode == "ERR" || r.Mode == "RW" {
+		if r.Mode != "WO" {
 			continue
 		}
+		woReplica = r.Address
 		info, err = getRebuildInfo(r.Address)
 		if err != nil {
 			return err
 		}
+		break
 	}
 
 	if info == nil {
 		fmt.Println("No replicas are undergoing sync process")
 		return nil
 	} else if info.Snapshots == nil {
-		fmt.Println("Sync process not yet started")
+		fmt.Println("Sync process not yet started on ", woReplica)
 		return nil
 	}
 

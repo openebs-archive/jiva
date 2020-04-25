@@ -140,6 +140,7 @@ verify_container_dead() {
 verify_rw_status() {
 	i=0
 	rw_status=""
+	test_sync_progress
 	while [ "$rw_status" != "$1" ]; do
 		ro_status=$(curl -s http://$CONTROLLER_IP:9501/v1/volumes | jq '.data[0].readOnly' | tr -d '"')
 		if [ "$ro_status" == "true" ]; then
@@ -814,6 +815,7 @@ test_two_replica_stop_start() {
 		docker start $replica2_id
 		wait
 		verify_replica_cnt "2" "Two replica count test3"
+		test_sync_progress
 		verify_vol_status "RW" "when there are 2 replicas and replicas restarted multiple times"
 
 		count=`expr $count + 1`
@@ -821,6 +823,7 @@ test_two_replica_stop_start() {
 	verify_controller_quorum "2" "when there are 2 replicas and they are restarted multiple times"
 	verify_vol_status "RW" "when there are 2 replicas and they are restarted multiple times"
 
+	test_sync_progress
 	docker stop $replica1_id
 	docker stop $replica2_id
 	verify_vol_status "RO" "when there are 2 replicas and both are stopped"
@@ -831,9 +834,10 @@ test_two_replica_stop_start() {
 	verify_rep_state 1 "Replica1 status after stopping both, and starting it" "$REPLICA_IP1" "NA"
     
 	docker start $replica2_id
+	test_sync_progress
 	verify_vol_status "RW" "when there are 2 replicas and are brought down. Then, both are started"
 	verify_replica_cnt "2" "when there are 2 replicas and are brought down. Then, both are started"
-
+	test_sync_progress
 
 	reader_exit=`docker logs $orig_controller_id 2>&1 | grep "Exiting rpc reader" | wc -l`
 	writer_exit=`docker logs $orig_controller_id 2>&1 | grep "Exiting rpc writer" | wc -l`
@@ -2089,6 +2093,11 @@ test_write_io_timeout_with_readwrite_env() {
         verify_replica_cnt "2" "write io timeout ENV test passed"
         logout_of_volume
         cleanup
+}
+
+test_sync_progress() {
+    echo "--------------------Test replica sync progress-------------------"
+    docker exec "$orig_controller_id" jivactl syncinfo
 }
 
 if [ -z "$ARCH" ]; then

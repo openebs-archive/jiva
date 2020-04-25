@@ -129,18 +129,27 @@ type DiskInfo struct {
 	RevisionCounter int64    `json:"revisionCount"`
 }
 
+// Snapshot holds the information of snapshot size of RW and WO
+// replicas and status of rebuild progress.
 type Snapshot struct {
 	RWSize string `json:"rwsize,omitempty"`
 	WOSize string `json:"wosize,omitempty"`
 	Status string `json:"status,omitempty"`
 }
 
+// SyncInfo holds the information of snapshots and its progress
+// during rebuilding.
 type SyncInfo struct {
-	Snapshots            map[string]*Snapshot `json:"snapshots,omitempty"`
-	RWReplica            string               `json:"rwreplica,omitempty"`
-	WOReplica            string               `json:"woreplica,omitempty"`
-	RWSnapshotsTotalSize string               `json:"rwreplicatotalsize,omitempty"`
-	WOSnapshotsTotalSize string               `json:"woreplicatotalsize,omitempty"`
+	// Snapshots holds the map of snapshot names and their details
+	Snapshots map[string]*Snapshot `json:"snapshots,omitempty"`
+	RWReplica string               `json:"rwreplica,omitempty"`
+	WOReplica string               `json:"woreplica,omitempty"`
+	// RWSnapshotsTotalSize holds the total size consumed by the snapshots
+	// in RW replica
+	RWSnapshotsTotalSize string `json:"rwreplicatotalsize,omitempty"`
+	// WOSnapshotsTotalSize holds the total size consumed by the snapshots
+	// in WO replica
+	WOSnapshotsTotalSize string `json:"woreplicatotalsize,omitempty"`
 }
 
 type ReplicaInfo struct {

@@ -381,6 +381,7 @@ func isRevisionCountSame(fromClient, toClient *replicaClient.ReplicaClient, disk
 	return true, nil
 }
 
+// initalizeSyncProgress initializes global structure types.SyncInfo
 func (t *Task) initalizeSyncProgress(fromClient, toClient *replicaClient.ReplicaClient, disks []string) error {
 	rwReplica, err := fromClient.GetReplica()
 	if err != nil {
@@ -396,26 +397,28 @@ func (t *Task) initalizeSyncProgress(fromClient, toClient *replicaClient.Replica
 
 	for i := range disks {
 		disk := disks[len(disks)-1-i]
-		if _, ok := rwReplica.Disks[disk]; ok {
-			diskSize, err := strconv.ParseInt(rwReplica.Disks[disk].Size, 10, 64)
-			if err != nil {
-				return fmt.Errorf("Failed to parse size: %s of RW replica, err: %v", rwReplica.Disks[disk].Size, err)
-			}
-			rwSize += diskSize
-			snapshots[disk] = &types.Snapshot{
-				RWSize: rwReplica.Disks[disk].Size,
-				Status: types.RebuildPending,
-				WOSize: func() string {
-					if _, ok := woReplica.Disks[disk]; !ok {
-						return "NA"
-					}
-					return woReplica.Disks[disk].Size
-				}(),
-			}
+		if _, ok := rwReplica.Disks[disk]; !ok {
+			return fmt.Errorf("Could not find disk: %s in RWReplica: %s", disk, fromClient.GetAddress())
+		}
+		diskSize, err := strconv.ParseInt(rwReplica.Disks[disk].Size, 10, 64)
+		if err != nil {
+			return fmt.Errorf("Failed to parse size: %s of RW replica, err: %v", rwReplica.Disks[disk].Size, err)
+		}
+		rwSize += diskSize
+		snapshots[disk] = &types.Snapshot{
+			RWSize: rwReplica.Disks[disk].Size,
+			Status: types.RebuildPending,
+			WOSize: func() string {
+				if _, ok := woReplica.Disks[disk]; !ok {
+					return "NA"
+				}
+				return woReplica.Disks[disk].Size
+			}(),
 		}
 	}
 
 	for _, disk := range disks {
+		// ignore !ok case as it will be synced later
 		if _, ok := woReplica.Disks[disk]; ok {
 			diskSize, err := strconv.ParseInt(woReplica.Disks[disk].Size, 10, 64)
 			if err != nil {
@@ -432,7 +435,10 @@ func (t *Task) initalizeSyncProgress(fromClient, toClient *replicaClient.Replica
 		RWSnapshotsTotalSize: strconv.FormatInt(rwSize, 10),
 		WOSnapshotsTotalSize: strconv.FormatInt(woSize, 10),
 	}
-	rebuild.AddSyncInfo(&syncInfo)
+
+	// syncInfo will be kept in memory and will not be
+	// freed to avoid unnecessary locking code.
+	rebuild.SetSyncInfo(&syncInfo)
 	return nil
 }
 
