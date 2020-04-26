@@ -178,6 +178,7 @@ func (t *Task) CloneReplica(s *replica.Server, url string, address string, clone
 		if err != nil {
 			return fmt.Errorf("Failed to update clone info, err: %v", err)
 		}
+		// Preload is called separately in UpdateLUNMap
 		s.SetPreload(false)
 		_, err = toClient.ReloadReplica()
 		s.SetPreload(true)
@@ -255,6 +256,8 @@ Register:
 		return nil
 	}
 	logrus.Infof("Adding replica %s in WO mode", replicaAddress)
+	// Preload doesn't need to be called yet as no read IO will be served until
+	// sync is completed
 	s.SetPreload(false)
 	_, err = t.client.CreateReplica(replicaAddress)
 	s.SetPreload(true)
@@ -340,7 +343,12 @@ func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server
 	state, info := server.Status()
 
 	if state == "closed" && info.Rebuilding {
-		if err := server.Open(); err != nil {
+		// Preload is not required over here as replica is being opened
+		// temporarily for resetting its state
+		server.SetPreload(false)
+		err := server.Open()
+		server.SetPreload(true)
+		if err != nil {
 			logrus.Errorf("Error during open in checkAndResetFailedRebuild")
 			return err
 		}
@@ -354,6 +362,7 @@ func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server
 }
 
 func (t *Task) reloadAndVerify(s *replica.Server, address string, repClient *replicaClient.ReplicaClient) error {
+	// Preload is called separately in UpdateLUNMap
 	s.SetPreload(false)
 	_, err := repClient.ReloadReplica()
 	s.SetPreload(true)

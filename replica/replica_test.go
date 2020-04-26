@@ -1008,6 +1008,10 @@ func (s *TestSuite) TestPartialReadZeroEndOffset(c *C) {
 	byteEquals(c, expected, buf)
 }
 
+// TestUpdateLUNMap tests can be used to verify if UpdateLUNMap properly compares
+// the active LUNMap and preloaded lunMap and punch holes whenever necessary.
+// It tests if the writes done after preload operation are accomodated in the
+// lunmap and holes are punched for the same.
 func (s *TestSuite) TestUpdateLUNMap(c *C) {
 	dir, err := ioutil.TempDir("", "replica")
 	c.Logf("Volume: %s", dir)

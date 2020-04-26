@@ -372,8 +372,9 @@ func (s *Server) Revert(name, created string) error {
 	return nil
 }
 
-// UpdateLUNMap updates the the original LUNmap with any changes which have been
-// encountered after PreloadVolume
+// UpdateLUNMap updates the original LUNmap with any changes which have been
+// encountered after PreloadVolume. This can be called only once just after
+// reload is called after syncing the files from healthy replicas
 func (s *Server) UpdateLUNMap() error {
 	// With this lock r.volume data structure is copied, and a new slice is
 	// created different than the one in r.volume.location. After this we will
