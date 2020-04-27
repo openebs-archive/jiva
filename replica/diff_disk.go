@@ -182,6 +182,7 @@ func (d *diffDisk) fullWriteAt(buf []byte, offset int64) (int, error) {
 		offset = startSector + i
 		if val := d.location[startSector+i]; val == 0 {
 			d.UsedLogicalBlocks++
+			d.UsedBlocks++
 		} else if val != uint16(target) {
 			// d.UsedBlocks is being incremented and decremented to accomodate user
 			// created snapshots
@@ -204,8 +205,10 @@ func (d *diffDisk) fullWriteAt(buf []byte, offset int64) (int, error) {
 				//block will be punched outside the loop
 				length++
 			}
+			d.UsedBlocks++
 		}
-		d.UsedBlocks++
+		// Control will come over here if offsets are overwritten in the same
+		// file
 		d.location[startSector+i] = uint16(target)
 	}
 	//This will take care of the case when the last call in the above loop

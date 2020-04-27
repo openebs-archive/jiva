@@ -383,6 +383,8 @@ func (s *Server) UpdateLUNMap() error {
 	s.Lock()
 	volume := s.r.volume
 	volume.location = make([]uint16, len(s.r.volume.location))
+	volume.UsedBlocks = 0
+	volume.UsedLogicalBlocks = 0
 	s.Unlock()
 	// LUNmap is populated with the extents after the sync operation is
 	// completed
@@ -439,7 +441,8 @@ func (s *Server) UpdateLUNMap() error {
 			}
 			extraUsedBlocks++
 		} else {
-			// No hole drilling over here as that offset is empty
+			// No hole drilling over here as that offset is empty or belongs to
+			// same file
 			s.r.volume.location[offset] = volume.location[offset]
 			if prevHoleFileIndx > userCreatedSnapIndx && shouldCreateHoles() && prevHoleFileIndx != 0 {
 				extraUsedBlocks -= holeLength
@@ -455,7 +458,8 @@ func (s *Server) UpdateLUNMap() error {
 		sendToCreateHole(volume.files[prevHoleFileIndx], int64(holeOffset)*volume.sectorSize, holeLength*volume.sectorSize)
 	}
 	s.r.volume.UsedLogicalBlocks = volume.UsedLogicalBlocks + extraLogicalBlocks
-	s.r.volume.UsedBlocks = volume.UsedBlocks + extraUsedBlocks
+	s.r.volume.UsedBlocks = volume.UsedBlocks + extraUsedBlocks + int64(len(s.r.volume.files)-1) + 2 // For Metadata files, volume.meta, revisionCounter
+
 	s.Unlock()
 	return nil
 }

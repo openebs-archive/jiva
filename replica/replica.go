@@ -459,6 +459,8 @@ func (r *Replica) ReplaceDisk(target, source string) error {
 		logrus.Fatalf("Failed to remove disk: %v, err: %v", source, err)
 		return err
 	}
+	// Since metafile has being removed
+	r.volume.UsedBlocks--
 
 	// find the updated index of target
 	index := r.findDisk(target)
@@ -988,6 +990,7 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 			return err
 		}
 		// crash here will leave stale snapshot files
+		r.volume.UsedBlocks++ // This is for metadata file
 		r.updateChildDisk(oldHead, newSnapName)
 		r.activeDiskData[len(r.activeDiskData)-1].Name = newSnapName
 	}

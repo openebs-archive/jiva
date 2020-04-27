@@ -98,6 +98,13 @@ func (r *Remote) doAction(action string, obj interface{}) error {
 	}
 
 	client := r.httpClient
+	// timeout of zero means there is no timeout
+	// Since preload can take time while opening
+	// replica, we don't know the exact time elapsed
+	// to complete the request.
+	if action == "open" {
+		client.Timeout = 0
+	}
 
 	resp, err := client.Do(req)
 	if err != nil {
