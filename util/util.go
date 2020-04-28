@@ -267,6 +267,20 @@ func Now() string {
 	return time.Now().UTC().Format(time.RFC3339)
 }
 
+func ConvertHumanReadable(b int64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%d %ciB",
+		b/div, "KMGTPE"[exp])
+}
+
 func GetFileActualSize(file string) int64 {
 	var st syscall.Stat_t
 	if err := syscall.Stat(file, &st); err != nil && !os.IsNotExist(err) {

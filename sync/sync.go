@@ -14,6 +14,7 @@ import (
 	replicaClient "github.com/openebs/jiva/replica/client"
 	"github.com/openebs/jiva/sync/rebuild"
 	"github.com/openebs/jiva/types"
+	"github.com/openebs/jiva/util"
 	"github.com/sirupsen/logrus"
 )
 
@@ -392,7 +393,7 @@ func (t *Task) initalizeSyncProgress(fromClient, toClient *replicaClient.Replica
 		return err
 	}
 
-	snapshots := map[string]*types.Snapshot{}
+	snapshots := make([]types.Snapshot, len(disks))
 	var rwSize, woSize int64
 
 	for i := range disks {
@@ -404,9 +405,11 @@ func (t *Task) initalizeSyncProgress(fromClient, toClient *replicaClient.Replica
 		if err != nil {
 			return fmt.Errorf("Failed to parse size: %s of RW replica, err: %v", rwReplica.Disks[disk].Size, err)
 		}
+
 		rwSize += diskSize
-		snapshots[disk] = &types.Snapshot{
-			RWSize: rwReplica.Disks[disk].Size,
+		snapshots[i] = types.Snapshot{
+			Name:   disk,
+			RWSize: util.ConvertHumanReadable(diskSize),
 			Status: types.RebuildPending,
 			WOSize: func() string {
 				if _, ok := woReplica.Disks[disk]; !ok {
@@ -432,8 +435,8 @@ func (t *Task) initalizeSyncProgress(fromClient, toClient *replicaClient.Replica
 		RWReplica:            fromClient.GetAddress(),
 		WOReplica:            toClient.GetAddress(),
 		Snapshots:            snapshots,
-		RWSnapshotsTotalSize: strconv.FormatInt(rwSize, 10),
-		WOSnapshotsTotalSize: strconv.FormatInt(woSize, 10),
+		RWSnapshotsTotalSize: util.ConvertHumanReadable(rwSize),
+		WOSnapshotsTotalSize: util.ConvertHumanReadable(woSize),
 	}
 
 	// syncInfo will be kept in memory and will not be

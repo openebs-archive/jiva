@@ -1,7 +1,6 @@
 package rebuild
 
 import (
-	"fmt"
 	"path"
 
 	"github.com/openebs/jiva/replica"
@@ -23,7 +22,11 @@ func SetSyncInfo(syncInfo *types.SyncInfo) {
 
 // SetStatus is the status of rebuilding for a given disk
 func SetStatus(disk, status string) {
-	Info.Snapshots[disk].Status = status
+	for i, snap := range Info.Snapshots {
+		if snap.Name == disk {
+			Info.Snapshots[i].Status = status
+		}
+	}
 }
 
 // GetRebuildInfo returns the updated SyncInfo such as total
@@ -33,15 +36,19 @@ func GetRebuildInfo() *types.SyncInfo {
 		return nil
 	}
 	var totSize int64
-	for snap := range Info.Snapshots {
-		size := util.GetFileActualSize(path.Join(replica.Dir, snap))
+	for i, snap := range Info.Snapshots {
+		size := util.GetFileActualSize(path.Join(replica.Dir, snap.Name))
 		if size == -1 {
-			Info.Snapshots[snap].WOSize = "NA"
+			Info.Snapshots[i].WOSize = "NA"
 		} else {
 			totSize += size
-			Info.Snapshots[snap].WOSize = fmt.Sprint(size)
+			Info.Snapshots[i].WOSize = util.ConvertHumanReadable(size)
 		}
 	}
-	Info.WOSnapshotsTotalSize = fmt.Sprint(totSize)
+	if totSize != 0 {
+		Info.WOSnapshotsTotalSize = util.ConvertHumanReadable(totSize)
+	} else {
+		Info.WOSnapshotsTotalSize = "NA"
+	}
 	return Info
 }

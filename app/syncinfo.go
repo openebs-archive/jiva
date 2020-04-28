@@ -65,8 +65,8 @@ func getSyncInfo(c *cli.Context) error {
 		"RWSnapshotsTotalSize: ", info.RWSnapshotsTotalSize)
 	fmt.Fprintf(tw, "%s\n", "============================================================================")
 	fmt.Fprintf(tw, format, "Snapshot", "Status", "DegradedSize", "HealthySize")
-	for snap, snapInfo := range info.Snapshots {
-		fmt.Fprintf(tw, format, strings.TrimPrefix(snap, "volume-snap-"), snapInfo.Status, snapInfo.WOSize, snapInfo.RWSize)
+	for _, snapInfo := range info.Snapshots {
+		fmt.Fprintf(tw, format, strings.TrimPrefix(snapInfo.Name, "volume-snap-"), snapInfo.Status, snapInfo.WOSize, snapInfo.RWSize)
 	}
 	tw.Flush()
 
