@@ -12,7 +12,9 @@ import (
 	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/replica"
 	replicaClient "github.com/openebs/jiva/replica/client"
+	"github.com/openebs/jiva/sync/rebuild"
 	"github.com/openebs/jiva/types"
+	"github.com/openebs/jiva/util"
 	"github.com/sirupsen/logrus"
 )
 
@@ -411,7 +413,75 @@ func isRevisionCountSame(fromClient, toClient *replicaClient.ReplicaClient, disk
 	return true, nil
 }
 
+// initalizeSyncProgress initializes global structure types.SyncInfo
+func (t *Task) initalizeSyncProgress(fromClient, toClient *replicaClient.ReplicaClient, disks []string) error {
+	rwReplica, err := fromClient.GetReplica()
+	if err != nil {
+		return err
+	}
+	woReplica, err := toClient.GetReplica()
+	if err != nil {
+		return err
+	}
+
+	snapshots := make([]types.Snapshot, len(disks))
+	var rwSize, woSize int64
+
+	for i := range disks {
+		disk := disks[len(disks)-1-i]
+		if _, ok := rwReplica.Disks[disk]; !ok {
+			return fmt.Errorf("Could not find disk: %s in RWReplica: %s", disk, fromClient.GetAddress())
+		}
+		diskSize, err := strconv.ParseInt(rwReplica.Disks[disk].Size, 10, 64)
+		if err != nil {
+			return fmt.Errorf("Failed to parse size: %s of RW replica, err: %v", rwReplica.Disks[disk].Size, err)
+		}
+
+		rwSize += diskSize
+		snapshots[i] = types.Snapshot{
+			Name:   disk,
+			RWSize: util.ConvertHumanReadable(diskSize),
+			Status: types.RebuildPending,
+			WOSize: func() string {
+				if _, ok := woReplica.Disks[disk]; !ok {
+					return "NA"
+				}
+				return woReplica.Disks[disk].Size
+			}(),
+		}
+	}
+
+	for _, disk := range disks {
+		// ignore !ok case as it will be synced later
+		if _, ok := woReplica.Disks[disk]; ok {
+			diskSize, err := strconv.ParseInt(woReplica.Disks[disk].Size, 10, 64)
+			if err != nil {
+				return fmt.Errorf("Failed to parse size: %s of WO replica, err: %v", woReplica.Disks[disk].Size, err)
+			}
+			woSize += diskSize
+		}
+	}
+
+	syncInfo := types.SyncInfo{
+		RWReplica:            fromClient.GetAddress(),
+		WOReplica:            toClient.GetAddress(),
+		Snapshots:            snapshots,
+		RWSnapshotsTotalSize: util.ConvertHumanReadable(rwSize),
+		WOSnapshotsTotalSize: util.ConvertHumanReadable(woSize),
+	}
+
+	// syncInfo will be kept in memory and will not be
+	// freed to avoid unnecessary locking code.
+	rebuild.SetSyncInfo(&syncInfo)
+	return nil
+}
+
 func (t *Task) syncFiles(fromClient, toClient *replicaClient.ReplicaClient, disks []string) error {
+	err := t.initalizeSyncProgress(fromClient, toClient, disks)
+	if err != nil {
+		return err
+	}
+
 	for i := range disks {
 		//We are syncing from the oldest snapshots to newer ones
 		disk := disks[len(disks)-1-i]
@@ -425,6 +495,7 @@ func (t *Task) syncFiles(fromClient, toClient *replicaClient.ReplicaClient, disk
 				}
 		*/
 		//		if !ok {
+		rebuild.SetStatus(disk, types.RebuildInProgress)
 		if err := t.syncFile(disk, "", fromClient, toClient); err != nil {
 			return err
 		}
@@ -432,6 +503,7 @@ func (t *Task) syncFiles(fromClient, toClient *replicaClient.ReplicaClient, disk
 		if err := t.syncFile(disk+".meta", "", fromClient, toClient); err != nil {
 			return err
 		}
+		rebuild.SetStatus(disk, types.RebuildCompleted)
 	}
 
 	return nil

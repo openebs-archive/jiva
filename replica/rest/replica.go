@@ -8,6 +8,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/openebs/jiva/replica"
+	"github.com/openebs/jiva/sync/rebuild"
 	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
 	"github.com/rancher/go-rancher/api"
@@ -92,6 +93,24 @@ func (s *Server) GetVolUsage(rw http.ResponseWriter, req *http.Request) error {
 		UsedLogicalBlocks: strconv.FormatInt(usage.UsedLogicalBlocks, 10),
 		UsedBlocks:        strconv.FormatInt(usage.UsedBlocks, 10),
 		SectorSize:        strconv.FormatInt(usage.SectorSize, 10),
+	}
+	apiContext.Write(resp)
+	return nil
+}
+
+func (s *Server) GetRebuildInfo(rw http.ResponseWriter, req *http.Request) error {
+	apiContext := api.GetApiContext(req)
+	info := rebuild.GetRebuildInfo()
+	resp := &RebuildInfoOutput{
+		Resource: client.Resource{
+			Type:    "rebuildinfo",
+			Id:      "1",
+			Actions: map[string]string{},
+			Links:   map[string]string{},
+		},
+	}
+	if info != nil {
+		resp.SyncInfo = *info
 	}
 	apiContext.Write(resp)
 	return nil

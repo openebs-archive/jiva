@@ -14,6 +14,10 @@ const (
 
 	StateUp   = State("Up")
 	StateDown = State("Down")
+
+	RebuildPending    = "Pending"
+	RebuildInProgress = "InProgress"
+	RebuildCompleted  = "Completed"
 )
 
 var (
@@ -123,6 +127,30 @@ type DiskInfo struct {
 	Created         string   `json:"created"`
 	Size            string   `json:"size"`
 	RevisionCounter int64    `json:"revisionCount"`
+}
+
+// Snapshot holds the information of snapshot size of RW and WO
+// replicas and status of rebuild progress.
+type Snapshot struct {
+	Name   string `json:"name,omitempty"`
+	RWSize string `json:"rwsize,omitempty"`
+	WOSize string `json:"wosize,omitempty"`
+	Status string `json:"status,omitempty"`
+}
+
+// SyncInfo holds the information of snapshots and its progress
+// during rebuilding.
+type SyncInfo struct {
+	// Snapshots holds the map of snapshot names and their details
+	Snapshots []Snapshot `json:"snapshots,omitempty"`
+	RWReplica string     `json:"rwreplica,omitempty"`
+	WOReplica string     `json:"woreplica,omitempty"`
+	// RWSnapshotsTotalSize holds the total size consumed by the snapshots
+	// in RW replica
+	RWSnapshotsTotalSize string `json:"rwreplicatotalsize,omitempty"`
+	// WOSnapshotsTotalSize holds the total size consumed by the snapshots
+	// in WO replica
+	WOSnapshotsTotalSize string `json:"woreplicatotalsize,omitempty"`
 }
 
 type ReplicaInfo struct {

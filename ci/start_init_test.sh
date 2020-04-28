@@ -814,6 +814,7 @@ test_two_replica_stop_start() {
 		docker start $replica2_id
 		wait
 		verify_replica_cnt "2" "Two replica count test3"
+		test_sync_progress
 		verify_vol_status "RW" "when there are 2 replicas and replicas restarted multiple times"
 
 		count=`expr $count + 1`
@@ -821,6 +822,7 @@ test_two_replica_stop_start() {
 	verify_controller_quorum "2" "when there are 2 replicas and they are restarted multiple times"
 	verify_vol_status "RW" "when there are 2 replicas and they are restarted multiple times"
 
+	test_sync_progress
 	docker stop $replica1_id
 	docker stop $replica2_id
 	verify_vol_status "RO" "when there are 2 replicas and both are stopped"
@@ -831,9 +833,10 @@ test_two_replica_stop_start() {
 	verify_rep_state 1 "Replica1 status after stopping both, and starting it" "$REPLICA_IP1" "NA"
     
 	docker start $replica2_id
+	test_sync_progress
 	verify_vol_status "RW" "when there are 2 replicas and are brought down. Then, both are started"
 	verify_replica_cnt "2" "when there are 2 replicas and are brought down. Then, both are started"
-
+	test_sync_progress
 
 	reader_exit=`docker logs $orig_controller_id 2>&1 | grep "Exiting rpc reader" | wc -l`
 	writer_exit=`docker logs $orig_controller_id 2>&1 | grep "Exiting rpc writer" | wc -l`
@@ -963,6 +966,8 @@ test_three_replica_stop_start() {
 	fi
 
 	docker start $replica3_id
+	sleep 5
+	test_sync_progress
 	if [ $(verify_rw_status "RW") == 0 ]; then
 		echo "stop/start test passed when there are 3 replicas and all are restarted"
 	else
@@ -2091,6 +2096,11 @@ test_write_io_timeout_with_readwrite_env() {
         cleanup
 }
 
+test_sync_progress() {
+    echo "--------------------Test replica sync progress-------------------"
+    docker exec "$orig_controller_id" jivactl syncinfo
+}
+
 if [ -z "$ARCH" ]; then
   echo "platform not specified for running tests. Exiting."
   exit 1
@@ -2103,6 +2113,8 @@ if [ "$ARCH" != "linux_amd64" ]; then
 fi
 
 prepare_test_env
+test_two_replica_stop_start
+test_three_replica_stop_start
 test_write_io_timeout
 test_write_io_timeout_with_readwrite_env
 test_volume_resize
@@ -2112,8 +2124,6 @@ test_replica_restart_while_snap_deletion
 test_duplicate_data_delete
 test_single_replica_stop_start
 test_restart_during_prepare_rebuild
-test_two_replica_stop_start
-test_three_replica_stop_start
 test_ctrl_stop_start
 test_replica_controller_continuous_stop_start
 test_restart_during_prepare_rebuild

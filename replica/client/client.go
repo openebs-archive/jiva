@@ -229,6 +229,13 @@ func (c *ReplicaClient) GetReplica() (rest.Replica, error) {
 	return replica, err
 }
 
+func (c *ReplicaClient) GetRebuildInfo() (rest.RebuildInfoOutput, error) {
+	var info rest.RebuildInfoOutput
+
+	err := c.get(c.address+"/rebuildinfo", &info)
+	return info, err
+}
+
 func (c *ReplicaClient) ReloadReplica() (rest.Replica, error) {
 	var replica rest.Replica
 
@@ -466,6 +473,14 @@ func (c *ReplicaClient) get(url string, obj interface{}) error {
 		return err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		content, _ := ioutil.ReadAll(resp.Body)
+		return fmt.Errorf("Bad response: %d %s: %s", resp.StatusCode, resp.Status, content)
+	}
+
+	if resp == nil {
+		return nil
+	}
 
 	return json.NewDecoder(resp.Body).Decode(obj)
 }
