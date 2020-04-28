@@ -20,3 +20,10 @@ func DisablePunchHoles() bool { return false }
 // PanicAfterPrepareRebuild is used for crashing the replica
 // just after prepare rebuild.
 func PanicAfterPrepareRebuild() {}
+
+// UpdateLUNMapTimeoutTriggered is being used to wait for the delay in
+// UpdateLUNMap to start
+var UpdateLUNMapTimeoutTriggered bool
+
+// AddUpdateLUNMapTimeout adds delay during UpdateLUNMap
+func AddUpdateLUNMapTimeout() {}

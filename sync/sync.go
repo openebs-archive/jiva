@@ -108,11 +108,18 @@ Register:
 	return nil
 }
 
-func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName string) error {
+func (t *Task) CloneReplica(s *replica.Server, url string, address string, cloneIP string, snapName string) error {
 	var (
 		fromReplica rest.Replica
 		snapFound   bool
 	)
+	if s == nil {
+		return fmt.Errorf("Server not present for %v, Add replica using CLI not supported", address)
+	}
+	logrus.Infof("CheckAndResetFailedRebuild %v", address)
+	if err := t.checkAndResetFailedRebuild(address, s); err != nil {
+		return fmt.Errorf("CheckAndResetFailedRebuild failed, error: %s", err.Error())
+	}
 	for {
 		ControllerClient := client.NewControllerClient(url)
 		reps, err := ControllerClient.ListReplicas()
@@ -173,9 +180,18 @@ func (t *Task) CloneReplica(url string, address string, cloneIP string, snapName
 		if err != nil {
 			return fmt.Errorf("Failed to update clone info, err: %v", err)
 		}
+		// Preload is called separately in UpdateLUNMap
+		s.SetPreload(false)
 		_, err = toClient.ReloadReplica()
+		s.SetPreload(true)
 		if err != nil {
 			return fmt.Errorf("Failed to reload clone replica, error: %s", err.Error())
+		}
+		// Preload was not needed to be done separately in case of clone as IOs
+		// are not going on but in case if clone functionality is enhanced to
+		// multiple cloned replicas, then this might be needed
+		if err := s.UpdateLUNMap(); err != nil {
+			return fmt.Errorf("UpdateLUNMap() failed, err: %v", err.Error())
 		}
 		if err := toClient.SetRebuilding(false); err != nil {
 			return fmt.Errorf("Failed to setRebuilding = false, error: %s", err.Error())
@@ -190,6 +206,10 @@ func (t *Task) AddReplica(replicaAddress string, s *replica.Server) error {
 	if s == nil {
 		return fmt.Errorf("Server not present for %v, Add replica using CLI not supported", replicaAddress)
 	}
+	logrus.Infof("CheckAndResetFailedRebuild %v", replicaAddress)
+	if err := t.checkAndResetFailedRebuild(replicaAddress, s); err != nil {
+		return fmt.Errorf("CheckAndResetFailedRebuild failed, error: %s", err.Error())
+	}
 	types.ShouldPunchHoles = false
 	logrus.Infof("Addreplica %v", replicaAddress)
 	ticker := time.NewTicker(5 * time.Second)
@@ -202,6 +222,7 @@ func (t *Task) AddReplica(replicaAddress string, s *replica.Server) error {
 	if err != nil {
 		return fmt.Errorf("failed to create temp server, error: %s", err.Error())
 	}
+
 Register:
 	logrus.Infof("Get Volume info from controller")
 	volume, err := t.client.GetVolume()
@@ -236,13 +257,12 @@ Register:
 		}
 		return nil
 	}
-	logrus.Infof("CheckAndResetFailedRebuild %v", replicaAddress)
-	if err := t.checkAndResetFailedRebuild(replicaAddress, s); err != nil {
-		return fmt.Errorf("CheckAndResetFailedRebuild failed, error: %s", err.Error())
-	}
-
 	logrus.Infof("Adding replica %s in WO mode", replicaAddress)
+	// Preload doesn't need to be called yet as no read IO will be served until
+	// sync is completed
+	s.SetPreload(false)
 	_, err = t.client.CreateReplica(replicaAddress)
+	s.SetPreload(true)
 	if err != nil {
 		logrus.Errorf("Failed to create replica, error: %v", err)
 		// cases for above failure:
@@ -288,7 +308,7 @@ Register:
 	}
 
 	logrus.Infof("reloadAndVerify %v", replicaAddress)
-	return t.reloadAndVerify(replicaAddress, toClient)
+	return t.reloadAndVerify(s, replicaAddress, toClient)
 }
 
 func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.ReplicaClient) (bool, error) {
@@ -325,7 +345,12 @@ func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server
 	state, info := server.Status()
 
 	if state == "closed" && info.Rebuilding {
-		if err := server.Open(); err != nil {
+		// Preload is not required over here as replica is being opened
+		// temporarily for resetting its state
+		server.SetPreload(false)
+		err := server.Open()
+		server.SetPreload(true)
+		if err != nil {
 			logrus.Errorf("Error during open in checkAndResetFailedRebuild")
 			return err
 		}
@@ -338,11 +363,17 @@ func (t *Task) checkAndResetFailedRebuild(address string, server *replica.Server
 	return nil
 }
 
-func (t *Task) reloadAndVerify(address string, repClient *replicaClient.ReplicaClient) error {
+func (t *Task) reloadAndVerify(s *replica.Server, address string, repClient *replicaClient.ReplicaClient) error {
+	// Preload is called separately in UpdateLUNMap
+	s.SetPreload(false)
 	_, err := repClient.ReloadReplica()
+	s.SetPreload(true)
 	if err != nil {
 		logrus.Errorf("Error in reloadreplica %s", address)
 		return err
+	}
+	if err := s.UpdateLUNMap(); err != nil {
+		return fmt.Errorf("UpdateLUNMap() failed, err: %v", err.Error())
 	}
 
 	if err := t.client.VerifyRebuildReplica(rest.EncodeID(address)); err != nil {

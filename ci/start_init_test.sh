@@ -1,6 +1,6 @@
 
 #!/bin/bash
-#set -x
+set -x
 
 PS4='${LINENO}: '
 CONTROLLER_IP="172.18.0.2"
@@ -16,14 +16,14 @@ collect_logs_and_exit() {
 	echo "--------------------------docker ps -a-------------------------------------"
 	docker ps -a
 
-	echo "--------------------------CONTROLLER REST output---------------------------"
+	echo "--------------------------CONTROLLER REST Output---------------------------"
 	curl http://$CONTROLLER_IP:9501/v1/volumes | jq
 	curl http://$CONTROLLER_IP:9501/v1/replicas | jq
-	echo "--------------------------REPLICA 1 LOGS ----------------------------------"
+	echo "--------------------------REPLICA 1 REST Output----------------------------------"
 	curl http://$REPLICA_IP1:9502/v1/replicas | jq
-	echo "--------------------------REPLICA 2 LOGS ----------------------------------"
+	echo "--------------------------REPLICA 2 REST Output----------------------------------"
 	curl http://$REPLICA_IP2:9502/v1/replicas | jq
-	echo "--------------------------REPLICA 3  LOGS ---------------------------------"
+	echo "--------------------------REPLICA 3 REST Output ---------------------------------"
 	curl http://$REPLICA_IP3:9502/v1/replicas | jq
 
 	#Take system output
@@ -113,7 +113,7 @@ verify_replica_cnt() {
 		fi
 		sleep 2
 	done
-	echo $2 " -- passed"
+	echo "Verify_replica_cnt for " $2 " -- passed"
 	return
 }
 
@@ -158,7 +158,7 @@ verify_rw_status() {
 }
 
 verify_rw_rep_count() {
-	echo "---------------Verify RW Replica Status------------------"
+	echo "---------------Verify RW Replica Count------------------"
 	i=0
 	count=""
 	while [ "$count" != "$1" ]; do
@@ -170,7 +170,7 @@ verify_rw_rep_count() {
 		fi
 		sleep 5
 	done
-	echo "Verify RW Replica status test -- passed"
+	echo "Verify RW Replica count -- passed"
 }
 
 #returns number of replicas connected to controller in RW mode
@@ -263,7 +263,7 @@ verify_go_routine_leak() {
 	new_no_of_goroutine=$(curl http://$2:9502/debug/pprof/goroutine?debug=1 | grep goroutine | awk '{ print $4}')
 	old=`expr $no_of_goroutine + 3`
 	if [ $new_no_of_goroutine -lt $old ]; then
-		echo $1 --passed
+		echo "Verify_go_routine for " $1 "--passed"
 		return
 	fi
 	echo $1 " -- failed"
@@ -2039,7 +2039,7 @@ test_write_io_timeout() {
         if [ "$device_name"!="" ]; then
                 preload_success=0
                 iter=0
-                while [ "$preload_success" -lt 3 ]; do
+                while [ "$preload_success" -lt 1 ]; do
                         preload_success=`docker logs $debug_replica_id 2>&1 | grep -c "Start reading extents"`
                         if [ "$iter" == 100 ]; then
                                 collect_logs_and_exit
@@ -2074,7 +2074,7 @@ test_write_io_timeout_with_readwrite_env() {
         if [ "$device_name"!="" ]; then
                 preload_success=0
                 iter=0
-                while [ "$preload_success" -lt 3 ]; do
+                while [ "$preload_success" -lt 1 ]; do
                         preload_success=`docker logs $debug_replica_id 2>&1 | grep -c "Start reading extents"`
                         if [ "$iter" == 100 ]; then
                                 collect_logs_and_exit
@@ -2090,8 +2090,8 @@ test_write_io_timeout_with_readwrite_env() {
         else
                 echo "Unable to detect iSCSI device during test_restart_add_replica"; collect_logs_and_exit
         fi
-        verify_rw_rep_count "2"
-        verify_replica_cnt "2" "write io timeout ENV test passed"
+        verify_rw_rep_count "3"
+        verify_replica_cnt "3" "write io timeout ENV test passed"
         logout_of_volume
         cleanup
 }

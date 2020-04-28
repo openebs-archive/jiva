@@ -280,18 +280,14 @@ func preload(d *diffDisk) error {
 		if i == 0 {
 			continue
 		}
-		if i == 1 {
-			// Reinitialize to zero so that we can detect holes in the base snapshot
-			for j := 0; j < len(d.location); j++ {
-				d.location[j] = 0
-			}
-		}
 		if d.UserCreatedSnap[i] {
 			userCreatedSnapIndx = uint16(i)
 		}
 		generator := newGenerator(d, f)
 		for offset := range generator.Generate() {
 			if d.location[offset] != 0 {
+				// d.UsedBlocks is being incremented and decremented to accomodate user
+				// created snapshots
 				// We are looking for continuous blocks over here.
 				// If the file of the next block is changed, we punch a hole
 				// for the previous unpunched blocks, and reset the file and
@@ -299,6 +295,7 @@ func preload(d *diffDisk) error {
 				if d.files[d.location[offset]] != file ||
 					offset != lOffset+length {
 					if file != nil && fileIndx > userCreatedSnapIndx && shouldCreateHoles() {
+						d.UsedBlocks -= length
 						sendToCreateHole(file, lOffset*d.sectorSize, length*d.sectorSize)
 					}
 					file = d.files[d.location[offset]]
@@ -310,6 +307,8 @@ func preload(d *diffDisk) error {
 					// block will be punched outside the loop
 					length++
 				}
+			} else {
+				d.UsedLogicalBlocks++
 			}
 			d.location[offset] = uint16(i)
 			d.UsedBlocks++
@@ -317,6 +316,7 @@ func preload(d *diffDisk) error {
 		// This will take care of the case when the last call in the above loop
 		// enters else case
 		if file != nil && fileIndx > userCreatedSnapIndx && shouldCreateHoles() {
+			d.UsedBlocks -= length
 			sendToCreateHole(file, lOffset*d.sectorSize, length*d.sectorSize)
 		}
 		file = nil
@@ -332,14 +332,11 @@ func preload(d *diffDisk) error {
 }
 
 func PreloadLunMap(d *diffDisk) error {
+	logrus.Info("Start reading extents")
+	inject.AddPreloadTimeout()
 	if err := preload(d); err != nil {
 		return err
 	}
-
-	for _, val := range d.location {
-		if val != 0 {
-			d.UsedLogicalBlocks++
-		}
-	}
+	logrus.Info("Read extents successful")
 	return nil
 }
