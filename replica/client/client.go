@@ -125,7 +125,10 @@ func (c *ReplicaClient) Revert(name, created string) error {
 	if err != nil {
 		return err
 	}
-
+	// TODO Revisit this
+	// This is being done since Revert operation includes preload of lunMap at
+	// replica which might take time
+	c.httpClient.Timeout = 0
 	return c.post(r.Actions["revert"], rest.RevertInput{
 		Name:    name,
 		Created: created,

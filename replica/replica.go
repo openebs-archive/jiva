@@ -12,10 +12,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
-	"unsafe"
 
 	units "github.com/docker/go-units"
-	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
 	"github.com/openebs/sparse-tools/sparse"
@@ -158,16 +156,16 @@ func ReadInfo(dir string) (Info, error) {
 	return info, err
 }
 
-func New(size, sectorSize int64, dir string, backingFile *BackingFile, replicaType string) (*Replica, error) {
-	return construct(false, size, sectorSize, dir, "", backingFile, replicaType)
+func New(preload bool, size, sectorSize int64, dir string, backingFile *BackingFile, replicaType string) (*Replica, error) {
+	return construct(preload, false, size, sectorSize, dir, "", backingFile, replicaType)
 }
 
-func NewReadOnly(dir, head string, backingFile *BackingFile) (*Replica, error) {
+func NewReadOnly(preload bool, dir, head string, backingFile *BackingFile) (*Replica, error) {
 	// size and sectorSize don't matter because they will be read from metadata
-	return construct(true, 0, 512, dir, head, backingFile, "")
+	return construct(preload, true, 0, 512, dir, head, backingFile, "")
 }
 
-func construct(readonly bool, size, sectorSize int64, dir, head string, backingFile *BackingFile, replicaType string) (*Replica, error) {
+func construct(preload, readonly bool, size, sectorSize int64, dir, head string, backingFile *BackingFile, replicaType string) (*Replica, error) {
 	if size%sectorSize != 0 {
 		return nil, fmt.Errorf("Size %d not a multiple of sector size %d", size, sectorSize)
 	}
@@ -215,6 +213,7 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 	r.volume.location = make([]uint16, locationSize)
 	r.volume.files = []types.DiffDisk{nil}
 	r.volume.UserCreatedSnap = []bool{false}
+	r.volume.rmLock = &sync.Mutex{}
 
 	if r.readOnly && !exists {
 		return nil, os.ErrNotExist
@@ -239,12 +238,11 @@ func construct(readonly bool, size, sectorSize int64, dir, head string, backingF
 
 	r.insertBackingFile()
 	r.ReplicaType = replicaType
-	logrus.Info("Start reading extents")
-	inject.AddPreloadTimeout()
-	if err := PreloadLunMap(&r.volume); err != nil {
-		return r, fmt.Errorf("failed to load Lun map, error: %v", err)
+	if preload {
+		if err := PreloadLunMap(&r.volume); err != nil {
+			return r, fmt.Errorf("failed to load Lun map, error: %v", err)
+		}
 	}
-	logrus.Info("Read extents successful")
 	return r, r.writeVolumeMetaData(true, r.info.Rebuilding)
 }
 
@@ -339,8 +337,8 @@ func (r *Replica) Resize(obj interface{}) error {
 	return r.encodeToFile(&r.info, volumeMetaData)
 }
 
-func (r *Replica) Reload() (*Replica, error) {
-	newReplica, err := New(r.info.Size, r.info.SectorSize, r.dir, r.info.BackingFile, r.ReplicaType)
+func (r *Replica) Reload(preload bool) (*Replica, error) {
+	newReplica, err := New(preload, r.info.Size, r.info.SectorSize, r.dir, r.info.BackingFile, r.ReplicaType)
 	if err != nil {
 		return nil, err
 	}
@@ -461,6 +459,8 @@ func (r *Replica) ReplaceDisk(target, source string) error {
 		logrus.Fatalf("Failed to remove disk: %v, err: %v", source, err)
 		return err
 	}
+	// Since metafile has being removed
+	r.volume.UsedBlocks--
 
 	// find the updated index of target
 	index := r.findDisk(target)
@@ -911,8 +911,8 @@ func (r *Replica) revertDisk(parent, created string) (*Replica, error) {
 	if err := r.rmDisk(oldHead); err != nil {
 		return nil, err
 	}
-
-	rNew, err := r.Reload()
+	// preload is needed since one of the files has been removed from the chain
+	rNew, err := r.Reload(true)
 	if err != nil {
 		return nil, err
 	}
@@ -990,13 +990,7 @@ func (r *Replica) createDisk(name string, userCreated bool, created string) erro
 			return err
 		}
 		// crash here will leave stale snapshot files
-		size := int64(unsafe.Sizeof(r.diskData[newSnapName]))
-		if size%defaultSectorSize == 0 {
-			r.volume.UsedBlocks += size / defaultSectorSize
-		} else {
-			r.volume.UsedBlocks += (size/defaultSectorSize + 1)
-		}
-
+		r.volume.UsedBlocks++ // This is for metadata file
 		r.updateChildDisk(oldHead, newSnapName)
 		r.activeDiskData[len(r.activeDiskData)-1].Name = newSnapName
 	}

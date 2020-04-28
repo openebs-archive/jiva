@@ -8,6 +8,7 @@ import (
 	"time"
 
 	fibmap "github.com/frostschutz/go-fibmap"
+	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/types"
 	"github.com/sirupsen/logrus"
 )
@@ -39,6 +40,7 @@ type Server struct {
 	//the replica attempts to connect back to controller
 	MonitorChannel chan struct{}
 	//closeSync      chan struct{}
+	preload bool
 }
 
 func NewServer(dir string, sectorSize int64, serverType string) *Server {
@@ -50,8 +52,17 @@ func NewServer(dir string, sectorSize int64, serverType string) *Server {
 		defaultSectorSize: sectorSize,
 		ServerType:        serverType,
 		MonitorChannel:    make(chan struct{}),
+		preload:           true,
 		//	closeSync:         make(chan struct{}),
 	}
+}
+
+// SetPreload sets/unsets preloadDuringOpen flag
+func (s *Server) SetPreload(preload bool) error {
+	s.Lock()
+	defer s.Unlock()
+	s.preload = preload
+	return nil
 }
 
 func (s *Server) Start(action string) error {
@@ -145,7 +156,8 @@ func (s *Server) Create(size int64) error {
 	sectorSize := s.getSectorSize()
 
 	logrus.Infof("Creating volume %s, size %d/%d", s.dir, size, sectorSize)
-	r, err := New(size, sectorSize, s.dir, s.backing, s.ServerType)
+	// Preload is not needed over here since the volume is being newly created
+	r, err := New(false, size, sectorSize, s.dir, s.backing, s.ServerType)
 	if err != nil {
 		return err
 	}
@@ -165,7 +177,7 @@ func (s *Server) Open() error {
 	size := s.getSize(info.Size)
 	sectorSize := s.getSectorSize()
 	logrus.Infof("Opening volume %s, size %d/%d", s.dir, size, sectorSize)
-	r, err := New(size, sectorSize, s.dir, s.backing, s.ServerType)
+	r, err := New(s.preload, size, sectorSize, s.dir, s.backing, s.ServerType)
 	if err != nil {
 		logrus.Errorf("Error %v during open", err)
 		return err
@@ -213,7 +225,7 @@ func (s *Server) Reload() error {
 
 	types.ShouldPunchHoles = true
 	logrus.Infof("Reloading volume")
-	newReplica, err := s.r.Reload()
+	newReplica, err := s.r.Reload(s.preload)
 	if err != nil {
 		logrus.Errorf("error in Reload")
 		types.ShouldPunchHoles = false
@@ -357,6 +369,98 @@ func (s *Server) Revert(name, created string) error {
 	}
 
 	s.r = r
+	return nil
+}
+
+// UpdateLUNMap updates the original LUNmap with any changes which have been
+// encountered after PreloadVolume. This can be called only once just after
+// reload is called after syncing the files from healthy replicas
+func (s *Server) UpdateLUNMap() error {
+	// With this lock r.volume data structure is copied, and a new slice is
+	// created different than the one in r.volume.location. After this we will
+	// be having 2 LUNMaps, one being filled by the parallel write operations
+	// and the other being filled by preload operation.
+	s.Lock()
+	volume := s.r.volume
+	volume.location = make([]uint16, len(s.r.volume.location))
+	volume.UsedBlocks = 0
+	volume.UsedLogicalBlocks = 0
+	s.Unlock()
+	// LUNmap is populated with the extents after the sync operation is
+	// completed
+	if err := PreloadLunMap(&volume); err != nil {
+		return err
+	}
+	inject.AddUpdateLUNMapTimeout()
+	s.Lock()
+	var (
+		holeLength          int64
+		holeOffset          int
+		fileIndx            uint16
+		prevHoleFileIndx    uint16
+		offset              int
+		userCreatedSnapIndx uint16
+	)
+	// userCreatedSnapIndx holds the latest user created snapshot index
+	for i, isUserCreated := range volume.UserCreatedSnap {
+		if isUserCreated {
+			userCreatedSnapIndx = uint16(i)
+		}
+	}
+
+	// While this loop is being executed IOs have been stopped(s.Lock()) which
+	// inturn halts the updates on the original LunMap.
+	// Empty offsets in the original LunMap are filled by corresponding entries
+	// in preloaded lunmap.
+	// If offsets are present in both LunMaps and are different,
+	// hole is punched in the file at that offset contained in Preloaded LunMap.
+	// Sequesnce of holes are being punched at once.
+	var extraUsedBlocks, extraLogicalBlocks int64
+
+	for offset, fileIndx = range volume.location {
+		if fileIndx == 0 {
+			if s.r.volume.location[offset] != 0 {
+				extraUsedBlocks++
+				extraLogicalBlocks++
+			}
+			continue
+		}
+		if s.r.volume.location[offset] > fileIndx {
+			// It is being incremented and decremented to accomodate user
+			// created snapshots
+			if prevHoleFileIndx != fileIndx || int64(offset) != int64(holeOffset)+holeLength {
+				if prevHoleFileIndx > userCreatedSnapIndx && shouldCreateHoles() && prevHoleFileIndx != 0 {
+					extraUsedBlocks -= holeLength
+					sendToCreateHole(volume.files[prevHoleFileIndx], int64(holeOffset)*volume.sectorSize, holeLength*volume.sectorSize)
+				}
+				holeLength = 1
+				holeOffset = offset
+				prevHoleFileIndx = fileIndx
+			} else {
+				holeLength++
+			}
+			extraUsedBlocks++
+		} else {
+			// No hole drilling over here as that offset is empty or belongs to
+			// same file
+			s.r.volume.location[offset] = volume.location[offset]
+			if prevHoleFileIndx > userCreatedSnapIndx && shouldCreateHoles() && prevHoleFileIndx != 0 {
+				extraUsedBlocks -= holeLength
+				sendToCreateHole(volume.files[prevHoleFileIndx], int64(holeOffset)*volume.sectorSize, holeLength*volume.sectorSize)
+			}
+			holeOffset = 0
+			holeLength = 0
+			prevHoleFileIndx = 0
+		}
+	}
+	if prevHoleFileIndx > userCreatedSnapIndx && shouldCreateHoles() && prevHoleFileIndx != 0 {
+		extraUsedBlocks -= holeLength
+		sendToCreateHole(volume.files[prevHoleFileIndx], int64(holeOffset)*volume.sectorSize, holeLength*volume.sectorSize)
+	}
+	s.r.volume.UsedLogicalBlocks = volume.UsedLogicalBlocks + extraLogicalBlocks
+	s.r.volume.UsedBlocks = volume.UsedBlocks + extraUsedBlocks + int64(len(s.r.volume.files)-1) + 2 // For Metadata files, volume.meta, revisionCounter
+
+	s.Unlock()
 	return nil
 }
 
