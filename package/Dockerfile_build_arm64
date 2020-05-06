@@ -9,5 +9,17 @@ RUN apt-get update && apt-get install -y curl \
 
 COPY longhorn jivactl launch copy-binary launch-with-vm-backing-file launch-simple-jiva /usr/local/bin/
 
+ARG ARCH
+ARG DBUILD_DATE
+ARG DBUILD_REPO_URL
+ARG DBUILD_SITE_URL
+
+LABEL org.label-schema.schema-version="1.0"
+LABEL org.label-schema.name="jiva"
+LABEL org.label-schema.description="OpenEBS Jiva"
+LABEL org.label-schema.build-date=$DBUILD_DATE
+LABEL org.label-schema.vcs-url=$DBUILD_REPO_URL
+LABEL org.label-schema.url=$DBUILD_SITE_URL
+
 VOLUME /usr/local/bin
 CMD ["longhorn"]
