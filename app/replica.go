@@ -142,10 +142,12 @@ checkagain:
 		// closed state, then it can be registered, else register replica
 		// will fail.
 		_ = s.Close()
+		// This is not required any more as while adding at controller, canAdd
+		// func checks if the replica is already present
 		// this is just to be sure that replica is not attached to
 		// controller. Assumption is replica might be in RO, RW or in
 		// "" state and not removed from controller.
-		AutoRmReplica(frontendIP, address)
+		// AutoRmReplica(frontendIP, address)
 		if err := AutoAddReplica(s, frontendIP, address, replicaType); err != nil {
 			s.Close()
 			logrus.Fatalf("Failed to add replica to controller, err: %v, Shutting down...", err)
