@@ -1,0 +1,1 @@
+fix(duplica-replica-remove): avoid calling AutoRmReplica on replica restarts
