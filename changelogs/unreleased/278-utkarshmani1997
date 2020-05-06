@@ -1,0 +1,1 @@
+feat(replica): run fsync on files & dir after create/remove/rename operation on files
