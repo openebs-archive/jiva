@@ -69,8 +69,8 @@ github.com/natefinch/lumberjack v2.0.0+incompatible h1:4QJd3OLAMgj7ph+yZTuX13Ld4
 github.com/natefinch/lumberjack v2.0.0+incompatible/go.mod h1:Wi9p2TTF5DG5oU+6YfsmYQpsTIOm0B1VNzQg9Mw6nPk=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e h1:fD57ERR4JtEqsWbfPhv4DMiApHyliiK5xCTNVSPiaAs=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
-github.com/openebs/sparse-tools v0.0.0-20200401072849-c3bccb89a06b h1:yULW07dZXT8MhMg6U4BPJQ0vlylLAM23juksiZTX5LU=
-github.com/openebs/sparse-tools v0.0.0-20200401072849-c3bccb89a06b/go.mod h1:/PPl9gH4GPPbP28mei6t3f3VZEzA4Oc93IhBkdo7i1c=
+github.com/openebs/sparse-tools v1.0.0 h1:Cf5X/X4X+mX//HO2C56H/wp0h+QMm9DDzvg6/QIYyS8=
+github.com/openebs/sparse-tools v1.0.0/go.mod h1:/PPl9gH4GPPbP28mei6t3f3VZEzA4Oc93IhBkdo7i1c=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.8.1 h1:iURUrRGxPUNPdy5/HRSm+Yj6okJ6UtLINN0Q9M4+h3I=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=

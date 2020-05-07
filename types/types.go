@@ -15,9 +15,10 @@ const (
 	StateUp   = State("Up")
 	StateDown = State("Down")
 
-	RebuildPending    = "Pending"
-	RebuildInProgress = "InProgress"
-	RebuildCompleted  = "Completed"
+	RebuildPending           = "Pending"
+	RebuildInProgress        = "InProgress"
+	RebuildCompleted         = "Completed"
+	SyncHTTPClientTimeoutKey = "SYNC_HTTP_CLIENT_TIMEOUT"
 )
 
 var (
