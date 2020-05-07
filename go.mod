@@ -25,4 +25,7 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 )
 
-replace github.com/frostschutz/go-fibmap => github.com/rancher/go-fibmap v0.0.0-20160418233256-5fc9f8c1ed47
+replace (
+	github.com/frostschutz/go-fibmap => github.com/rancher/go-fibmap v0.0.0-20160418233256-5fc9f8c1ed47
+	github.com/openebs/sparse-tools => github.com/utkarshmani1997/sparse-tools v0.0.0-20200507055612-161fd7e50874
+)

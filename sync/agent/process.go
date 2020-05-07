@@ -13,6 +13,7 @@ import (
 
 	"github.com/docker/docker/pkg/reexec"
 	"github.com/gorilla/mux"
+	"github.com/openebs/jiva/types"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
 	"github.com/sirupsen/logrus"
@@ -199,7 +200,11 @@ func (s *Server) launchSync(p *Process) error {
 	//ssync client is trying to connect for 120 seconds, it can cause corruption
 	//as ssync client and server are looking at different files.
 	args = append(args, "-timeout", strconv.Itoa(7))
-
+	httpTimeout := os.Getenv(types.SyncHttpClientTimeoutKey)
+	if httpTimeout != "" {
+		logrus.Infof("Add sync client http timeout: %vs", httpTimeout)
+		args = append(args, "-httpTimeout", httpTimeout)
+	}
 	if p.Port != 0 {
 		args = append(args, "-port", strconv.Itoa(p.Port))
 	}
