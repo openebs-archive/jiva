@@ -200,7 +200,7 @@ func (s *Server) launchSync(p *Process) error {
 	//ssync client is trying to connect for 120 seconds, it can cause corruption
 	//as ssync client and server are looking at different files.
 	args = append(args, "-timeout", strconv.Itoa(7))
-	httpTimeout := os.Getenv(types.SyncHttpClientTimeoutKey)
+	httpTimeout := os.Getenv(types.SyncHTTPClientTimeoutKey)
 	if httpTimeout != "" {
 		logrus.Infof("Add sync client http timeout: %vs", httpTimeout)
 		args = append(args, "-httpTimeout", httpTimeout)

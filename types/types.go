@@ -18,7 +18,7 @@ const (
 	RebuildPending           = "Pending"
 	RebuildInProgress        = "InProgress"
 	RebuildCompleted         = "Completed"
-	SyncHttpClientTimeoutKey = "SYNC_HTTP_CLIENT_TIMEOUT"
+	SyncHTTPClientTimeoutKey = "SYNC_HTTP_CLIENT_TIMEOUT"
 )
 
 var (
