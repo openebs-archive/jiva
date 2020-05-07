@@ -335,6 +335,10 @@ func startReplica(c *cli.Context) error {
 			cmd.Dir = dir
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
+			httpTimeout := os.Getenv(types.SyncHTTPClientTimeoutKey)
+			if httpTimeout != "" {
+				cmd.Env = []string{types.SyncHTTPClientTimeoutKey + "=" + httpTimeout}
+			}
 			syncResp <- cmd.Run()
 		}()
 	}
