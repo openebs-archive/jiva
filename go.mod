@@ -13,7 +13,7 @@ require (
 	github.com/gostor/gotgt v0.1.1-0.20191128095459-2f1d32710a93
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
-	github.com/openebs/sparse-tools v0.0.0-20200401072849-c3bccb89a06b
+	github.com/openebs/sparse-tools v1.0.0
 	github.com/prometheus/client_golang v1.5.1
 	github.com/rancher/go-rancher v0.1.1-0.20190307222549-9756097e5e4c
 	github.com/satori/go.uuid v1.2.0
@@ -25,7 +25,4 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 )
 
-replace (
-	github.com/frostschutz/go-fibmap => github.com/rancher/go-fibmap v0.0.0-20160418233256-5fc9f8c1ed47
-	github.com/openebs/sparse-tools => github.com/utkarshmani1997/sparse-tools v0.0.0-20200507055612-161fd7e50874
-)
+replace github.com/frostschutz/go-fibmap => github.com/rancher/go-fibmap v0.0.0-20160418233256-5fc9f8c1ed47
