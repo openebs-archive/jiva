@@ -93,7 +93,7 @@ endif
 	@echo "Linting with golint"
 	$(shell golint $(shell find . -maxdepth 1 -type d \( ! -iname ".git" ! -iname "vendor" \)) )
 
-build: deps build_image _run_ci
+build: deps build_image
 build_gitlab: deps build_image _push_image
 
 #
