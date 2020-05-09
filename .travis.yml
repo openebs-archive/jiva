@@ -43,10 +43,10 @@ install:
 
 script:
     - if [ $RUN_FEATURE_TESTS = 1 ]; then
-        sudo bash ./ci/feature_tests.sh || travis_terminate 1;
+        sudo make test_features
       fi
     - if [ $RUN_RESILIENCY_TESTS = 1 ]; then
-        sudo bash ./ci/resiliency_tests.sh || travis_terminate 1;
+        sudo make test_resiliency
       fi
 
 after_success:
