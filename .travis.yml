@@ -42,12 +42,12 @@ install:
   - make build
 
 script:
-    - if [ $RUN_FEATURE_TESTS = 1 ]; then
-        sudo make test_features
-      fi
-    - if [ $RUN_RESILIENCY_TESTS = 1 ]; then
-        sudo make test_resiliency
-      fi
+  - if [ $RUN_FEATURE_TESTS = 1 ]; then
+      make test_features;
+    fi
+  - if [ $RUN_RESILIENCY_TESTS = 1 ]; then
+      make test_resiliency;
+    fi
 
 after_success:
   - make _push_image
