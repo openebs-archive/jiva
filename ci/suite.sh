@@ -2101,3 +2101,37 @@ test_sync_progress() {
     docker exec "$orig_controller_id" jivactl syncinfo
 }
 
+generate_extents() {
+	echo "-----------------generate_extents---------------"
+	login_to_volume "$CONTROLLER_IP:3260"
+	sleep 2
+	get_scsi_disk
+	if [ "$device_name"!="" ]; then
+		fio --filename=$device_name --direct=1 --rw=randwrite --bs=4k --ioengine=libaio --iodepth=256 --runtime=$1 --numjobs=4 --time_based --group_reporting --name=iops-test-job
+	fi
+	logout_of_volume
+	echo "generate_extents passed"
+}
+
+test_preload_optimization() {
+	echo "----------------Test_preload_optimization-----------------"
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
+	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
+	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+	verify_rw_rep_count "3"
+	generate_extents "60"
+
+	docker stop $replica1_id
+	docker stop $replica2_id
+	docker stop $replica3_id
+
+	docker start $replica1_id
+	docker start $replica2_id
+	verify_rw_rep_count "2"
+	docker start $replica2_id
+	generate_extents "60"
+	verify_rw_rep_count "3"
+	cleanup
+	echo "Test_preload_optimization passed"
+}

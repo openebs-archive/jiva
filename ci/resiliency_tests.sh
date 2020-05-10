@@ -32,4 +32,5 @@ test_controller_rpc_close
 #test_replica_reregistration
 test_duplicate_snapshot_failure
 #test_extent_support_file_system
+test_preload_optimization
 run_vdbench_test_on_volume

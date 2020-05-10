@@ -33,7 +33,7 @@ addons:
     update: true
 
 before_install:
-  - sudo apt-get install -y curl open-iscsi
+  - sudo apt-get install -y curl open-iscsi fio
   - go get -u golang.org/x/lint/golint
   - go env && pwd
   - mkdir -p $HOME/gopath/bin
