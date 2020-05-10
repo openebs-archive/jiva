@@ -15,6 +15,14 @@ jobs:
   include:
     - os: linux
       arch: amd64
+      env:
+        - RUN_FEATURE_TESTS=1
+        - RUN_RESILIENCY_TESTS=0
+    - os: linux
+      arch: amd64
+      env:
+        - RUN_FEATURE_TESTS=0
+        - RUN_RESILIENCY_TESTS=1
     - os: linux
       arch: arm64
     - os: linux
@@ -29,8 +37,16 @@ before_install:
   - go get -u golang.org/x/lint/golint
   - go env && pwd
   - mkdir -p $HOME/gopath/bin
+
 script:
   - make build
+
+  - if [ $RUN_FEATURE_TESTS = 1 ]; then
+      make test_features;
+    fi
+  - if [ $RUN_RESILIENCY_TESTS = 1 ]; then
+      make test_resiliency;
+    fi
 
 after_success:
   - make _push_image
