@@ -38,10 +38,9 @@ before_install:
   - go env && pwd
   - mkdir -p $HOME/gopath/bin
 
-install:
+script:
   - make build
 
-script:
   - if [ $RUN_FEATURE_TESTS = 1 ]; then
       make test_features;
     fi
