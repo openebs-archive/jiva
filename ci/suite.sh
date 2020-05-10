@@ -2107,7 +2107,7 @@ generate_extents() {
 	sleep 2
 	get_scsi_disk
 	if [ "$device_name"!="" ]; then
-		fio --filename=$device_name --direct=1 --rw=randwrite --bs=4k --ioengine=libaio --iodepth=256 --runtime=$1 --numjobs=4 --time_based --group_reporting --name=iops-test-job
+		fio --filename=/dev/$device_name --direct=1 --rw=randwrite --bs=4k --ioengine=libaio --iodepth=256 --runtime=$1 --numjobs=4 --time_based --group_reporting --name=preload-test-job
 	fi
 	logout_of_volume
 	echo "generate_extents passed"
@@ -2129,7 +2129,7 @@ test_preload_optimization() {
 	docker start $replica1_id
 	docker start $replica2_id
 	verify_rw_rep_count "2"
-	docker start $replica2_id
+	docker start $replica3_id
 	generate_extents "60"
 	verify_rw_rep_count "3"
 	cleanup
