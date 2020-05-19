@@ -1,4 +1,17 @@
-1.10.0-RC2 / 2020-05-07
+1.10.0 / 2020-05-15
+========================
+
+  * Split ci tests into multiple jobs (#304) (@payes)
+  * Avoid calling AutoRmReplica on replica restarts (#300) (@payes)
+  * Make the docker images configurable (@kmova)
+  * Make sync http client timeout configurable (#301) (@utkarshmani1997)
+  * Add command to get rebuild estimation (#297) (@utkarshmani1997)
+  * Make preload operations of secondary replicas lockless (#296) (@payes)
+  * Add option to flush log to file (#290) (@utkarshmani1997)
+  * Remove headfile if already exists (#291) (@utkarshmani1997)
+  * Run fsync on files & dir after create/remove/rename operation on files (#278) (@utkarshmani1997)
+
+1.10.0-RC2 / 2020-05-13
 ========================
 
   * Split ci tests into multiple jobs (#304) (@payes)
