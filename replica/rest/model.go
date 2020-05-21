@@ -158,7 +158,6 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["setreplicamode"] = true
 		actions["setrevisioncounter"] = true
 		actions["updatecloneinfo"] = true
-		actions["setreplicacounter"] = true
 	case replica.Closed:
 		actions["start"] = true
 		actions["open"] = true
@@ -168,7 +167,6 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["revert"] = true
 		actions["updatecloneinfo"] = true
 		actions["prepareremovedisk"] = true
-		actions["setreplicacounter"] = true
 	case replica.Dirty:
 		actions["start"] = true
 		actions["resize"] = true
@@ -183,16 +181,16 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["revert"] = true
 		actions["setreplicamode"] = true
 		actions["prepareremovedisk"] = true
-		actions["setreplicacounter"] = true
+		actions["setrevisioncounter"] = true
 		actions["updatecloneinfo"] = true
 	case replica.Rebuilding:
 		actions["setrebuilding"] = true
 		actions["setlogging"] = true
 		actions["close"] = true
 		actions["reload"] = true
+		actions["snapshot"] = true
 		actions["setreplicamode"] = true
 		actions["setrevisioncounter"] = true
-		actions["setreplicacounter"] = true
 		actions["updatecloneinfo"] = true
 	case replica.Error:
 	}

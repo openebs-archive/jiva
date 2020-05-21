@@ -334,9 +334,7 @@ func (s *Server) SetRebuilding(rebuilding bool) error {
 	defer s.Unlock()
 
 	state, _ := s.Status()
-	// Must be Open/Dirty to set true or must be Rebuilding to set false
-	if (rebuilding && state != Open && state != Dirty) ||
-		(!rebuilding && state != Rebuilding) {
+	if (state == Initial) || (state == Closed) || (state == Error) {
 		return fmt.Errorf("Can not set rebuilding=%v from state %s", rebuilding, state)
 	}
 

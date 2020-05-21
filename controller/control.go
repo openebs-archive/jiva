@@ -391,7 +391,7 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 	}
 
 	if register.RepState == "rebuilding" {
-		logrus.Errorf("Cannot add replica in rebuilding state, addr: %v", register.Address)
+		logrus.Errorf("Cannot make replica in rebuilding state as leader, addr: %v", register.Address)
 		return nil
 	}
 
