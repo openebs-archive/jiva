@@ -1547,42 +1547,25 @@ update_file_sizes() {
 }
 
 test_restart_during_prepare_rebuild() {
-	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2")
+	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "3")
 	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
 	replica2_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2")
-	verify_replica_cnt "2" "test restart during add"
+	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+	verify_rw_rep_count "3" "test restart during prepare rebuild"
 
-	login_to_volume "$CONTROLLER_IP:3260"
-	sleep 5
-	get_scsi_disk
-	if [ "$device_name"!="" ]; then
-		mkfs.ext2 -F /dev/$device_name
-		mount /dev/$device_name /mnt/store
-		if [ $? -ne 0 ]; then
-			echo "mount failed in test_restart_during_add_replica"
-			collect_logs_and_exit
-		fi
-		umount /mnt/store
-	else
-		echo "Unable to detect iSCSI device during test_restart_add_replica"; collect_logs_and_exit
-	fi
-	logout_of_volume
-
-	docker stop $replica2_id
-	sleep 1
-	verify_replica_mode 1 "replica mode in test with restart during prepare rebuild" "$REPLICA_IP1" "RW"
-	replica2_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2" "PANIC_AFTER_PREPARE_REBUILD" "TRUE")
-	verify_container_dead $replica2_id "restart during prepare rebuild"
-	docker stop $replica2_id
-	replica1_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1")
+	run_ios 10K 0
+	docker stop $replica3_id
+	verify_rw_rep_count "2" "test restart during prepare rebuild"
+	run_ios 10K 10k
+	replica3_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3" "PANIC_AFTER_PREPARE_REBUILD" "TRUE")
+	verify_container_dead $replica3_id "restart during prepare rebuild"
+	docker stop $replica3_id
+	replica3_id=$(start_replica "$CONTROLLER_IP" "$REPLICA_IP3" "vol3")
+	verify_rw_rep_count "3" "test restart during prepare rebuild"
 	rev_counter1=`cat /tmp/vol1/revision.counter`
-	rev_counter2=`cat /tmp/vol2/revision.counter`
-	if [ $rev_counter1 -ne $rev_counter2 ]; then
+	rev_counter3=`cat /tmp/vol3/revision.counter`
+	if [ $rev_counter1 -ne $rev_counter3 ]; then
 		echo "replica restart during prepare rebuild1 -- failed"
-		collect_logs_and_exit
-	fi
-	if [ $rev_counter1 -lt 5 ]; then
-		echo "replica restart during prepare rebuild2 -- failed"
 		collect_logs_and_exit
 	fi
 	cleanup
