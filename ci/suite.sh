@@ -2103,16 +2103,16 @@ test_sync_progress() {
 
 test_max_chain_env() {
 	orig_controller_id=$(start_controller "$CONTROLLER_IP" "store1" "2" "15")
-	replica1_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol1" "MAX_CHAIN_LENGTH" "10")
+	replica1_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1" "MAX_CHAIN_LENGTH" "10")
 	replica2_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2" "MAX_CHAIN_LENGTH" "10")
 
-	i=0
-	while [ "$i" -lt "10" ];
+	iter=0
+	while [ "$iter" -lt "8" ];
 	do
 		sudo docker stop $replica2_id
 		sudo docker start $replica2_id
 		verify_rw_rep_count "2"
-		i=$((i + 1))
+		iter=$((iter + 1))
 	done
 	sudo docker stop $replica2_id
 	sudo docker start $replica2_id
@@ -2128,7 +2128,7 @@ test_max_chain_env() {
 	done
 	sudo docker stop $replica1_id
 	sudo docker stop $replica2_id
-	replica1_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol1" "MAX_CHAIN_LENGTH" "20")
+	replica1_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP1" "vol1" "MAX_CHAIN_LENGTH" "20")
 	replica2_id=$(start_debug_replica "$CONTROLLER_IP" "$REPLICA_IP2" "vol2" "MAX_CHAIN_LENGTH" "20")
 	verify_rw_rep_count "2"
 	cleanup
