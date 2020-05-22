@@ -12,6 +12,7 @@ if [ "$ARCH" != "linux_amd64" ]; then
 fi
 
 prepare_test_env
+test_max_chain_env
 test_volume_resize
 test_delete_snapshot
 test_duplicate_data_delete
