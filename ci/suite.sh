@@ -1,4 +1,3 @@
-
 #!/bin/bash
 set -x
 
@@ -9,6 +8,12 @@ REPLICA_IP2="172.18.0.4"
 REPLICA_IP3="172.18.0.5"
 CLONED_CONTROLLER_IP="172.18.0.6"
 CLONED_REPLICA_IP="172.18.0.7"
+
+# IMAGE_ORG can be used to customize the organization 
+# under which images should be pushed. 
+# By default the organization name is `openebs`. 
+IMAGE_ORG=${IMAGE_ORG:-openebs}
+
 
 snapIndx=1
 
@@ -95,8 +100,8 @@ prepare_test_env() {
 	mkdir -pv /mnt/store /mnt/store2
 
 	docker network create --subnet=172.18.0.0/16 stg-net
-	JI=$(docker images | grep openebs/jiva | awk '{print $1":"$2}' | awk 'NR == 2 {print}')
-	JI_DEBUG=$(docker images | grep openebs/jiva | awk '{print $1":"$2}' | awk 'NR == 1 {print}')
+	JI=$(docker images | grep ${IMAGE_ORG}/jiva | awk '{print $1":"$2}' | awk 'NR == 2 {print}')
+	JI_DEBUG=$(docker images | grep ${IMAGE_ORG}/jiva | awk '{print $1":"$2}' | awk 'NR == 1 {print}')
 	echo "Run CI tests on $JI and $JI_DEBUG"
 }
 
