@@ -32,7 +32,7 @@ const (
 	diskPrefix         = "volume-snap-"
 	diskSuffix         = ".img"
 	diskName           = diskPrefix + "%s" + diskSuffix
-	maximumChainLength = 512
+	maximumChainLength = 1024
 )
 
 var (
@@ -1076,7 +1076,11 @@ func (r *Replica) openLiveChain() error {
 		return err
 	}
 
-	if len(chain) > maximumChainLength {
+	maxChainLen := maximumChainLength
+	if types.MaxChainLength != 0 {
+		maxChainLen = types.MaxChainLength
+	}
+	if len(chain) > maxChainLen {
 		return fmt.Errorf("Live chain is too long: %v", len(chain))
 	}
 
