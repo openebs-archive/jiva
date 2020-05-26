@@ -13,6 +13,11 @@ IS_DOCKER_INSTALLED       := $(shell which docker >> /dev/null 2>&1; echo $$?)
 
 TARGETS := $(shell ls scripts)
 
+ifeq (${IMAGE_ORG}, )
+  IMAGE_ORG = openebs
+  export IMAGE_ORG
+endif
+
 # Determine the arch/os
 ifeq (${XC_OS}, )
   XC_OS:=$(shell go env GOOS)
@@ -82,7 +87,7 @@ build_image:
 
 
 _push_image:
-	cd $(GOPATH)/src/github.com/openebs/jiva && IMAGE_REPO="openebs/jiva" ./scripts/push
+	DIMAGE="${IMAGE_ORG}/jiva" ./scripts/push
 
 #
 # Will build the go based binaries
