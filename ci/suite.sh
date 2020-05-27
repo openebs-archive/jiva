@@ -819,7 +819,7 @@ test_two_replica_stop_start() {
 		docker start $replica2_id
 		wait
 		verify_replica_cnt "2" "Two replica count test3"
-		test_sync_progress
+		test_sync_progress "$orig_controller_id"
 		verify_vol_status "RW" "when there are 2 replicas and replicas restarted multiple times"
 
 		count=`expr $count + 1`
@@ -827,7 +827,7 @@ test_two_replica_stop_start() {
 	verify_controller_quorum "2" "when there are 2 replicas and they are restarted multiple times"
 	verify_vol_status "RW" "when there are 2 replicas and they are restarted multiple times"
 
-	test_sync_progress
+	test_sync_progress "$orig_controller_id"
 	docker stop $replica1_id
 	docker stop $replica2_id
 	verify_vol_status "RO" "when there are 2 replicas and both are stopped"
@@ -838,10 +838,10 @@ test_two_replica_stop_start() {
 	verify_rep_state 1 "Replica1 status after stopping both, and starting it" "$REPLICA_IP1" "NA"
     
 	docker start $replica2_id
-	test_sync_progress
+	test_sync_progress "$orig_controller_id"
 	verify_vol_status "RW" "when there are 2 replicas and are brought down. Then, both are started"
 	verify_replica_cnt "2" "when there are 2 replicas and are brought down. Then, both are started"
-	test_sync_progress
+	test_sync_progress "$orig_controller_id"
 
 	reader_exit=`docker logs $orig_controller_id 2>&1 | grep "Exiting rpc reader" | wc -l`
 	writer_exit=`docker logs $orig_controller_id 2>&1 | grep "Exiting rpc writer" | wc -l`
@@ -972,7 +972,7 @@ test_three_replica_stop_start() {
 
 	docker start $replica3_id
 	sleep 5
-	test_sync_progress
+	test_sync_progress "$orig_controller_id"
 	if [ $(verify_rw_status "RW") == 0 ]; then
 		echo "stop/start test passed when there are 3 replicas and all are restarted"
 	else
@@ -1220,12 +1220,7 @@ test_clone_feature() {
 	cloned_controller_id=$(start_controller "$CLONED_CONTROLLER_IP" "store2" "1")
 	start_cloned_replica "$CONTROLLER_IP"  "$CLONED_CONTROLLER_IP" "$CLONED_REPLICA_IP" "vol4"
 
-	if [ $(verify_clone_status "completed") == "0" ]; then
-		echo "clone created successfully"
-	else
-		echo "Clone creation failed"
-		collect_logs_and_exit
-	fi
+	verify_clone_status "completed"
 
 	login_to_volume "$CLONED_CONTROLLER_IP:3260"
 	get_scsi_disk
@@ -1253,17 +1248,18 @@ verify_clone_status() {
 	local i=0
 	local clonestatus=""
 	while [ "$clonestatus" != "$1" ]; do
+		test_sync_progress "$cloned_controller_id"
 		sleep 5
 		clonestatus=$(curl -s http://$CLONED_REPLICA_IP:9502/v1/replicas/1 | jq '.clonestatus' | tr -d '"')
 		i=`expr $i + 1`
-		if [ $i -eq 20 ]; then
-			echo "1"
+		if [[ $i -eq 20 ]] && [[ "$clonestatus" != "$1" ]]; then
+			echo "clone creation failed, clonestatus: $clonestatus"
 			return
 		else
 			continue
 		fi
 	done
-	echo "0"
+	echo "clone creation successful"
 }
 
 create_device() {
@@ -2103,7 +2099,7 @@ test_write_io_timeout_with_readwrite_env() {
 
 test_sync_progress() {
     echo "--------------------Test replica sync progress-------------------"
-    docker exec "$orig_controller_id" jivactl syncinfo
+    docker exec "$1" jivactl syncinfo
 }
 
 test_max_chain_env() {
