@@ -15,24 +15,24 @@
 
 set -e
 
-if [ -z ${IMAGE_REPO} ];
+if [ -z ${DIMAGE} ];
 then
-  echo "Error: IMAGE_REPO is not specified";
+  echo "Error: DIMAGE is not specified";
   exit 1
 fi
 
 source "$(dirname $0)/version"
 if [ ${ARCH} != "linux_amd64" ]; then
-  IMAGEID=$( docker images -q openebs/jiva-${XC_ARCH}:${VERSION} )
-  IMAGE_REPO="openebs/jiva-${XC_ARCH}"
+  IMAGEID=$( docker images -q ${DIMAGE}-${XC_ARCH}:${VERSION} )
+  DIMAGE="${DIMAGE}-${XC_ARCH}"
 else 
-  IMAGEID=$( docker images -q openebs/jiva:${VERSION} )
+  IMAGEID=$( docker images -q ${DIMAGE}:${VERSION} )
 fi
 
 echo $IMAGEID 
 if [ -z ${IMAGEID} ];
 then
-  echo "Error: unable to get IMAGEID for ${IMAGE_REPO}:${VERSION}";
+  echo "Error: unable to get IMAGEID for ${DIMAGE}:${VERSION}";
   exit 1
 fi
 
@@ -56,7 +56,7 @@ if [ ${CURRENT_BRANCH} = "master" ]; then
   CI_TAG="ci"
 fi
 
-echo "Set the image repo as: ${IMAGE_REPO}"
+echo "Set the image repo as: ${DIMAGE}"
 echo "Set the fixed ci image tag as: ${CI_TAG}"
 echo "Set the build/unique image tag as: ${BUILD_TAG}"
 
@@ -83,11 +83,11 @@ then
   sudo docker login -u "${DNAME}" -p "${DPASS}";
 
   # Push CI tagged image - :ci or :branch-ci
-  TagAndPushImage "${IMAGE_REPO}" "${CI_TAG}"
+  TagAndPushImage "${DIMAGE}" "${CI_TAG}"
 
   # Push unique tagged image - :master-<uuid> or :branch-<uuid>
   # This unique/build image will be pushed to corresponding ci repo. 
-  TagAndPushImage "${IMAGE_REPO}-ci" "${BUILD_TAG}"
+  TagAndPushImage "${DIMAGE}-ci" "${BUILD_TAG}"
 
 
   if [ ! -z "${TRAVIS_TAG}" ] ;
@@ -95,11 +95,11 @@ then
     # Push with different tags if tagged as a release
     # When github is tagged with a release, then Travis will
     # set the release tag in env TRAVIS_TAG
-    TagAndPushImage "${IMAGE_REPO}" "${TRAVIS_TAG}"
-    TagAndPushImage "${IMAGE_REPO}" "latest"
+    TagAndPushImage "${DIMAGE}" "${TRAVIS_TAG}"
+    TagAndPushImage "${DIMAGE}" "latest"
   fi;
 else
-  echo "No docker credentials provided. Skip uploading ${IMAGE_REPO} to docker hub";
+  echo "No docker credentials provided. Skip uploading ${DIMAGE} to docker hub";
 fi;
 
 # Push ci image to quay.io for security scanning
@@ -108,18 +108,18 @@ then
   sudo docker login -u "${QNAME}" -p "${QPASS}" quay.io;
 
   # Push CI tagged image - :ci or :branch-ci
-  TagAndPushImage "quay.io/${IMAGE_REPO}" "${CI_TAG}"
+  TagAndPushImage "quay.io/${DIMAGE}" "${CI_TAG}"
 
   if [ ! -z "${TRAVIS_TAG}" ] ;
   then
     # Push with different tags if tagged as a release
     # When github is tagged with a release, then Travis will
     # set the release tag in env TRAVIS_TAG
-    TagAndPushImage "quay.io/${IMAGE_REPO}" "${TRAVIS_TAG}"
-    TagAndPushImage "quay.io/${IMAGE_REPO}" "latest"
+    TagAndPushImage "quay.io/${DIMAGE}" "${TRAVIS_TAG}"
+    TagAndPushImage "quay.io/${DIMAGE}" "latest"
   fi;
 else
-  echo "No docker credentials provided. Skip uploading ${IMAGE_REPO} to quay";
+  echo "No docker credentials provided. Skip uploading ${DIMAGE} to quay";
 fi;
 #Push image to run openebs-e2e based on git commit
 if [ ! -z "${COMMIT}" ] && [ ! -z "${DNAMEGL}" ] && [ ! -z "${DPASSGL}" ];
@@ -127,5 +127,5 @@ then
   sudo docker login -u "${DNAMEGL}" -p "${DPASSGL}";
 
   # Push COMMIT tagged image - :COMMIT
-  TagAndPushImage "${IMAGE_REPO}" "${COMMIT}"
+  TagAndPushImage "${DIMAGE}" "${COMMIT}"
 fi;
