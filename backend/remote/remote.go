@@ -240,6 +240,15 @@ func (r *Remote) info() (rest.Replica, error) {
 	return replica, err
 }
 
+// GetReplicaChain fetches replic chain
+func (r *Remote) GetReplicaChain() ([]string, error) {
+	replica, err := r.info()
+	if err != nil {
+		return nil, err
+	}
+	return replica.Chain, nil
+}
+
 // Create Remote with address given string, returns backend and error
 func (rf *Factory) Create(address string) (types.Backend, error) {
 	// No need to add prints in this function.

@@ -312,6 +312,54 @@ func (r *replicator) Snapshot(name string, userCreated bool, created string) err
 	return nil
 }
 
+func (r *replicator) GetLastSnapshot() (string, error) {
+	retErrorLock := sync.Mutex{}
+	retError := &BackendError{
+		Errors: map[string]error{},
+	}
+	replicaChains := make(map[string][]string)
+	wg := sync.WaitGroup{}
+	var success int
+
+	for addr, backend := range r.backends {
+		if backend.mode == types.RW {
+			wg.Add(1)
+			go func(address string, backend types.Backend) {
+				if chain, err := backend.GetReplicaChain(); err != nil {
+					logrus.Infof("failed taking snapshot at %s with err %v", addr, err)
+					retErrorLock.Lock()
+					retError.Errors[address] = err
+					retErrorLock.Unlock()
+				} else {
+					retErrorLock.Lock()
+					replicaChains[addr] = chain
+					success = success + 1
+					retErrorLock.Unlock()
+				}
+				wg.Done()
+			}(addr, backend.backend)
+		} else {
+			logrus.Infof("not taking snapshot at %s in err mode", addr)
+		}
+	}
+	wg.Wait()
+
+	if len(retError.Errors) != 0 {
+		return "", retError
+	}
+	var snapName string
+	for _, chain := range replicaChains {
+		if snapName == "" {
+			snapName = chain[1]
+			continue
+		}
+		if snapName != chain[1] {
+			return "", fmt.Errorf("Last Snapshot differs at replicas %v", replicaChains)
+		}
+	}
+	return snapName, nil
+}
+
 func (r *replicator) SetCheckpoint(snapshotName string) error {
 	retErrorLock := sync.Mutex{}
 	retError := &BackendError{
@@ -325,7 +373,7 @@ func (r *replicator) SetCheckpoint(snapshotName string) error {
 			wg.Add(1)
 			go func(address string, backend types.Backend) {
 				if err := backend.SetCheckpoint(snapshotName); err != nil {
-					logrus.Infof("failed taking snapshot at %s with err %v", addr, err)
+					logrus.Infof("failed setting checkpoint at %s with err %v", addr, err)
 					retErrorLock.Lock()
 					retError.Errors[address] = err
 					retErrorLock.Unlock()
@@ -337,7 +385,7 @@ func (r *replicator) SetCheckpoint(snapshotName string) error {
 				wg.Done()
 			}(addr, backend.backend)
 		} else {
-			logrus.Infof("not taking snapshot at %s in err mode", addr)
+			logrus.Infof("not setting checkpoint at %s in err mode", addr)
 		}
 	}
 	wg.Wait()

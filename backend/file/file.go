@@ -65,6 +65,11 @@ func (f *Wrapper) SetCheckpoint(snapshotName string) error {
 	return nil
 }
 
+// GetReplicaChain ...
+func (f *Wrapper) GetReplicaChain() ([]string, error) {
+	return nil, nil
+}
+
 func (f *Wrapper) SetRevisionCounter(counter int64) error {
 	return nil
 }
