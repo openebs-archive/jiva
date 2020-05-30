@@ -208,6 +208,11 @@ func (r *Remote) SetReplicaMode(mode types.Mode) error {
 	return r.doAction("setreplicamode", &map[string]string{"mode": m})
 }
 
+// SetCheckpoint ...
+func (r *Remote) SetCheckpoint(snapshotName string) error {
+	return r.doAction("setcheckpoint", &map[string]string{"snapshotName": snapshotName})
+}
+
 func (r *Remote) SetRevisionCounter(counter int64) error {
 	logrus.Infof("Set revision counter of %s to : %v", r.Name, counter)
 	localRevCount := strconv.FormatInt(counter, 10)

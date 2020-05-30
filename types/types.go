@@ -75,6 +75,7 @@ var (
 type Backend interface {
 	IOs
 	Snapshot(name string, userCreated bool, created string) error
+	SetCheckpoint(snapshotName string) error
 	Resize(name string, size string) error
 	Size() (int64, error)
 	SectorSize() (int64, error)

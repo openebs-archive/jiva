@@ -312,6 +312,43 @@ func (r *replicator) Snapshot(name string, userCreated bool, created string) err
 	return nil
 }
 
+func (r *replicator) SetCheckpoint(snapshotName string) error {
+	retErrorLock := sync.Mutex{}
+	retError := &BackendError{
+		Errors: map[string]error{},
+	}
+	wg := sync.WaitGroup{}
+	var success int
+
+	for addr, backend := range r.backends {
+		if backend.mode == types.RW {
+			wg.Add(1)
+			go func(address string, backend types.Backend) {
+				if err := backend.SetCheckpoint(snapshotName); err != nil {
+					logrus.Infof("failed taking snapshot at %s with err %v", addr, err)
+					retErrorLock.Lock()
+					retError.Errors[address] = err
+					retErrorLock.Unlock()
+				} else {
+					retErrorLock.Lock()
+					success = success + 1
+					retErrorLock.Unlock()
+				}
+				wg.Done()
+			}(addr, backend.backend)
+		} else {
+			logrus.Infof("not taking snapshot at %s in err mode", addr)
+		}
+	}
+	wg.Wait()
+
+	logrus.Infof("successfully set checkpoint cnt %d", success)
+	if len(retError.Errors) != 0 {
+		return retError
+	}
+	return nil
+}
+
 func (r *replicator) Resize(name string, size string) error {
 	retErrorLock := sync.Mutex{}
 	retError := &BackendError{

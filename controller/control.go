@@ -134,6 +134,12 @@ func (c *Controller) UpdateVolStatus() {
 	} else {
 		c.ReadOnly = true
 	}
+	if rwReplicaCount == c.ReplicationFactor {
+		// chain = Send sync to all replicas
+		// Check heads in all chains have same parent
+		// Send checkpoint to all replicas
+		c.backend.SetCheckpoint("SnapshotName")
+	}
 
 	logrus.Infof("Previously Volume RO: %v, Currently: %v,  Total Replicas: %v,  RW replicas: %v, Total backends: %v",
 		prev, c.ReadOnly, len(c.replicas), rwReplicaCount, len(c.backend.backends))

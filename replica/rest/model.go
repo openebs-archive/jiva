@@ -106,6 +106,12 @@ type ReplicaMode struct {
 	Mode string `json:"mode"`
 }
 
+// Checkpoint ...
+type Checkpoint struct {
+	client.Resource
+	SnapshotName string `json:"snapshotName"`
+}
+
 type RevisionCounter struct {
 	client.Resource
 	Counter string `json:"counter"`
@@ -159,6 +165,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["setrevisioncounter"] = true
 		actions["updatecloneinfo"] = true
 		actions["setreplicacounter"] = true
+		actions["setcheckpoint"] = true
 	case replica.Closed:
 		actions["start"] = true
 		actions["open"] = true
@@ -185,6 +192,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["prepareremovedisk"] = true
 		actions["setreplicacounter"] = true
 		actions["updatecloneinfo"] = true
+		actions["setcheckpoint"] = true
 	case replica.Rebuilding:
 		actions["setrebuilding"] = true
 		actions["setlogging"] = true
@@ -194,6 +202,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 		actions["setrevisioncounter"] = true
 		actions["setreplicacounter"] = true
 		actions["updatecloneinfo"] = true
+		actions["setcheckpoint"] = true
 	case replica.Error:
 	}
 
