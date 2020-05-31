@@ -605,40 +605,19 @@ func (r *Replica) processPrepareRemoveDisks(disks []string) ([]PrepareRemoveActi
 		if _, exists := r.diskData[disk]; !exists {
 			return nil, fmt.Errorf("Wrong disk %v doesn't exist", disk)
 		}
+		parent := r.diskData[disk].Parent
 
-		children := r.diskChildrenMap[disk]
-		// 1) leaf node
-		if children == nil {
-			actions = append(actions, PrepareRemoveAction{
+		actions = append(actions,
+			PrepareRemoveAction{
+				Action: OpCoalesce,
+				Source: parent,
+				Target: disk,
+			},
+			PrepareRemoveAction{
 				Action: OpRemove,
 				Source: disk,
 			})
-			continue
-		}
-
-		// 2) has only one child and is not head
-		if len(children) == 1 {
-			var child string
-			// Get the only element in children
-			for child = range children {
-			}
-			if child != r.info.Head {
-				actions = append(actions,
-					PrepareRemoveAction{
-						Action: OpCoalesce,
-						Source: disk,
-						Target: child,
-					},
-					PrepareRemoveAction{
-						Action: OpReplace,
-						Source: disk,
-						Target: child,
-					})
-				continue
-			}
-		}
 	}
-
 	return actions, nil
 }
 
@@ -646,6 +625,7 @@ func (r *Replica) Info() Info {
 	return r.info
 }
 
+// DisplayChain Diff btw this and chain func
 func (r *Replica) DisplayChain() ([]string, error) {
 	r.RLock()
 	defer r.RUnlock()

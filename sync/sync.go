@@ -3,6 +3,7 @@ package sync
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -19,7 +20,7 @@ import (
 )
 
 const (
-	SnapshotDeletionInterval = 5 * time.Second
+	SnapshotDeletionInterval = 60 * time.Second
 )
 
 var (
@@ -259,6 +260,11 @@ Register:
 			types.ShouldPunchHoles = false
 			return err
 		}
+		repclient, err := replicaClient.NewReplicaClient(replicaAddress)
+		if err != nil {
+			return err
+		}
+		go t.InternalSnapshotCleaner(s, repclient)
 		return nil
 	}
 	logrus.Infof("Adding replica %s in WO mode", replicaAddress)
@@ -405,7 +411,7 @@ func (t *Task) reloadAndVerify(s *replica.Server, address string, repClient *rep
 		logrus.Errorf("Error in setRebuilding %s", address)
 		return err
 	}
-	go t.InternalSnapshotCleaner(s)
+	go t.InternalSnapshotCleaner(s, repClient)
 
 	return nil
 }
@@ -611,13 +617,82 @@ func (t *Task) getToReplica(address string) (rest.Replica, error) {
 	return rest.Replica{}, fmt.Errorf("Failed to find target replica to copy to")
 }
 
-func (t *Task) InternalSnapshotCleaner(s *replica.Server) {
+func (t *Task) InternalSnapshotCleaner(s *replica.Server, repClient *replicaClient.ReplicaClient) {
 	ticker := time.NewTicker(SnapshotDeletionInterval)
 
 	for range ticker.C {
 		snapshot, err := t.client.GetCheckpoint()
 		if err == nil && snapshot == s.Replica().Info().Checkpoint {
-			logrus.Infof("Delete Snapshot")
+			sortedSnapshotList, _ := getDeleteCandidateChain(s, snapshot)
+			if len(sortedSnapshotList) < 10 {
+				continue
+			}
+			ops, err := s.PrepareRemoveDisk(sortedSnapshotList[0].name)
+			if err != nil {
+				continue
+			}
+			for _, op := range ops {
+				switch op.Action {
+				case replica.OpCoalesce:
+					logrus.Infof("Coalescing %v to %v", op.Target, op.Source)
+					if err = repClient.Coalesce(op.Target, op.Source); err != nil {
+						break
+					}
+				case replica.OpRemove:
+					logrus.Infof("Remove %v", op.Source)
+					if err = s.RemoveDiffDisk(op.Source); err != nil {
+						break
+					}
+				}
+			}
+
 		}
 	}
+}
+func isHeadDisk(diskName string) bool {
+	if strings.HasPrefix(diskName, "volume-head-") && strings.HasSuffix(diskName, ".img") {
+		return true
+	}
+	return false
+}
+
+type SnapList struct {
+	name string
+	size int64
+}
+
+func getDeleteCandidateChain(s *replica.Server, checkpoint string) ([]SnapList, error) {
+	var (
+		err      error
+		indx     int
+		snapshot string
+	)
+
+	replicaChain, err := s.Replica().Chain()
+	if err != nil {
+		return nil, err
+	}
+	replicaDisks := s.Replica().ListDisks()
+
+	for indx, snapshot = range replicaChain {
+		if snapshot == checkpoint {
+			break
+		}
+	}
+
+	replicaChain = replicaChain[indx+1 : len(replicaChain)-1]
+	var snapList = make([]SnapList, len(replicaChain))
+	for i, disk := range replicaChain {
+		snapList[i].name = disk
+		snapList[i].size, err = strconv.ParseInt(replicaDisks[disk].Size, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to convert size: %v into int64, err: %v", replicaDisks[disk].Size, err)
+		}
+	}
+
+	sort.SliceStable(snapList, func(i, j int) bool {
+		return snapList[j].size > snapList[i].size
+	})
+
+	return snapList, err
 }
