@@ -215,6 +215,7 @@ func NewReplica(context *api.ApiContext, state replica.State, info replica.Info,
 	r.Head = info.Head
 	r.Parent = info.Parent
 	r.SectorSize = info.SectorSize
+	r.Checkpoint = info.Checkpoint
 	r.Size = strconv.FormatInt(info.Size, 10)
 	r.RevisionCounter = strconv.FormatInt(info.RevisionCounter, 10)
 	r.UsedBlocks, r.UsedLogicalBlocks = "0", "0" // replica must be initializing

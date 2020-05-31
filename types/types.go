@@ -172,6 +172,7 @@ type ReplicaInfo struct {
 	UsedLogicalBlocks string              `json:"usedlogicalblocks"`
 	UsedBlocks        string              `json:"usedblocks"`
 	CloneStatus       string              `json:"clonestatus"`
+	Checkpoint        string              `json:"checkpoint"`
 }
 
 type Replica struct {

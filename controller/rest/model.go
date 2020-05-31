@@ -60,6 +60,11 @@ type SnapshotOutput struct {
 	Message string `json:"message"`
 }
 
+type Checkpoint struct {
+	client.Resource
+	Snapshot string `json:"snapshot"`
+}
+
 type VolumeStats struct {
 	client.Resource
 	IsClientConnected bool          `json:"IsClientConnected"`
@@ -221,6 +226,11 @@ func NewSchema() *client.Schemas {
 	f = stats.ResourceFields["Stats"]
 	f.Default = true
 	stats.ResourceFields["Stats"] = f
+
+	checkpoint := schemas.AddType("checkpoint", Checkpoint{})
+	f = checkpoint.ResourceFields["checkpoint"]
+	f.Default = true
+	checkpoint.ResourceFields["checkpoint"] = f
 
 	volumes := schemas.AddType("volume", Volume{})
 	volumes.ResourceActions = map[string]client.Action{

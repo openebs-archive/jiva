@@ -38,7 +38,7 @@ type Controller struct {
 	ReadOnly                 bool
 	SnapshotName             string
 	IsSnapDeletionInProgress bool
-	//StartAutoSnapDeletion    chan bool
+	Checkpoint               string
 }
 
 func max(x int, y int) int {
@@ -137,8 +137,12 @@ func (c *Controller) UpdateVolStatus() {
 	if rwReplicaCount == c.ReplicationFactor {
 		checkpoint, err := c.backend.GetLastSnapshot()
 		if err == nil {
-			c.backend.SetCheckpoint(checkpoint)
+			if err := c.backend.SetCheckpoint(checkpoint); err == nil {
+				c.Checkpoint = checkpoint
+			}
 		}
+	} else {
+		c.Checkpoint = ""
 	}
 
 	logrus.Infof("Previously Volume RO: %v, Currently: %v,  Total Replicas: %v,  RW replicas: %v, Total backends: %v",
