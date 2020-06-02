@@ -1308,8 +1308,8 @@ func (c *Controller) processRemoveSnapshot(replicaInController *types.Replica, s
 
 			}
 		case replica.OpCoalesce:
-			logrus.Infof("Coalescing %v to %v on %v", op.Target, op.Source, replicaInController.Address)
-			if err = repClient.Coalesce(op.Target, op.Source); err != nil {
+			logrus.Infof("Coalescing %v to %v on %v", op.Source, op.Target, replicaInController.Address)
+			if err = repClient.Coalesce(op.Source, op.Target); err != nil {
 				logrus.Errorf("Failed to coalesce %s on %s: %v", snapshot, replicaInController.Address, err)
 				return fmt.Errorf("Failed to coalesce %s on %s: %v", snapshot, replicaInController.Address, err)
 			}

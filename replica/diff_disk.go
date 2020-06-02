@@ -62,7 +62,7 @@ func (d *diffDisk) RemoveIndex(index int) error {
 	}
 
 	for i := 0; i < len(d.location); i++ {
-		if d.location[i] > uint16(index) {
+		if d.location[i] >= uint16(index) {
 			// move index by one
 			d.location[i]--
 		}

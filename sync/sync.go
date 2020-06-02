@@ -626,7 +626,7 @@ func (t *Task) InternalSnapshotCleaner(s *replica.Server, repClient *replicaClie
 				switch op.Action {
 				case replica.OpCoalesce:
 					logrus.Infof("Coalescing %v to %v", op.Target, op.Source)
-					if err = repClient.Coalesce(op.Target, op.Source); err != nil {
+					if err = repClient.Coalesce(op.Source, op.Target); err != nil {
 						break
 					}
 				case replica.OpRemove:
@@ -659,9 +659,13 @@ func getDeleteCandidateChain(s *replica.Server, checkpoint string) ([]SnapList, 
 		snapshot string
 	)
 
-	replicaChain, err := s.Replica().Chain()
+	chain, err := s.Replica().Chain()
 	if err != nil {
 		return nil, err
+	}
+	var replicaChain []string
+	for i := len(chain) - 1; i >= 0; i-- {
+		replicaChain = append(replicaChain, chain[i])
 	}
 	replicaDisks := s.Replica().ListDisks()
 
@@ -670,8 +674,11 @@ func getDeleteCandidateChain(s *replica.Server, checkpoint string) ([]SnapList, 
 			break
 		}
 	}
+	if len(replicaChain) <= 3 || indx <= 1 { // Head, last snapshot, base snapshot
+		return nil, nil
+	}
 
-	replicaChain = replicaChain[indx+1 : len(replicaChain)-1]
+	replicaChain = replicaChain[1:indx]
 	var snapList = make([]SnapList, len(replicaChain))
 	for i, disk := range replicaChain {
 		snapList[i].name = disk

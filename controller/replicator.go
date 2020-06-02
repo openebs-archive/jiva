@@ -349,6 +349,9 @@ func (r *replicator) GetLastSnapshot() (string, error) {
 	}
 	var snapName string
 	for _, chain := range replicaChains {
+		if len(chain) <= 1 {
+			continue
+		}
 		if snapName == "" {
 			snapName = chain[1]
 			continue

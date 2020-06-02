@@ -614,8 +614,8 @@ func (r *Replica) processPrepareRemoveDisks(disks []string) ([]PrepareRemoveActi
 		actions = append(actions,
 			PrepareRemoveAction{
 				Action: OpCoalesce,
-				Source: parent,
-				Target: disk,
+				Source: disk,
+				Target: parent,
 			},
 			PrepareRemoveAction{
 				Action: OpRemove,
