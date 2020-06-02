@@ -350,8 +350,6 @@ func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.R
 		}
 	}
 
-	logrus.Infof("RWCHAIN: %v", rwReplica.Chain)
-	logrus.Infof("WOCHAIN: %v", curReplica.Chain)
 	if rwReplica.RevisionCounter == curReplica.RevisionCounter {
 		// ignoring Chain[0] since it's head file and it is opened for writing the latest data.
 		if !reflect.DeepEqual(rwReplica.Chain[1:], curReplica.Chain[1:]) {
@@ -516,13 +514,6 @@ func (t *Task) syncFiles(fromClient, toClient *replicaClient.ReplicaClient, disk
 		if strings.Contains(disk, "volume-head") {
 			return fmt.Errorf("Disk list shouldn't contain volume-head")
 		}
-
-		/*		ok, err := isRevisionCountSame(fromClient, toClient, disk)
-				if err != nil {
-					return err
-				}
-		*/
-		//		if !ok {
 		rebuild.SetStatus(disk, types.RebuildInProgress)
 		if err := t.syncFile(disk, "", fromClient, toClient); err != nil {
 			return err

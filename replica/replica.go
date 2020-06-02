@@ -575,6 +575,10 @@ func (r *Replica) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) 
 		return nil, fmt.Errorf("Can't delete latest snapshot: %s", disk)
 	}
 
+	if data.Parent == "" {
+		return nil, fmt.Errorf("Can't delete base snapshot: %s", disk)
+	}
+
 	logrus.Infof("Mark disk %v as removed", disk)
 	if err := r.markDiskAsRemoved(disk); err != nil {
 		return nil, fmt.Errorf("Fail to mark disk %v as removed: %v", disk, err)
