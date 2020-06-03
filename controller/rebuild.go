@@ -110,10 +110,10 @@ func (c *Controller) VerifyRebuildReplica(address string) error {
 	}
 	logrus.Infof("chain %v from rw replica %s", rwChain, rwReplica.Address)
 	// No need to compare the volume head disk
-	rwChain = rwChain[1:indx]
+	rwChain = rwChain[1 : indx+1]
 
 	logrus.Infof("chain %v from wo replica %s", chain, address)
-	chain = chain[1:indx]
+	chain = chain[1 : indx+1]
 
 	if !reflect.DeepEqual(rwChain, chain) {
 		return fmt.Errorf("Replica %v's chain not equal to RW replica %v's chain",
