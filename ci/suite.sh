@@ -1809,7 +1809,7 @@ verify_delete_snapshot_failure() {
 	local msg=""
 	local snap_ls="docker exec "$orig_controller_id" jivactl snapshot ls"
 	docker exec "$orig_controller_id" jivactl snapshot info
-	snap=$(eval $snap_ls | tail -1)
+	snap=$(eval $snap_ls | tail -2 | head -1)
 	cmd="docker exec "$orig_controller_id" jivactl snapshot rm "$snap""
 	msg=$(eval $cmd 2>&1)
 	echo "$msg"
