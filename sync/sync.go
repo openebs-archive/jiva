@@ -618,7 +618,13 @@ func (t *Task) InternalSnapshotCleaner(s *replica.Server, repClient *replicaClie
 			if len(sortedSnapshotList) < 10 {
 				continue
 			}
-			ops, err := s.PrepareRemoveDisk(sortedSnapshotList[0].name)
+			var snap SnapList
+			for _, snap = range sortedSnapshotList {
+				if snap.name != "" { // To remove user created snapshot entries
+					break
+				}
+			}
+			ops, err := s.PrepareRemoveDisk(snap.name)
 			if err != nil {
 				continue
 			}
@@ -680,12 +686,17 @@ func getDeleteCandidateChain(s *replica.Server, checkpoint string) ([]SnapList, 
 
 	replicaChain = replicaChain[1:indx]
 	var snapList = make([]SnapList, len(replicaChain))
-	for i, disk := range replicaChain {
+	i := 0
+	for _, disk := range replicaChain {
+		if replicaDisks[disk].UserCreated {
+			continue
+		}
 		snapList[i].name = disk
 		snapList[i].size, err = strconv.ParseInt(replicaDisks[disk].Size, 10, 64)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to convert size: %v into int64, err: %v", replicaDisks[disk].Size, err)
 		}
+		i++
 	}
 
 	sort.SliceStable(snapList, func(i, j int) bool {
