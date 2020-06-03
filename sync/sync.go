@@ -641,6 +641,9 @@ func (t *Task) InternalSnapshotCleaner(s *replica.Server, repClient *replicaClie
 						break
 					}
 				}
+				if err != nil {
+					break
+				}
 			}
 
 		}
@@ -688,7 +691,7 @@ func getDeleteCandidateChain(s *replica.Server, checkpoint string) ([]SnapList, 
 	var snapList = make([]SnapList, len(replicaChain))
 	i := 0
 	for _, disk := range replicaChain {
-		if replicaDisks[disk].UserCreated {
+		if replicaDisks[disk].UserCreated && !replicaDisks[disk].Removed {
 			continue
 		}
 		snapList[i].name = disk

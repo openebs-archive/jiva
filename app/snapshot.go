@@ -234,6 +234,45 @@ func getCommonSnapshots(replicas []rest.Replica) ([]string, error) {
 	return snapshots, nil
 }
 
+func getAllSnapshots(replicas []rest.Replica) ([]string, error) {
+	first := true
+	finalSnapshotList := []string{}
+
+	for _, r := range replicas {
+		snapshots := []string{}
+		diffSnapshots := []string{}
+		if r.Mode != "RW" {
+			continue
+		}
+		replica, err := getReplica(r.Address)
+		if err != nil {
+			return nil, err
+		}
+		// Replica has just been started and haven't prepared the head
+		// file yet
+		if len(replica.Chain) == 0 {
+			break
+		}
+		for i, snap := range replica.Chain {
+			if i == 0 {
+				continue
+			}
+			if !replica.Disks[snap].Removed {
+				snapshots = append(snapshots, snap)
+			}
+		}
+
+		if !first {
+			diffSnapshots = util.Filter(snapshots, func(i string) bool {
+				return !util.Contains(finalSnapshotList, i)
+			})
+		}
+		first = false
+		finalSnapshotList = append(snapshots, diffSnapshots...)
+	}
+	return finalSnapshotList, nil
+}
+
 func lsSnapshot(c *cli.Context) error {
 	cli := getCli(c)
 
@@ -243,7 +282,7 @@ func lsSnapshot(c *cli.Context) error {
 	}
 
 	snapshots := []string{}
-	snapshots, err = getCommonSnapshots(replicas)
+	snapshots, err = getAllSnapshots(replicas)
 	if err != nil {
 		return err
 	}

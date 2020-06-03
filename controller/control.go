@@ -1237,18 +1237,10 @@ func (c *Controller) IsReplicaRW(replicaInController *types.Replica) error {
 func (c *Controller) DeleteSnapshot(replicas []types.Replica) error {
 	var err error
 
-	ops := make(map[string][]replica.PrepareRemoveAction)
 	for _, r := range replicas {
 		replica := r // pin it
-		ops[replica.Address], err = c.prepareRemoveSnapshot(&replica, c.SnapshotName)
+		_, err = c.prepareRemoveSnapshot(&replica, c.SnapshotName)
 		if err != nil {
-			return err
-		}
-	}
-
-	for _, rep := range replicas {
-		replica := rep // pin it
-		if err := c.processRemoveSnapshot(&replica, c.SnapshotName, ops[replica.Address]); err != nil {
 			return err
 		}
 	}

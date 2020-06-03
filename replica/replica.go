@@ -563,7 +563,7 @@ func (r *Replica) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) 
 		disk = GenerateSnapshotDiskName(name)
 		data, exists = r.diskData[disk]
 		if !exists {
-			return nil, fmt.Errorf("Can not find snapshot %v", disk)
+			return nil, nil
 		}
 	}
 

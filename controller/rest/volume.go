@@ -329,39 +329,28 @@ func (s *Server) getVolume(context *api.ApiContext, id string) *Volume {
 // DeleteSnapshot ...
 func (s *Server) DeleteSnapshot(rw http.ResponseWriter, req *http.Request) error {
 	s.c.Lock()
-	if s.c.IsSnapDeletionInProgress {
-		s.c.Unlock()
-		return fmt.Errorf("Snapshot deletion process is in progress, %s is getting deleted", s.c.SnapshotName)
-	}
+	defer s.c.Unlock()
 
 	apiContext := api.GetApiContext(req)
 	var input SnapshotInput
 	if err := apiContext.Read(&input); err != nil {
-		s.c.Unlock()
 		return err
 	}
 	replicas := s.c.ListReplicas()
 	s.c.SnapshotName = input.Name
-	rf := s.c.ReplicationFactor
-	if len(replicas) != rf {
-		s.c.Unlock()
-		return fmt.Errorf("Can not remove a snapshot because, RF: %v, replica count: %v", rf, len(replicas))
-	}
 
+	rwCount := 0
 	for _, rep := range replicas {
-		r := rep // pin it
-		if err := s.c.IsReplicaRW(&r); err != nil {
-			s.c.Unlock()
-			return fmt.Errorf("Can't delete snapshot %s, err: %v", s.c.SnapshotName, err)
+		if rep.Mode == "RW" {
+			rwCount++
 		}
 	}
-	s.c.IsSnapDeletionInProgress = true
-	s.c.Unlock()
-	defer func() {
-		s.c.Lock()
-		s.c.IsSnapDeletionInProgress = false
-		s.c.Unlock()
-	}()
+	if rwCount != s.c.ReplicationFactor {
+		return fmt.Errorf(
+			"Can't delete replica, rwReplicaCount:%v != ReplicationFactor:%v",
+			rwCount, s.c.ReplicationFactor,
+		)
+	}
 
 	logrus.Infof("Delete snapshot: %s", input.Name)
 	err := s.c.DeleteSnapshot(replicas)
