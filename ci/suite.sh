@@ -1802,7 +1802,7 @@ copy_files_into_mnt_dir() {
 
 verify_delete_snapshot_failure() {
 	echo "-------------Verify delete snapshots failure---------------"
-	declare -a errors=("Failed to coalesce" "Replica tcp://"$1":9502 mode is" "Snapshot deletion process is in progress" "Can't delete replica, rwReplicaCount:2 != ReplicationFactor:3" "Client.Timeout exceeded while awaiting headers", "Failed to replace")
+	declare -a errors=("Failed to coalesce" "Replica tcp://"$1":9502 mode is" "Snapshot deletion process is in progress" "Can't delete snapshot, rwReplicaCount:2 != ReplicationFactor:3" "Client.Timeout exceeded while awaiting headers", "Failed to replace")
 	local i=""
 	local cnt=0
 	local snap=""
