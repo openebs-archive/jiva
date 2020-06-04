@@ -1802,7 +1802,7 @@ copy_files_into_mnt_dir() {
 
 verify_delete_snapshot_failure() {
 	echo "-------------Verify delete snapshots failure---------------"
-	declare -a errors=("Failed to coalesce" "Replica tcp://"$1":9502 mode is" "Snapshot deletion process is in progress" "Can not remove a snapshot because, RF: 3, replica count: 2" "Client.Timeout exceeded while awaiting headers", "Failed to replace")
+	declare -a errors=("Failed to coalesce" "Replica tcp://"$1":9502 mode is" "Snapshot deletion process is in progress" "Can't delete replica, rwReplicaCount:2 != ReplicationFactor:3" "Client.Timeout exceeded while awaiting headers", "Failed to replace")
 	local i=""
 	local cnt=0
 	local snap=""
@@ -1914,7 +1914,7 @@ verify_replica_restart_while_snap_deletion() {
 	# case 1: Rebuild in progress
 	sudo docker start "$3"
 	sleep 5
-	verify_delete_snapshot_failure "$4" "false"
+	verify_delete_snapshot_failure "$4" "true"
 	verify_rw_rep_count "3"
 
 	# case 2: Replication factor is not met
@@ -1926,7 +1926,7 @@ verify_replica_restart_while_snap_deletion() {
 	sudo docker start "$3"
 	verify_replica_cnt "3" "Three replica count test"
 	verify_rw_rep_count "3"
-	verify_delete_snapshot_failure "$4" "false" &
+	verify_delete_snapshot_failure "$4" "true" &
 	sleep 2
 	sudo docker stop "$3"
 	wait
@@ -1936,7 +1936,7 @@ verify_replica_restart_while_snap_deletion() {
 	verify_rw_rep_count "3"
 	verify_delete_snapshot_failure "$4" "true" &
 	sleep 0.5
-	verify_delete_snapshot_failure "$4" "false"
+	verify_delete_snapshot_failure "$4" "true"
 	wait
 }
 
