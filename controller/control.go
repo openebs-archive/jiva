@@ -1234,12 +1234,12 @@ func (c *Controller) IsReplicaRW(replicaInController *types.Replica) error {
 }
 
 // DeleteSnapshot ...
-func (c *Controller) DeleteSnapshot(replicas []types.Replica) error {
+func (c *Controller) DeleteSnapshot(snapshot string, replicas []types.Replica) error {
 	var err error
 
 	for _, r := range replicas {
 		replica := r // pin it
-		_, err = c.prepareRemoveSnapshot(&replica, c.SnapshotName)
+		_, err = c.prepareRemoveSnapshot(&replica, snapshot)
 		if err != nil {
 			return err
 		}

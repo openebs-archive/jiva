@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -337,7 +338,6 @@ func (s *Server) DeleteSnapshot(rw http.ResponseWriter, req *http.Request) error
 		return err
 	}
 	replicas := s.c.ListReplicas()
-	s.c.SnapshotName = input.Name
 
 	rwCount := 0
 	for _, rep := range replicas {
@@ -347,13 +347,24 @@ func (s *Server) DeleteSnapshot(rw http.ResponseWriter, req *http.Request) error
 	}
 	if rwCount != s.c.ReplicationFactor {
 		return fmt.Errorf(
-			"Can't delete replica, rwReplicaCount:%v != ReplicationFactor:%v",
+			"Can't delete snapshot, rwReplicaCount:%v != ReplicationFactor:%v",
 			rwCount, s.c.ReplicationFactor,
 		)
 	}
 
+	if s.c.Checkpoint == "" {
+		return fmt.Errorf(
+			"Can't delete snapshot, checkpoint not set at controller",
+		)
+	}
+	if strings.Contains(s.c.Checkpoint, input.Name) {
+		return fmt.Errorf(
+			"Can't delete snapshot, snapshotName same as checkpoint",
+		)
+	}
+
 	logrus.Infof("Delete snapshot: %s", input.Name)
-	err := s.c.DeleteSnapshot(replicas)
+	err := s.c.DeleteSnapshot(input.Name, replicas)
 	if err != nil {
 		return err
 	}
