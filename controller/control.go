@@ -789,41 +789,11 @@ func (c *Controller) startFrontend() error {
 	return nil
 }
 
-func (c *Controller) checkCloneStatusAndUpdateReplica(address string) error {
-clone:
-	for {
-		c.Lock()
-		status, err := c.backend.GetCloneStatus(address)
-		c.Unlock()
-		if err != nil {
-			_ = c.RemoveReplica(address)
-			return err
-		}
-		switch status {
-		case "", "inProgress":
-			logrus.Errorf("Waiting for replica to update CloneStatus to Completed/NA, retry after 2s")
-			time.Sleep(2 * time.Second)
-			continue
-		case "error":
-			_ = c.RemoveReplica(address)
-			return fmt.Errorf("Replica clone status returned error %s", address)
-		default:
-			break clone
-		}
-	}
-
-	c.Lock()
-	defer c.Unlock()
-	if err := c.backend.SetReplicaMode(address, types.RW); err != nil {
-		_ = c.RemoveReplicaNoLock(address)
-		return fmt.Errorf("Fail to set replica mode for %v: %v", address, err)
-	}
-
-	c.setReplicaModeNoLock(address, types.RW)
-	return nil
-}
-
 func (c *Controller) addReplicaDuringStartNoLock(address string) error {
+	var (
+		status string
+		err1   error
+	)
 	newBackend, err := c.factory.Create(address)
 	if err != nil {
 		c.rmReplicaFromRegisteredReplicas(address)
@@ -859,6 +829,27 @@ func (c *Controller) addReplicaDuringStartNoLock(address string) error {
 		c.rmReplicaFromRegisteredReplicas(address)
 		return err
 	}
+getCloneStatus:
+	if status, err1 = c.backend.GetCloneStatus(address); err1 != nil {
+		_ = c.RemoveReplicaNoLock(address)
+		return err1
+	}
+
+	if status == "" || status == "inProgress" {
+		logrus.Errorf("Waiting for replica to update CloneStatus to Completed/NA, retry after 2s")
+		time.Sleep(2 * time.Second)
+		goto getCloneStatus
+	} else if status == "error" {
+		_ = c.RemoveReplicaNoLock(address)
+		return fmt.Errorf("Replica clone status returned error %s", address)
+	}
+
+	if err := c.backend.SetReplicaMode(address, types.RW); err != nil {
+		_ = c.RemoveReplicaNoLock(address)
+		return fmt.Errorf("Fail to set replica mode for %v: %v", address, err)
+	}
+
+	c.setReplicaModeNoLock(address, types.RW)
 	return nil
 }
 
@@ -869,38 +860,30 @@ func (c *Controller) Start(addresses ...string) error {
 	)
 
 	c.Lock()
+	defer c.Unlock()
 
 	if len(addresses) == 0 {
-		c.Unlock()
 		logrus.Infof("addresses is null")
 		return nil
 	}
 
 	if len(c.replicas) > 0 {
-		c.Unlock()
 		logrus.Infof("already %d replicas are started and added", len(c.replicas))
 		return nil
 	}
 
 	c.reset()
 
+	defer c.startFrontend()
+
 	c.size = math.MaxInt64
-	c.Unlock()
 	for _, address := range addresses {
-		c.Lock()
 		err := c.addReplicaDuringStartNoLock(address)
-		c.Unlock()
 		if err != nil {
 			logrus.Errorf("err %v adding %s replica during start", err, address)
 			return err
 		}
-		if err := c.checkCloneStatusAndUpdateReplica(address); err != nil {
-			return err
-		}
 	}
-	c.Lock()
-	defer c.Unlock()
-	defer c.startFrontend()
 
 	revisionCounters := make(map[string]int64)
 	for _, r := range c.replicas {
