@@ -36,7 +36,7 @@ const (
 )
 
 var (
-	diskPattern = regexp.MustCompile(`volume-head-(\d)+.img`)
+	diskPattern = regexp.MustCompile(`volume-head-(\d+).img`)
 )
 
 type Replica struct {
