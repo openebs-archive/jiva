@@ -289,20 +289,20 @@ Register:
 	}
 
 	logrus.Infof("PrepareRebuild %v", replicaAddress)
-	output, err := t.client.PrepareRebuild(rest.EncodeID(replicaAddress))
+	_, err = t.client.PrepareRebuild(rest.EncodeID(replicaAddress))
 	if err != nil {
 		return fmt.Errorf("failed to prepare rebuild, error: %s", err.Error())
 	}
 	inject.PanicAfterPrepareRebuild()
 
-	ok, err := t.isRevisionCountAndChainSame(fromClient, toClient)
+	ok, chain, err := t.isRevisionCountAndChainSame(fromClient, toClient)
 	if err != nil {
 		return err
 	}
 
 	if !ok {
 		logrus.Infof("syncFiles from:%v to:%v", fromClient, toClient)
-		if err = t.syncFiles(fromClient, toClient, output.Disks); err != nil {
+		if err = t.syncFiles(fromClient, toClient, chain); err != nil {
 			return err
 		}
 	}
@@ -311,30 +311,44 @@ Register:
 	return t.reloadAndVerify(s, replicaAddress, toClient)
 }
 
-func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.ReplicaClient) (bool, error) {
+func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.ReplicaClient) (bool, []string, error) {
 	rwReplica, err := fromClient.GetReplica()
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 
 	curReplica, err := toClient.GetReplica()
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 	logrus.Infof("RevisionCount of RW replica (%v): %v, Current replica (%v): %v",
 		fromClient.GetAddress(), rwReplica.RevisionCounter, toClient.GetAddress(),
 		curReplica.RevisionCounter)
 	logrus.Infof("RW replica chain: %v, cur replica chain: %v", rwReplica.Chain, curReplica.Chain)
+	if curReplica.Checkpoint != "" {
+		for indx, snapshot := range curReplica.Chain {
+			if snapshot == curReplica.Checkpoint {
+				curReplica.Chain = curReplica.Chain[:indx]
+				break
+			}
+		}
+		for indx, snapshot := range rwReplica.Chain {
+			if snapshot == curReplica.Checkpoint {
+				rwReplica.Chain = rwReplica.Chain[:indx]
+				break
+			}
+		}
+	}
 	if rwReplica.RevisionCounter == curReplica.RevisionCounter {
 		// ignoring Chain[0] since it's head file and it is opened for writing the latest data.
 		if !reflect.DeepEqual(rwReplica.Chain[1:], curReplica.Chain[1:]) {
 			logrus.Warningf("Replica %v's chain not equal to RW replica %v's chain", toClient.GetAddress(), fromClient.GetAddress())
-			return false, nil
+			return false, rwReplica.Chain[1:], nil
 		}
-		return true, nil
+		return true, rwReplica.Chain[1:], nil
 	}
 
-	return false, nil
+	return false, rwReplica.Chain[1:], nil
 }
 
 // checkAndResetFailedRebuild set the rebuilding to false if
@@ -383,9 +397,10 @@ func (t *Task) reloadAndVerify(s *replica.Server, address string, repClient *rep
 
 	if err = repClient.SetRebuilding(false); err != nil {
 		logrus.Errorf("Error in setRebuilding %s", address)
+		return err
 	}
 
-	return err
+	return nil
 }
 
 func isRevisionCountSame(fromClient, toClient *replicaClient.ReplicaClient, disk string) (bool, error) {
@@ -489,17 +504,10 @@ func (t *Task) syncFiles(fromClient, toClient *replicaClient.ReplicaClient, disk
 			return fmt.Errorf("Disk list shouldn't contain volume-head")
 		}
 
-		/*		ok, err := isRevisionCountSame(fromClient, toClient, disk)
-				if err != nil {
-					return err
-				}
-		*/
-		//		if !ok {
 		rebuild.SetStatus(disk, types.RebuildInProgress)
 		if err := t.syncFile(disk, "", fromClient, toClient); err != nil {
 			return err
 		}
-		//		}
 		if err := t.syncFile(disk+".meta", "", fromClient, toClient); err != nil {
 			return err
 		}

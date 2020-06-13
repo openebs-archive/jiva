@@ -75,6 +75,8 @@ var (
 type Backend interface {
 	IOs
 	Snapshot(name string, userCreated bool, created string) error
+	GetReplicaChain() ([]string, error)
+	SetCheckpoint(snapshotName string) error
 	Resize(name string, size string) error
 	Size() (int64, error)
 	SectorSize() (int64, error)
@@ -170,6 +172,7 @@ type ReplicaInfo struct {
 	UsedLogicalBlocks string              `json:"usedlogicalblocks"`
 	UsedBlocks        string              `json:"usedblocks"`
 	CloneStatus       string              `json:"clonestatus"`
+	Checkpoint        string              `json:"checkpoint"`
 }
 
 type Replica struct {

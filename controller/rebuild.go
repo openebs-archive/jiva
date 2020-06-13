@@ -24,6 +24,21 @@ func getReplicaChain(address string) ([]string, error) {
 	return rep.Chain, nil
 }
 
+func getReplicaCheckpoint(address string) (string, error) {
+	repClient, err := client.NewReplicaClient(address)
+	if err != nil {
+		return "", fmt.Errorf("Cannot get replica client for %v: %v",
+			address, err)
+	}
+
+	rep, err := repClient.GetReplica()
+	if err != nil {
+		return "", fmt.Errorf("Cannot get replica for %v: %v",
+			address, err)
+	}
+	return rep.Checkpoint, nil
+}
+
 func (c *Controller) getCurrentAndRWReplica(address string) (*types.Replica, *types.Replica, error) {
 	var (
 		current, rwReplica *types.Replica
@@ -76,17 +91,29 @@ func (c *Controller) VerifyRebuildReplica(address string) error {
 		return err
 	}
 
-	logrus.Infof("chain %v from rw replica %s", rwChain, rwReplica.Address)
-	// Don't need to compare the volume head disk
-	rwChain = rwChain[1:]
-
 	chain, err := getReplicaChain(address)
 	if err != nil {
 		return err
 	}
+	WOcheckpoint, err := getReplicaCheckpoint(address)
+	if err != nil {
+		return err
+	}
+	var (
+		indx     int
+		snapshot string
+	)
+	for indx, snapshot = range rwChain {
+		if snapshot == WOcheckpoint {
+			break
+		}
+	}
+	logrus.Infof("chain %v from rw replica %s", rwChain, rwReplica.Address)
+	// No need to compare the volume head disk
+	rwChain = rwChain[1 : indx+1]
 
 	logrus.Infof("chain %v from wo replica %s", chain, address)
-	chain = chain[1:]
+	chain = chain[1 : indx+1]
 
 	if !reflect.DeepEqual(rwChain, chain) {
 		return fmt.Errorf("Replica %v's chain not equal to RW replica %v's chain",
@@ -113,7 +140,6 @@ func (c *Controller) VerifyRebuildReplica(address string) error {
 		c.quorumReplicaCount = len(c.quorumReplicas)
 	}
 	c.UpdateVolStatus()
-	//c.StartAutoSnapDeletion <- true
 	return nil
 }
 

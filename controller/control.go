@@ -38,7 +38,7 @@ type Controller struct {
 	ReadOnly                 bool
 	SnapshotName             string
 	IsSnapDeletionInProgress bool
-	//StartAutoSnapDeletion    chan bool
+	Checkpoint               string
 }
 
 func max(x int, y int) int {
@@ -115,8 +115,10 @@ func NewController(opts ...BuildOpts) *Controller {
 }
 
 func (c *Controller) UpdateVolStatus() {
-	prev := c.ReadOnly
+	var checkpoint string
 	var rwReplicaCount int
+	prevCheckpoint := c.Checkpoint
+	prevState := c.ReadOnly
 	for _, replica := range c.replicas {
 		if replica.Mode == "RW" {
 			rwReplicaCount++
@@ -135,8 +137,18 @@ func (c *Controller) UpdateVolStatus() {
 		c.ReadOnly = true
 	}
 
-	logrus.Infof("Previously Volume RO: %v, Currently: %v,  Total Replicas: %v,  RW replicas: %v, Total backends: %v",
-		prev, c.ReadOnly, len(c.replicas), rwReplicaCount, len(c.backend.backends))
+	if rwReplicaCount == c.ReplicationFactor {
+		lastSnapshot, err := c.backend.GetLastSnapshot()
+		if err == nil {
+			if err := c.backend.SetCheckpoint(checkpoint); err == nil {
+				checkpoint = lastSnapshot
+			}
+		}
+	}
+	c.Checkpoint = checkpoint
+
+	logrus.Infof("Previously Volume RO: %v, Currently: %v, Total Replicas: %v, RW replicas: %v, Total backends: %v, prevCheckpoint: %v, currCheckpoint: %v",
+		prevState, c.ReadOnly, len(c.replicas), rwReplicaCount, len(c.backend.backends), prevCheckpoint, c.Checkpoint)
 }
 
 func (c *Controller) AddQuorumReplica(address string) error {

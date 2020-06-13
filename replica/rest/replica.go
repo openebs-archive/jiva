@@ -331,6 +331,18 @@ func (s *Server) SetReplicaMode(rw http.ResponseWriter, req *http.Request) error
 	return s.doOp(req, s.s.SetReplicaMode(mode.Mode))
 }
 
+// SetCheckpoint ...
+func (s *Server) SetCheckpoint(rw http.ResponseWriter, req *http.Request) error {
+	var checkpoint Checkpoint
+	apiContext := api.GetApiContext(req)
+	if err := apiContext.Read(&checkpoint); err != nil && err != io.EOF {
+		logrus.Errorf("Err %v during read in setReplicaMode", err)
+		return err
+	}
+	logrus.Infof("SetCheckpoint to %v", checkpoint.SnapshotName)
+	return s.doOp(req, s.s.SetCheckpoint(checkpoint.SnapshotName))
+}
+
 func (s *Server) SetRevisionCounter(rw http.ResponseWriter, req *http.Request) error {
 	var input RevisionCounter
 	apiContext := api.GetApiContext(req)

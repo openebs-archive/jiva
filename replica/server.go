@@ -645,6 +645,18 @@ func (s *Server) SetReplicaMode(mode string) error {
 	return s.r.SetReplicaMode(mode)
 }
 
+// SetCheckpoint ...
+func (s *Server) SetCheckpoint(snapshotName string) error {
+	s.Lock()
+	defer s.Unlock()
+
+	if s.r == nil {
+		logrus.Infof("s.r is nil during setCheckpoint")
+		return nil
+	}
+	return s.r.SetCheckpoint(snapshotName)
+}
+
 func (s *Server) SetRevisionCounter(counter int64) error {
 	s.Lock()
 	defer s.Unlock()

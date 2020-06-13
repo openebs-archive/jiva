@@ -84,6 +84,7 @@ type Info struct {
 	SectorSize      int64
 	BackingFileName string
 	CloneStatus     string
+	Checkpoint      string
 	BackingFile     *BackingFile `json:"-"`
 	RevisionCounter int64
 }
@@ -1412,4 +1413,13 @@ func (r *Replica) SetReplicaMode(mode string) error {
 		return fmt.Errorf("invalid mode string %s", mode)
 	}
 	return nil
+}
+
+// SetCheckpoint ...
+func (r *Replica) SetCheckpoint(snapshotName string) error {
+	r.Lock()
+	defer r.Unlock()
+	r.info.Checkpoint = snapshotName
+
+	return r.encodeToFile(&r.info, volumeMetaData)
 }
