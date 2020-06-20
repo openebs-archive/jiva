@@ -138,10 +138,10 @@ func (c *Controller) UpdateVolStatus() {
 	}
 
 	if rwReplicaCount == c.ReplicationFactor {
-		lastSnapshot, err := c.backend.GetLastSnapshot()
+		latestSnapshot, err := c.backend.GetLatestSnapshot()
 		if err == nil {
-			if err := c.backend.SetCheckpoint(checkpoint); err == nil {
-				checkpoint = lastSnapshot
+			if err := c.backend.SetCheckpoint(latestSnapshot); err == nil {
+				checkpoint = latestSnapshot
 			}
 		}
 	}
@@ -149,6 +149,29 @@ func (c *Controller) UpdateVolStatus() {
 
 	logrus.Infof("Previously Volume RO: %v, Currently: %v, Total Replicas: %v, RW replicas: %v, Total backends: %v, prevCheckpoint: %v, currCheckpoint: %v",
 		prevState, c.ReadOnly, len(c.replicas), rwReplicaCount, len(c.backend.backends), prevCheckpoint, c.Checkpoint)
+}
+
+func (c *Controller) UpdateCheckpoint() {
+	var checkpoint string
+	var rwReplicaCount int
+	prevCheckpoint := c.Checkpoint
+	for _, replica := range c.replicas {
+		if replica.Mode == "RW" {
+			rwReplicaCount++
+		}
+	}
+
+	if rwReplicaCount == c.ReplicationFactor {
+		latestSnapshot, err := c.backend.GetLatestSnapshot()
+		if err == nil {
+			if err := c.backend.SetCheckpoint(latestSnapshot); err == nil {
+				checkpoint = latestSnapshot
+			}
+		}
+	}
+	c.Checkpoint = checkpoint
+
+	logrus.Infof("prevCheckpoint: %v, currCheckpoint: %v", prevCheckpoint, c.Checkpoint)
 }
 
 func (c *Controller) AddQuorumReplica(address string) error {
@@ -307,14 +330,8 @@ func (c *Controller) addQuorumReplica(address string, snapshot bool) error {
 		return fmt.Errorf("Failed to set rebuild : %v", true)
 	}
 	c.UpdateVolStatus()
+	c.UpdateCheckpoint()
 
-	/*
-		for _, temprep := range c.replicas {
-			if err := c.backend.SetQuorumReplicaCounter(temprep.Address, int64(len(c.replicas))); err != nil {
-				return fmt.Errorf("Fail to set replica counter for %v: %v", address, err)
-			}
-		}
-	*/
 	return nil
 }
 
@@ -355,6 +372,7 @@ func (c *Controller) addReplica(address string, snapshot bool) error {
 		logrus.Infof("addReplicaNoLock %s from addReplica failed %v", address, err)
 	} else {
 		c.UpdateVolStatus()
+		c.UpdateCheckpoint()
 	}
 	return err
 }
@@ -701,6 +719,7 @@ func (c *Controller) RemoveReplicaNoLock(address string) error {
 		}
 	}
 	c.UpdateVolStatus()
+	c.UpdateCheckpoint()
 	return nil
 }
 
@@ -935,6 +954,7 @@ func (c *Controller) Start(addresses ...string) error {
 	}
 	logrus.Info("Update volume status")
 	c.UpdateVolStatus()
+	c.UpdateCheckpoint()
 
 	return nil
 }
