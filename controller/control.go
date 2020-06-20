@@ -115,9 +115,7 @@ func NewController(opts ...BuildOpts) *Controller {
 }
 
 func (c *Controller) UpdateVolStatus() {
-	var checkpoint string
 	var rwReplicaCount int
-	prevCheckpoint := c.Checkpoint
 	prevState := c.ReadOnly
 	for _, replica := range c.replicas {
 		if replica.Mode == "RW" {
@@ -137,18 +135,8 @@ func (c *Controller) UpdateVolStatus() {
 		c.ReadOnly = true
 	}
 
-	if rwReplicaCount == c.ReplicationFactor {
-		latestSnapshot, err := c.backend.GetLatestSnapshot()
-		if err == nil {
-			if err := c.backend.SetCheckpoint(latestSnapshot); err == nil {
-				checkpoint = latestSnapshot
-			}
-		}
-	}
-	c.Checkpoint = checkpoint
-
-	logrus.Infof("Previously Volume RO: %v, Currently: %v, Total Replicas: %v, RW replicas: %v, Total backends: %v, prevCheckpoint: %v, currCheckpoint: %v",
-		prevState, c.ReadOnly, len(c.replicas), rwReplicaCount, len(c.backend.backends), prevCheckpoint, c.Checkpoint)
+	logrus.Infof("Previously Volume RO: %v, Currently: %v, Total Replicas: %v, RW replicas: %v, Total backends: %v",
+		prevState, c.ReadOnly, len(c.replicas), rwReplicaCount, len(c.backend.backends))
 }
 
 func (c *Controller) UpdateCheckpoint() {
