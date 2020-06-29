@@ -31,6 +31,7 @@ var StartTime time.Time
 type Server struct {
 	sync.RWMutex
 	r                 *Replica
+	ReplicaAddress    string
 	ServerType        string
 	dir               string
 	defaultSectorSize int64
@@ -43,17 +44,17 @@ type Server struct {
 	preload bool
 }
 
-func NewServer(dir string, sectorSize int64, serverType string) *Server {
+func NewServer(address, dir string, sectorSize int64, serverType string) *Server {
 	ActionChannel = make(chan string, 5)
 	Dir = dir
 	StartTime = time.Now()
 	return &Server{
+		ReplicaAddress:    address,
 		dir:               dir,
 		defaultSectorSize: sectorSize,
 		ServerType:        serverType,
 		MonitorChannel:    make(chan struct{}),
 		preload:           true,
-		//	closeSync:         make(chan struct{}),
 	}
 }
 
@@ -654,6 +655,7 @@ func (s *Server) SetCheckpoint(snapshotName string) error {
 		logrus.Infof("s.r is nil during setCheckpoint")
 		return nil
 	}
+	inject.PanicWhileSettingCheckpoint(s.ReplicaAddress)
 	return s.r.SetCheckpoint(snapshotName)
 }
 

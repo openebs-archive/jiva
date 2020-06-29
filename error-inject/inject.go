@@ -14,6 +14,8 @@ var (
 	pingTimeout = true
 )
 
+var Envs map[string](map[string]bool)
+
 // DisablePunchHoles is used for disabling punch holes
 func DisablePunchHoles() bool {
 	ok := os.Getenv("DISABLE_PUNCH_HOLES")
@@ -53,6 +55,14 @@ func PanicAfterPrepareRebuild() {
 	if ok == "TRUE" {
 		time.Sleep(2 * time.Second)
 		panic("panic replica after getting start signal")
+	}
+}
+
+// PanicWhileSettingCheckpoint panics the replica on receiving SetCheckpoint REST Call
+func PanicWhileSettingCheckpoint(replicaIP string) {
+	ok := os.Getenv("PANIC_WHILE_SETTING_CHECKPOINT")
+	if ok == "TRUE" || (Envs[replicaIP])["PANIC_WHILE_SETTING_CHECKPOINT"] {
+		panic("panic replica while setting checkpoint")
 	}
 }
 

@@ -274,3 +274,7 @@ func NewServer(c *controller.Controller) *Server {
 		c: c,
 	}
 }
+
+func (s *Server) GetController() *controller.Controller {
+	return s.c
+}

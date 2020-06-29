@@ -25,6 +25,7 @@ type Controller struct {
 	sectorSize               int64
 	replicas                 []types.Replica
 	ReplicationFactor        int
+	RWReplicaCount           int
 	quorumReplicas           []types.Replica
 	quorumReplicaCount       int
 	factory                  types.BackendFactory
@@ -134,6 +135,7 @@ func (c *Controller) UpdateVolStatus() {
 	} else {
 		c.ReadOnly = true
 	}
+	c.RWReplicaCount = rwReplicaCount
 
 	logrus.Infof("Previously Volume RO: %v, Currently: %v, Total Replicas: %v, RW replicas: %v, Total backends: %v",
 		prevState, c.ReadOnly, len(c.replicas), rwReplicaCount, len(c.backend.backends))
@@ -398,7 +400,8 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 	if c.StartSignalled == true {
 		if c.MaxRevReplica == register.Address {
 			logrus.Infof("Replica %v signalled to start again, registered replicas: %#v", c.MaxRevReplica, c.RegisteredReplicas)
-			if err := c.signalReplica(); err != nil {
+			err := c.signalReplica()
+			if err != nil {
 				return err
 			}
 		} else {
@@ -424,7 +427,8 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 	if (len(c.RegisteredReplicas) >= ((c.ReplicationFactor / 2) + 1)) &&
 		((len(c.RegisteredReplicas) + len(c.RegisteredQuorumReplicas)) >= (((c.quorumReplicaCount + c.ReplicationFactor) / 2) + 1)) {
 		logrus.Infof("Replica %v signalled to start, registered replicas: %#v", c.MaxRevReplica, c.RegisteredReplicas)
-		if err := c.signalReplica(); err != nil {
+		err := c.signalReplica()
+		if err != nil {
 			return err
 		}
 		return nil

@@ -287,7 +287,7 @@ func (r *replicator) Snapshot(name string, userCreated bool, created string) err
 			wg.Add(1)
 			go func(address string, backend types.Backend) {
 				if err := backend.Snapshot(name, userCreated, created); err != nil {
-					logrus.Infof("failed taking snapshot at %s with err %v", addr, err)
+					logrus.Infof("failed taking snapshot at %s with err %v", address, err)
 					retErrorLock.Lock()
 					retError.Errors[address] = err
 					retErrorLock.Unlock()
@@ -325,13 +325,13 @@ func (r *replicator) GetLatestSnapshot() (string, error) {
 			wg.Add(1)
 			go func(address string, backend types.Backend) {
 				if chain, err := backend.GetReplicaChain(); err != nil {
-					logrus.Infof("failed getting replica chain from %s with err %v", addr, err)
+					logrus.Infof("failed getting replica chain from %s with err %v", address, err)
 					retErrorLock.Lock()
 					retError.Errors[address] = err
 					retErrorLock.Unlock()
 				} else {
 					retErrorLock.Lock()
-					replicaChains[addr] = chain
+					replicaChains[address] = chain
 					retErrorLock.Unlock()
 				}
 				wg.Done()
@@ -377,7 +377,7 @@ func (r *replicator) SetCheckpoint(snapshotName string) error {
 			wg.Add(1)
 			go func(address string, backend types.Backend) {
 				if err := backend.SetCheckpoint(snapshotName); err != nil {
-					logrus.Infof("failed setting checkpoint at %s with err %v", addr, err)
+					logrus.Infof("failed setting checkpoint at %s with err %v", address, err)
 					retErrorLock.Lock()
 					retError.Errors[address] = err
 					retErrorLock.Unlock()

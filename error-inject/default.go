@@ -21,6 +21,10 @@ func DisablePunchHoles() bool { return false }
 // just after prepare rebuild.
 func PanicAfterPrepareRebuild() {}
 
+// PanicWhileSettingCheckpoint is used for crashing the replica
+// on receiving set checkpoint REST Call
+func PanicWhileSettingCheckpoint(addr string) {}
+
 // UpdateLUNMapTimeoutTriggered is being used to wait for the delay in
 // UpdateLUNMap to start
 var UpdateLUNMapTimeoutTriggered bool
