@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-type TestConfig struct {
+type testConfig struct {
 	sync.Mutex
 	ThreadCount       int
 	Stop              bool
@@ -25,8 +25,8 @@ func striped(address string) string {
 	return address
 }
 
-func buildConfig(controllerIP string, replicas []string) *TestConfig {
-	config := &TestConfig{
+func buildConfig(controllerIP string, replicas []string) *testConfig {
+	config := &testConfig{
 		ControllerIP: controllerIP,
 		Controller:   map[string]string{controllerIP: ""},
 	}
@@ -40,24 +40,24 @@ func buildConfig(controllerIP string, replicas []string) *TestConfig {
 	return config
 }
 
-func (config *TestConfig) InsertThread() {
+func (config *testConfig) insertThread() {
 	config.Lock()
 	config.ThreadCount++
 	config.Unlock()
 }
 
-func (config *TestConfig) ReleaseThread() {
+func (config *testConfig) releaseThread() {
 	config.Lock()
 	config.ThreadCount--
 	config.Unlock()
 }
 
-func setupTest(config *TestConfig) {
+func setupTest(config *testConfig) {
 	createController(config.ControllerIP, config)
 	createReplicas(config)
 }
 
-func scrap(config *TestConfig) {
+func scrap(config *testConfig) {
 	deleteController(config)
 	deleteReplicas(config)
 }

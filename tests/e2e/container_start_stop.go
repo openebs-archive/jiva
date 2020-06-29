@@ -50,7 +50,7 @@ func getJivaDebugImageID() string {
 	return jivaImageID
 }
 
-func createReplica(replicaIP string, config *TestConfig) string {
+func createReplica(replicaIP string, config *testConfig) string {
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -110,7 +110,7 @@ func createReplica(replicaIP string, config *TestConfig) string {
 	return resp.ID
 }
 
-func createController(controllerIP string, config *TestConfig) {
+func createController(controllerIP string, config *testConfig) {
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -151,7 +151,7 @@ func createController(controllerIP string, config *TestConfig) {
 	config.Controller[controllerIP] = resp.ID
 }
 
-func deleteController(config *TestConfig) {
+func deleteController(config *testConfig) {
 	stopContainer(config.Controller[config.ControllerIP])
 	removeContainer(config.Controller[config.ControllerIP])
 }

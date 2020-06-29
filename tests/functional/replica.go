@@ -55,7 +55,7 @@ func startLoggingToFile(dir string) error {
 	return util.StartLoggingToFile(dir, lf)
 }
 
-func CheckReplicaState(frontendIP string, replicaIP string) (string, error) {
+func checkReplicaState(frontendIP string, replicaIP string) (string, error) {
 	url := "http://" + frontendIP + ":9501"
 	ControllerClient := client.NewControllerClient(url)
 	reps, err := ControllerClient.ListReplicas()
@@ -71,11 +71,11 @@ func CheckReplicaState(frontendIP string, replicaIP string) (string, error) {
 	return "", err
 }
 
-func AutoConfigureReplica(s *replica.Server, frontendIP string, address string, replicaType string) error {
+func autoConfigureReplica(s *replica.Server, frontendIP string, address string, replicaType string) error {
 	retryCount := 10
 checkagain:
 	retryCount--
-	state, err := CheckReplicaState(frontendIP, address)
+	state, err := checkReplicaState(frontendIP, address)
 	if err != nil {
 		logrus.Warningf("Failed to check replica state, err: %v, will retry (%v retry left)", err, retryCount)
 		if retryCount == 0 {
@@ -90,7 +90,7 @@ checkagain:
 		goto checkagain
 	} else {
 		_ = s.Close()
-		if err := AutoAddReplica(s, frontendIP, address, replicaType); err != nil {
+		if err := autoAddReplica(s, frontendIP, address, replicaType); err != nil {
 			s.Close()
 			return err
 		}
@@ -98,7 +98,7 @@ checkagain:
 	return nil
 }
 
-func (config *TestConfig) StartTestReplica(replicaIP, dir string, startSyncAgent bool) error {
+func (config *testConfig) startTestReplica(replicaIP, dir string, startSyncAgent bool) error {
 
 	close := false
 	restart := true
@@ -106,8 +106,8 @@ func (config *TestConfig) StartTestReplica(replicaIP, dir string, startSyncAgent
 		if r := recover(); r != nil {
 			fmt.Println("Recovered in f", r)
 		}
-		if config.Replicas[replicaIP].RpcServer != nil {
-			config.Replicas[replicaIP].RpcServer.Stop()
+		if config.Replicas[replicaIP].RPCServer != nil {
+			config.Replicas[replicaIP].RPCServer.Stop()
 		}
 		if config.Replicas[replicaIP].RestServer != nil {
 			config.Replicas[replicaIP].RestServer.Shutdown(context.TODO())
@@ -230,7 +230,7 @@ func (config *TestConfig) StartTestReplica(replicaIP, dir string, startSyncAgent
 	// Waiting for servers to start
 	time.Sleep(2 * time.Second)
 	if config.ControllerIP != "" {
-		if err := AutoConfigureReplica(s, frontendIP, "tcp://"+address, replicaType); err != nil {
+		if err := autoConfigureReplica(s, frontendIP, "tcp://"+address, replicaType); err != nil {
 			return err
 		}
 	}
@@ -254,21 +254,21 @@ func (config *TestConfig) StartTestReplica(replicaIP, dir string, startSyncAgent
 	return nil
 }
 
-func (config *TestConfig) StopTestReplica(replicaIP string) {
+func (config *testConfig) StopTestReplica(replicaIP string) {
 	config.Close[replicaIP] <- struct{}{}
 }
 
-func (config *TestConfig) RestartTestReplica(replicaIP string) {
+func (config *testConfig) RestartTestReplica(replicaIP string) {
 	config.AddToReplicaRestartList(replicaIP)
 }
 
-func (config *TestConfig) AddToReplicaRestartList(replicaIP string) {
+func (config *testConfig) AddToReplicaRestartList(replicaIP string) {
 	config.Lock()
 	config.ReplicaRestartList = append(config.ReplicaRestartList, replicaIP)
 	config.Unlock()
 }
 
-func (config *TestConfig) ListenAndServeTest(replicaSrv *replica.Server, dataAddress string, replicaIP string) error {
+func (config *testConfig) ListenAndServeTest(replicaSrv *replica.Server, dataAddress string, replicaIP string) error {
 	addr, err := net.ResolveTCPAddr("tcp", dataAddress)
 	if err != nil {
 		return err
@@ -300,14 +300,14 @@ func (config *TestConfig) ListenAndServeTest(replicaSrv *replica.Server, dataAdd
 		logrus.Infof("New connection from: %v", conn.RemoteAddr())
 
 		server := rpc.NewServer(conn, replicaSrv)
-		config.Replicas[replicaIP].RpcServer = server
+		config.Replicas[replicaIP].RPCServer = server
 		if err := server.Handle(); err != nil {
 			return err
 		}
 	}
 }
 
-func (config *TestConfig) MonitorReplicas() {
+func (config *testConfig) MonitorReplicas() {
 	for {
 		time.Sleep(5 * time.Second)
 		logrus.Infof("CLOSED REPLICAS: %v", config.ReplicaRestartList)
@@ -318,11 +318,11 @@ func (config *TestConfig) MonitorReplicas() {
 		}
 		func() {
 			rep := config.ReplicaRestartList[0]
-			if config.IsReplicaAttachedToController(rep) {
+			if config.isReplicaAttachedToController(rep) {
 				return
 			}
 			go func(replica string) {
-				err := config.StartTestReplica(replica, replica+"vol", false)
+				err := config.startTestReplica(replica, replica+"vol", false)
 				if err != nil {
 					logrus.Infof("ERROR: %v", err)
 				}

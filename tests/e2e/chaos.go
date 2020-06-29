@@ -5,12 +5,12 @@ import (
 	"time"
 )
 
-func RestartOneReplicaTest() {
+func restartOneReplicaTest() {
 	config := buildConfig("172.17.0.10", []string{"172.17.0.11", "172.17.0.12", "172.17.0.13"})
 	setupTest(config)
 	config.verifyRWReplicaCount(3)
-	config.RunIOs()
-	go config.SnapshotCreateDelete()
+	config.runIOs()
+	go config.snapshotCreateDelete()
 	ctrlClient := getControllerClient(config.ControllerIP)
 	startTime := time.Now()
 	for {
@@ -33,12 +33,12 @@ func RestartOneReplicaTest() {
 	scrap(config)
 }
 
-func RestartTwoReplicasTest() {
+func restartTwoReplicasTest() {
 	config := buildConfig("172.17.0.20", []string{"172.17.0.21", "172.17.0.22", "172.17.0.23"})
 	setupTest(config)
 	config.verifyRWReplicaCount(3)
-	config.RunIOs()
-	go config.SnapshotCreateDelete()
+	config.runIOs()
+	go config.snapshotCreateDelete()
 	ctrlClient := getControllerClient(config.ControllerIP)
 	startTime := time.Now()
 	for {
@@ -63,12 +63,12 @@ func RestartTwoReplicasTest() {
 	scrap(config)
 }
 
-func RestartThreeReplicasTest() {
+func restartThreeReplicasTest() {
 	config := buildConfig("172.17.0.30", []string{"172.17.0.31", "172.17.0.32", "172.17.0.33"})
 	setupTest(config)
 	config.verifyRWReplicaCount(3)
-	config.RunIOs()
-	go config.SnapshotCreateDelete()
+	config.runIOs()
+	go config.snapshotCreateDelete()
 	ctrlClient := getControllerClient(config.ControllerIP)
 	startTime := time.Now()
 	for {
@@ -95,12 +95,12 @@ func RestartThreeReplicasTest() {
 	scrap(config)
 }
 
-func RestartControllerTest() {
+func restartControllerTest() {
 	config := buildConfig("172.17.0.40", []string{"172.17.0.41", "172.17.0.42", "172.17.0.43"})
 	setupTest(config)
 	config.verifyRWReplicaCount(3)
-	config.RunIOs()
-	go config.SnapshotCreateDelete()
+	config.runIOs()
+	go config.snapshotCreateDelete()
 	startTime := time.Now()
 	for {
 		stopContainer(config.Controller[striped(config.ControllerIP)])
@@ -118,23 +118,23 @@ func RestartControllerTest() {
 	}
 	scrap(config)
 }
-func chaos_test() {
+func chaosTest() {
 	var wg sync.WaitGroup
 	wg.Add(4)
 	go func() {
-		RestartOneReplicaTest()
+		restartOneReplicaTest()
 		wg.Done()
 	}()
 	go func() {
-		RestartTwoReplicasTest()
+		restartTwoReplicasTest()
 		wg.Done()
 	}()
 	go func() {
-		RestartThreeReplicasTest()
+		restartThreeReplicasTest()
 		wg.Done()
 	}()
 	go func() {
-		RestartControllerTest()
+		restartControllerTest()
 		wg.Done()
 	}()
 	wg.Wait()

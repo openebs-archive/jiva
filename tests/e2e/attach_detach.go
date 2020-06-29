@@ -6,7 +6,7 @@ import (
 	"github.com/kubernetes-csi/csi-lib-iscsi/iscsi"
 )
 
-func (config *TestConfig) attachDisk() (string, error) {
+func (config *testConfig) attachDisk() (string, error) {
 	connector := iscsi.Connector{
 		VolumeName: "vol",
 		Targets: []iscsi.TargetInfo{
@@ -31,7 +31,7 @@ func (config *TestConfig) attachDisk() (string, error) {
 	return devicePath, err
 }
 
-func (config *TestConfig) detachDisk() error {
+func (config *testConfig) detachDisk() error {
 	return iscsi.Disconnect(
 		"iqn.2016-09.com.openebs.jiva:"+config.VolumeName,
 		[]string{fmt.Sprintf("%v:%v", config.ControllerIP, 3260)},

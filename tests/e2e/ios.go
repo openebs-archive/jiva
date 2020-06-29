@@ -31,7 +31,7 @@ func verifyData(fd int, tid, iter, offset int64) {
 	}
 }
 
-func WriteData(fd int, tid, iter, offset int64) {
+func writeData(fd int, tid, iter, offset int64) {
 	writeBuf := []byte(strconv.FormatInt(offset*tid*iter, 10))
 	for {
 		_, err := syscall.Pwrite(fd, writeBuf, offset)
@@ -42,7 +42,7 @@ func WriteData(fd int, tid, iter, offset int64) {
 	}
 }
 
-func (config *TestConfig) ReadVerifyWriteTestForIter(fd int, tid int64, region []int64, iter int64) {
+func (config *testConfig) readVerifyWriteTestForIter(fd int, tid int64, region []int64, iter int64) {
 	for offset := region[0]; offset < region[1]; offset += 4096 {
 		if config.Stop {
 			return
@@ -50,13 +50,13 @@ func (config *TestConfig) ReadVerifyWriteTestForIter(fd int, tid int64, region [
 		if iter != 1 {
 			verifyData(fd, tid, iter, offset)
 		}
-		WriteData(fd, tid, iter, offset)
+		writeData(fd, tid, iter, offset)
 	}
 }
 
-func (config *TestConfig) StartIOs(tid int64, devPath string) {
-	config.InsertThread()
-	defer config.ReleaseThread()
+func (config *testConfig) startIOs(tid int64, devPath string) {
+	config.insertThread()
+	defer config.releaseThread()
 	var (
 		err error
 		gb  int64
@@ -70,7 +70,7 @@ func (config *TestConfig) StartIOs(tid int64, devPath string) {
 	region := []int64{(tid - 1) * gb, tid * gb}
 	iter := int64(1)
 	for {
-		config.ReadVerifyWriteTestForIter(fd, tid, region, iter)
+		config.readVerifyWriteTestForIter(fd, tid, region, iter)
 		if config.Stop {
 			return
 		}
@@ -79,18 +79,18 @@ func (config *TestConfig) StartIOs(tid int64, devPath string) {
 	}
 }
 
-func (config *TestConfig) RunIOs() {
+func (config *testConfig) runIOs() {
 	devPath, err := config.attachDisk()
 	if err != nil {
 		panic(err)
 	}
 	for i := 1; i <= 5; i++ {
 		tid := i
-		go config.StartIOs(int64(tid), devPath)
+		go config.startIOs(int64(tid), devPath)
 	}
 }
 
-func GenerateRandomIOTable() []int64 {
+func generateRandomIOTable() []int64 {
 	var size, sectorSize, blockCount int64
 	size = 5 * gb
 	sectorSize = 4 * kb
@@ -105,12 +105,12 @@ func GenerateRandomIOTable() []int64 {
 	return table
 }
 
-func (config *TestConfig) TestSequentialData() {
-	config.RunIOs()
+func (config *testConfig) testSequentialData() {
+	config.runIOs()
 }
 
-func (config *TestConfig) WriteRandomData() []int64 {
-	table := GenerateRandomIOTable()
+func (config *testConfig) writeRandomData() []int64 {
+	table := generateRandomIOTable()
 	devPath, err := config.attachDisk()
 	if err != nil {
 		panic(err)
@@ -145,7 +145,7 @@ func fillBlocks(devPath string, table []int64) {
 	}
 }
 
-func (config *TestConfig) VerifyRandomData(table []int64) {
+func (config *testConfig) verifyRandomData(table []int64) {
 	devPath, err := config.attachDisk()
 	if err != nil {
 		panic(err)

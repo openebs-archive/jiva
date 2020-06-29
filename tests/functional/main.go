@@ -27,23 +27,23 @@ func main() {
 	c := buildConfig("172.17.0.110", replicas)
 	// Start controller
 	go func() {
-		Verify("StartController", c.StartTestController(c.ControllerIP), nil)
+		verify("StartController", c.startTestController(c.ControllerIP), nil)
 	}()
 	time.Sleep(5 * time.Second)
 	// Start 3 Replicas in debug mode
-	for replica, _ := range c.Replicas {
+	for replica := range c.Replicas {
 		rep := replica
 		go func(replica string) {
-			c.StartTestReplica(replica, replica+"vol", true)
+			c.startTestReplica(replica, replica+"vol", true)
 		}(rep)
 	}
 
 	go c.MonitorReplicas()
 
-	Verify("CheckpointTest", c.CheckpointTest(replicas), nil)
+	verify("CheckpointTest", c.checkpointTest(replicas), nil)
 }
 
-func Verify(msg string, x, y interface{}) {
+func verify(msg string, x, y interface{}) {
 	if reflect.TypeOf(x) != reflect.TypeOf(y) {
 		logrus.Errorf("Type Mismatch")
 	}

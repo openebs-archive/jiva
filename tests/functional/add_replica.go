@@ -10,7 +10,7 @@ func addReplica(replica string) error {
 	task := sync.NewTask(replica + ":9501")
 	return task.AddReplica(replica, nil)
 }
-func AutoAddReplica(s *replica.Server, frontendIP string, replica string, replicaType string) error {
+func autoAddReplica(s *replica.Server, frontendIP string, replica string, replicaType string) error {
 	var err error
 	url := "http://" + frontendIP + ":9501"
 	task := sync.NewTask(url)

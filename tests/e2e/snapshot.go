@@ -5,9 +5,9 @@ import (
 	"time"
 )
 
-func (config *TestConfig) SnapshotCreateDelete() {
-	config.InsertThread()
-	defer config.ReleaseThread()
+func (config *testConfig) snapshotCreateDelete() {
+	config.insertThread()
+	defer config.releaseThread()
 	ctrlClient := getControllerClient(config.ControllerIP)
 	i := 0
 	for {

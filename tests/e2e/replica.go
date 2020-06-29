@@ -17,7 +17,7 @@ func getReplicaClient(address string) (*replicaClient.ReplicaClient, error) {
 	return replicaClient.NewReplicaClient(address)
 }
 
-func (config *TestConfig) verifyRWReplicaCount(count int) {
+func (config *testConfig) verifyRWReplicaCount(count int) {
 	var rwCount int
 	ctrlClient := getControllerClient(config.ControllerIP)
 	for {
@@ -39,24 +39,24 @@ func (config *TestConfig) verifyRWReplicaCount(count int) {
 	}
 }
 
-func createReplicas(config *TestConfig) {
+func createReplicas(config *testConfig) {
 	replicas := config.Replicas
-	for replicaIP, _ := range replicas {
+	for replicaIP := range replicas {
 		os.Mkdir("/tmp"+replicaIP+"vol", 0755)
 		config.Replicas[replicaIP] = createReplica(replicaIP, config)
 	}
 }
 
-func deleteReplicas(config *TestConfig) {
+func deleteReplicas(config *testConfig) {
 	replicas := config.Replicas
-	for replicaIP, _ := range replicas {
+	for replicaIP := range replicas {
 		stopContainer(config.Replicas[replicaIP])
 		removeContainer(config.Replicas[replicaIP])
 		os.RemoveAll("/tmp" + replicaIP + "vol")
 	}
 }
 
-func (config *TestConfig) RestartReplicas(replicaIPs ...string) {
+func (config *testConfig) restartReplicas(replicaIPs ...string) {
 	for _, replicaIP := range replicaIPs {
 		stopContainer(config.Replicas[replicaIP])
 		removeContainer(config.Replicas[replicaIP])

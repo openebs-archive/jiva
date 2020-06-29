@@ -11,7 +11,7 @@ import (
 	"github.com/openebs/jiva/rpc"
 )
 
-type TestConfig struct {
+type testConfig struct {
 	sync.Mutex
 	ThreadCount        int
 	Stop               bool
@@ -21,17 +21,17 @@ type TestConfig struct {
 	ReplicationFactor  int
 	ControllerIP       string
 	Controller         map[string]*controllerRest.Server
-	Replicas           map[string]*ReplicaInfo
+	Replicas           map[string]*replicaInfo
 	ControllerEnvs     map[string]string
 	ReplicaEnvs        map[string]string
 	ReplicaRestartList []string
 	Close              map[string]chan struct{}
 }
 
-type ReplicaInfo struct {
+type replicaInfo struct {
 	Server     *replica.Server
 	RestServer *http.Server
-	RpcServer  *rpc.Server
+	RPCServer  *rpc.Server
 }
 
 func striped(address string) string {
@@ -40,8 +40,8 @@ func striped(address string) string {
 	return address
 }
 
-func buildConfig(controllerIP string, replicas []string) *TestConfig {
-	config := &TestConfig{
+func buildConfig(controllerIP string, replicas []string) *testConfig {
+	config := &testConfig{
 		ControllerIP: controllerIP,
 	}
 	config.ReplicationFactor = 3
@@ -50,11 +50,11 @@ func buildConfig(controllerIP string, replicas []string) *TestConfig {
 	config.ControllerEnvs = make(map[string]string, 3)
 	config.ReplicaEnvs = make(map[string]string, 3)
 	config.Controller = make(map[string]*controllerRest.Server)
-	config.Replicas = make(map[string]*ReplicaInfo, 3)
+	config.Replicas = make(map[string]*replicaInfo, 3)
 	config.Controller[controllerIP] = nil
-	config.Replicas[replicas[0]] = &ReplicaInfo{}
-	config.Replicas[replicas[1]] = &ReplicaInfo{}
-	config.Replicas[replicas[2]] = &ReplicaInfo{}
+	config.Replicas[replicas[0]] = &replicaInfo{}
+	config.Replicas[replicas[1]] = &replicaInfo{}
+	config.Replicas[replicas[2]] = &replicaInfo{}
 	config.Close = make(map[string]chan struct{}, 3)
 	config.Close[replicas[0]] = make(chan struct{})
 	config.Close[replicas[1]] = make(chan struct{})
@@ -66,13 +66,13 @@ func buildConfig(controllerIP string, replicas []string) *TestConfig {
 	return config
 }
 
-func (config *TestConfig) InsertThread() {
+func (config *testConfig) insertThread() {
 	config.Lock()
 	config.ThreadCount++
 	config.Unlock()
 }
 
-func (config *TestConfig) ReleaseThread() {
+func (config *testConfig) releaseThread() {
 	config.Lock()
 	config.ThreadCount--
 	config.Unlock()

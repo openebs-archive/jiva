@@ -48,7 +48,7 @@ func initializeFrontend(controllerIP string) (types.Frontend, types.Target, erro
 	return frontend, target, nil
 }
 
-func (config *TestConfig) StartTestController(controllerIP string) error {
+func (config *testConfig) startTestController(controllerIP string) error {
 	name := controllerIP + "vol"
 	rf := config.ReplicationFactor
 	types.RPCReadTimeout = util.GetReadTimeout()
@@ -87,33 +87,33 @@ func (config *TestConfig) StartTestController(controllerIP string) error {
 	logrus.Infof("Listening on %s", controlListener)
 	return http.ListenAndServe(controlListener, router)
 }
-func (c *TestConfig) verifyRWReplicaCount(count int) {
-	controller := c.Controller[c.ControllerIP].GetController()
-	for controller.RWReplicaCount != c.ReplicationFactor {
+func (config *testConfig) verifyRWReplicaCount(count int) {
+	controller := config.Controller[config.ControllerIP].GetController()
+	for controller.RWReplicaCount != config.ReplicationFactor {
 		logrus.Infof("Sleep while verifyRWReplicaCount, Actual: %v Desired: %v", count, controller.RWReplicaCount)
 		time.Sleep(2 * time.Second)
 	}
 }
-func (c *TestConfig) verifyCheckpoint(set bool) {
-	controller := c.Controller[c.ControllerIP].GetController()
+func (config *testConfig) verifyCheckpoint(set bool) {
+	controller := config.Controller[config.ControllerIP].GetController()
 	for (controller.Checkpoint != "") != set {
 		logrus.Infof("Sleep while VerifyCheckpointSet, Actual: %v, Desired: %v", controller.Checkpoint != "", set)
 		time.Sleep(2 * time.Second)
-		controller = c.Controller[c.ControllerIP].GetController()
+		controller = config.Controller[config.ControllerIP].GetController()
 	}
 }
-func (c *TestConfig) VerifyCheckpointSameAtReplicas(replicas []string) bool {
-	controller := c.Controller[c.ControllerIP].GetController()
+func (config *testConfig) verifyCheckpointSameAtReplicas(replicas []string) bool {
+	controller := config.Controller[config.ControllerIP].GetController()
 	checkpoint := controller.Checkpoint
 	for _, rep := range replicas {
-		if c.Replicas[rep].Server.Replica().Info().Checkpoint != checkpoint {
+		if config.Replicas[rep].Server.Replica().Info().Checkpoint != checkpoint {
 			return false
 		}
 	}
 	return true
 }
 
-func (config *TestConfig) IsReplicaAttachedToController(replicaIP string) bool {
+func (config *testConfig) isReplicaAttachedToController(replicaIP string) bool {
 	replicas := config.Controller[config.ControllerIP].GetController().ListReplicas()
 	for _, rep := range replicas {
 		if rep.Address == "tcp://"+replicaIP+":9502" {
@@ -123,13 +123,13 @@ func (config *TestConfig) IsReplicaAttachedToController(replicaIP string) bool {
 	return false
 }
 
-func (c *TestConfig) UpdateCheckpoint() {
-	controller := c.Controller[c.ControllerIP].GetController()
+func (config *testConfig) updateCheckpoint() {
+	controller := config.Controller[config.ControllerIP].GetController()
 	controller.UpdateCheckpoint()
 }
 
-func (c *TestConfig) CreateSnapshot(snapshot string) error {
-	controller := c.Controller[c.ControllerIP].GetController()
+func (config *testConfig) createSnapshot(snapshot string) error {
+	controller := config.Controller[config.ControllerIP].GetController()
 	_, err := controller.Snapshot(snapshot)
 	return err
 }
