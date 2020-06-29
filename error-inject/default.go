@@ -2,6 +2,8 @@
 
 package inject
 
+var Envs map[string](map[string]bool)
+
 // AddTimeout add delays into the code
 func AddTimeout() {}
 
