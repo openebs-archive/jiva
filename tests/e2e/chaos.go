@@ -6,7 +6,7 @@ import (
 )
 
 func RestartOneReplicaTest() {
-	config := buildConfig("172.18.0.10", []string{"172.18.0.11", "172.18.0.12", "172.18.0.13"})
+	config := buildConfig("172.17.0.10", []string{"172.17.0.11", "172.17.0.12", "172.17.0.13"})
 	setupTest(config)
 	config.verifyRWReplicaCount(3)
 	config.RunIOs()
@@ -21,7 +21,7 @@ func RestartOneReplicaTest() {
 		stopContainer(config.Replicas[striped(replicas[0].Address)])
 		startContainer(config.Replicas[striped(replicas[0].Address)])
 		config.verifyRWReplicaCount(3)
-		if time.Since(startTime) > time.Minute*30 {
+		if time.Since(startTime) > time.Minute*20 {
 			break
 		}
 	}
@@ -34,7 +34,7 @@ func RestartOneReplicaTest() {
 }
 
 func RestartTwoReplicasTest() {
-	config := buildConfig("172.18.0.20", []string{"172.18.0.21", "172.18.0.22", "172.18.0.23"})
+	config := buildConfig("172.17.0.20", []string{"172.17.0.21", "172.17.0.22", "172.17.0.23"})
 	setupTest(config)
 	config.verifyRWReplicaCount(3)
 	config.RunIOs()
@@ -51,7 +51,7 @@ func RestartTwoReplicasTest() {
 		startContainer(config.Replicas[striped(replicas[0].Address)])
 		startContainer(config.Replicas[striped(replicas[1].Address)])
 		config.verifyRWReplicaCount(3)
-		if time.Since(startTime) > time.Minute*30 {
+		if time.Since(startTime) > time.Minute*20 {
 			break
 		}
 	}
@@ -64,7 +64,7 @@ func RestartTwoReplicasTest() {
 }
 
 func RestartThreeReplicasTest() {
-	config := buildConfig("172.18.0.30", []string{"172.18.0.31", "172.18.0.32", "172.18.0.33"})
+	config := buildConfig("172.17.0.30", []string{"172.17.0.31", "172.17.0.32", "172.17.0.33"})
 	setupTest(config)
 	config.verifyRWReplicaCount(3)
 	config.RunIOs()
@@ -83,7 +83,7 @@ func RestartThreeReplicasTest() {
 		startContainer(config.Replicas[striped(replicas[1].Address)])
 		startContainer(config.Replicas[striped(replicas[2].Address)])
 		config.verifyRWReplicaCount(3)
-		if time.Since(startTime) > time.Minute*30 {
+		if time.Since(startTime) > time.Minute*20 {
 			break
 		}
 	}
@@ -96,7 +96,7 @@ func RestartThreeReplicasTest() {
 }
 
 func RestartControllerTest() {
-	config := buildConfig("172.18.0.40", []string{"172.18.0.41", "172.18.0.42", "172.18.0.43"})
+	config := buildConfig("172.17.0.40", []string{"172.17.0.41", "172.17.0.42", "172.17.0.43"})
 	setupTest(config)
 	config.verifyRWReplicaCount(3)
 	config.RunIOs()
@@ -106,7 +106,7 @@ func RestartControllerTest() {
 		stopContainer(config.Controller[striped(config.ControllerIP)])
 		startContainer(config.Controller[striped(config.ControllerIP)])
 		config.verifyRWReplicaCount(3)
-		if time.Since(startTime) > time.Minute*30 {
+		if time.Since(startTime) > time.Minute*20 {
 			break
 		}
 	}
