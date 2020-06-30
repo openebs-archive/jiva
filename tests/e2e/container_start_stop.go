@@ -9,6 +9,7 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	"github.com/sirupsen/logrus"
 )
 
 func getJivaImageID() string {
@@ -24,7 +25,9 @@ func getJivaImageID() string {
 
 	for _, image := range images {
 		if strings.Contains(image.RepoTags[0], "openebs/jiva") {
+			logrus.Infof("Image: %v", image)
 			jivaImageID = image.ID
+			break
 		}
 	}
 	return jivaImageID
