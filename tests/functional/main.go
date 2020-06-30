@@ -23,8 +23,8 @@ func main() {
 	frontends["gotgt"] = gotgt.New()
 	initializeBackendProcesses()
 
-	replicas := []string{"172.17.0.111", "172.17.0.112", "172.17.0.113"}
-	c := buildConfig("172.17.0.110", replicas)
+	replicas := []string{"172.18.0.111", "172.18.0.112", "172.18.0.113"}
+	c := buildConfig("172.18.0.110", replicas)
 	// Start controller
 	go func() {
 		verify("StartController", c.startTestController(c.ControllerIP), nil)

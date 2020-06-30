@@ -6,7 +6,7 @@ import (
 )
 
 func restartOneReplicaTest() {
-	config := buildConfig("172.17.0.10", []string{"172.17.0.11", "172.17.0.12", "172.17.0.13"})
+	config := buildConfig("172.18.0.10", []string{"172.18.0.11", "172.18.0.12", "172.18.0.13"})
 	setupTest(config)
 	config.verifyRWReplicaCount(3)
 	config.runIOs()
@@ -34,7 +34,7 @@ func restartOneReplicaTest() {
 }
 
 func restartTwoReplicasTest() {
-	config := buildConfig("172.17.0.20", []string{"172.17.0.21", "172.17.0.22", "172.17.0.23"})
+	config := buildConfig("172.18.0.20", []string{"172.18.0.21", "172.18.0.22", "172.18.0.23"})
 	setupTest(config)
 	config.verifyRWReplicaCount(3)
 	config.runIOs()
@@ -64,7 +64,7 @@ func restartTwoReplicasTest() {
 }
 
 func restartThreeReplicasTest() {
-	config := buildConfig("172.17.0.30", []string{"172.17.0.31", "172.17.0.32", "172.17.0.33"})
+	config := buildConfig("172.18.0.30", []string{"172.18.0.31", "172.18.0.32", "172.18.0.33"})
 	setupTest(config)
 	config.verifyRWReplicaCount(3)
 	config.runIOs()
@@ -96,7 +96,7 @@ func restartThreeReplicasTest() {
 }
 
 func restartControllerTest() {
-	config := buildConfig("172.17.0.40", []string{"172.17.0.41", "172.17.0.42", "172.17.0.43"})
+	config := buildConfig("172.18.0.40", []string{"172.18.0.41", "172.18.0.42", "172.18.0.43"})
 	setupTest(config)
 	config.verifyRWReplicaCount(3)
 	config.runIOs()

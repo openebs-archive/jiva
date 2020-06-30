@@ -3,7 +3,7 @@ package main
 import "time"
 
 func checkpointTest() {
-	ControllerIP, Replica1IP, Replica2IP, Replica3IP := "172.17.0.40", "172.17.0.41", "172.17.0.42", "172.17.0.43"
+	ControllerIP, Replica1IP, Replica2IP, Replica3IP := "172.18.0.40", "172.18.0.41", "172.18.0.42", "172.18.0.43"
 	config := buildConfig(ControllerIP, []string{Replica1IP, Replica2IP, Replica3IP})
 	setupTest(config)
 	config.verifyRWReplicaCount(3)
