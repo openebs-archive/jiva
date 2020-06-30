@@ -56,8 +56,8 @@ script:
       make test_resiliency;
     fi
   - if [ $RUN_E2E_AND_FUNCTIONAL_TESTS = 1 ]; then
-      make e2e_tests;
-      make functional_tests;
+      make test_e2e;
+      make test_functional;
     fi
 
 after_success:
