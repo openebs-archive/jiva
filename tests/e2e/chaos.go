@@ -3,6 +3,8 @@ package main
 import (
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 func restartOneReplicaTest() {
@@ -13,7 +15,9 @@ func restartOneReplicaTest() {
 	go config.snapshotCreateDelete()
 	ctrlClient := getControllerClient(config.ControllerIP)
 	startTime := time.Now()
+	iteration := 1
 	for {
+		logrus.Infof("Iteration number %v for restartOneReplicaTest", iteration)
 		replicas, err := ctrlClient.ListReplicas()
 		if err != nil {
 			panic(err)
@@ -21,10 +25,13 @@ func restartOneReplicaTest() {
 		stopContainer(config.Replicas[striped(replicas[0].Address)])
 		startContainer(config.Replicas[striped(replicas[0].Address)])
 		config.verifyRWReplicaCount(3)
+		time.Sleep(30 * time.Second)
 		if time.Since(startTime) > time.Minute*20 {
 			break
 		}
+		iteration++
 	}
+	config.Stop = true
 	for {
 		if config.ThreadCount == 0 {
 			break
@@ -41,7 +48,9 @@ func restartTwoReplicasTest() {
 	go config.snapshotCreateDelete()
 	ctrlClient := getControllerClient(config.ControllerIP)
 	startTime := time.Now()
+	iteration := 1
 	for {
+		logrus.Infof("Iteration number %v for restartTwoReplicasTest", iteration)
 		replicas, err := ctrlClient.ListReplicas()
 		if err != nil {
 			panic(err)
@@ -51,10 +60,13 @@ func restartTwoReplicasTest() {
 		startContainer(config.Replicas[striped(replicas[0].Address)])
 		startContainer(config.Replicas[striped(replicas[1].Address)])
 		config.verifyRWReplicaCount(3)
+		time.Sleep(30 * time.Second)
 		if time.Since(startTime) > time.Minute*20 {
 			break
 		}
+		iteration++
 	}
+	config.Stop = true
 	for {
 		if config.ThreadCount == 0 {
 			break
@@ -71,7 +83,9 @@ func restartThreeReplicasTest() {
 	go config.snapshotCreateDelete()
 	ctrlClient := getControllerClient(config.ControllerIP)
 	startTime := time.Now()
+	iteration := 1
 	for {
+		logrus.Infof("Iteration number %v for restartThreeReplicasTest", iteration)
 		replicas, err := ctrlClient.ListReplicas()
 		if err != nil {
 			panic(err)
@@ -83,10 +97,13 @@ func restartThreeReplicasTest() {
 		startContainer(config.Replicas[striped(replicas[1].Address)])
 		startContainer(config.Replicas[striped(replicas[2].Address)])
 		config.verifyRWReplicaCount(3)
+		time.Sleep(30 * time.Second)
 		if time.Since(startTime) > time.Minute*20 {
 			break
 		}
+		iteration++
 	}
+	config.Stop = true
 	for {
 		if config.ThreadCount == 0 {
 			break
@@ -102,13 +119,17 @@ func restartControllerTest() {
 	config.runIOs()
 	go config.snapshotCreateDelete()
 	startTime := time.Now()
+	iteration := 1
 	for {
+		logrus.Infof("Iteration number %v for restartControllerTest", iteration)
 		stopContainer(config.Controller[striped(config.ControllerIP)])
 		startContainer(config.Controller[striped(config.ControllerIP)])
 		config.verifyRWReplicaCount(3)
+		time.Sleep(30 * time.Second)
 		if time.Since(startTime) > time.Minute*20 {
 			break
 		}
+		iteration++
 	}
 	config.Stop = true
 	for {

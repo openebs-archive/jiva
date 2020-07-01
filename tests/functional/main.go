@@ -27,7 +27,7 @@ func main() {
 	c := buildConfig("172.18.0.110", replicas)
 	// Start controller
 	go func() {
-		verify("StartController", c.startTestController(c.ControllerIP), nil)
+		c.startTestController(c.ControllerIP)
 	}()
 	time.Sleep(5 * time.Second)
 	// Start 3 Replicas in debug mode
