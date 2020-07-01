@@ -57,7 +57,6 @@ script:
     fi
   - if [ $RUN_E2E_AND_FUNCTIONAL_TESTS = 1 ]; then
       sudo docker network create --subnet=172.18.0.0/16 stg-net;
-      make test_e2e;
       make test_functional;
     fi
 
