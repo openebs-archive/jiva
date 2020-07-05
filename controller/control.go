@@ -141,9 +141,19 @@ func (c *Controller) UpdateVolStatus() {
 		prevState, c.ReadOnly, len(c.replicas), rwReplicaCount, len(c.backend.backends))
 }
 
+// UpdateCheckpoint updates c.Checkpoint based on the last snapshot.
+// This function should be called after every removal/addition of replicas.
+// GetLatestSnapshot and SetCheckpoint will error out in cases when one of
+// the replicas go down in which case we should unset c.Checkpoint
+// Checkpoint should be set only when
+// replication factor number of replicas are in RW state
 func (c *Controller) UpdateCheckpoint() {
-	var checkpoint string
-	var rwReplicaCount int
+	var (
+		latestSnapshot string
+		checkpoint     string
+		rwReplicaCount int
+		err            error
+	)
 	prevCheckpoint := c.Checkpoint
 	for _, replica := range c.replicas {
 		if replica.Mode == "RW" {
@@ -152,12 +162,15 @@ func (c *Controller) UpdateCheckpoint() {
 	}
 
 	if rwReplicaCount == c.ReplicationFactor {
-		latestSnapshot, err := c.backend.GetLatestSnapshot()
+		latestSnapshot, err = c.backend.GetLatestSnapshot()
 		if err == nil {
-			if err := c.backend.SetCheckpoint(latestSnapshot); err == nil {
+			if err = c.backend.SetCheckpoint(latestSnapshot); err == nil {
 				checkpoint = latestSnapshot
 			}
 		}
+	}
+	if err != nil {
+		logrus.Error(err)
 	}
 	c.Checkpoint = checkpoint
 
