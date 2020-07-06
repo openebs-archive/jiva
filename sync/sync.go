@@ -325,6 +325,10 @@ func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.R
 		fromClient.GetAddress(), rwReplica.RevisionCounter, toClient.GetAddress(),
 		curReplica.RevisionCounter)
 	logrus.Infof("RW replica chain: %v, cur replica chain: %v", rwReplica.Chain, curReplica.Chain)
+	// Snapshots created after the checkpoint are only being synced,
+	// since till the checkpoint all the replicas are assumed to be
+	// having same data. Checkpoints are created only when the controller
+	// is certain that till this snapshot all the replicas are in sync.
 	if curReplica.Checkpoint != "" {
 		for indx, snapshot := range curReplica.Chain {
 			if snapshot == curReplica.Checkpoint {
