@@ -59,7 +59,6 @@ func (config *testConfig) startIOs(tid int64, devPath string) {
 	defer config.releaseThread()
 	var (
 		err error
-		gb  int64
 		fd  int
 	)
 

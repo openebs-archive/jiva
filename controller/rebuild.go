@@ -6,6 +6,7 @@ import (
 
 	"github.com/openebs/jiva/replica/client"
 	"github.com/openebs/jiva/types"
+	"github.com/openebs/jiva/util"
 	"github.com/sirupsen/logrus"
 )
 
@@ -95,7 +96,7 @@ func (c *Controller) VerifyRebuildReplica(address string) error {
 	if err != nil {
 		return err
 	}
-	WOcheckpoint, err := getReplicaCheckpoint(address)
+	WOCheckpoint, err := getReplicaCheckpoint(address)
 	if err != nil {
 		return err
 	}
@@ -103,16 +104,19 @@ func (c *Controller) VerifyRebuildReplica(address string) error {
 		indx     int
 		snapshot string
 	)
+	if (WOCheckpoint != "") && (!util.ChainContainsSnapshot(rwChain, WOCheckpoint)) {
+		return fmt.Errorf("WO replica's checkpoint not present in rwReplica chain")
+	}
 	for indx, snapshot = range rwChain {
-		if snapshot == WOcheckpoint {
+		if snapshot == WOCheckpoint {
 			break
 		}
 	}
-	logrus.Infof("chain %v from rw replica %s", rwChain, rwReplica.Address)
+	logrus.Infof("chain %v from rw replica %s, indx: %v", rwChain, rwReplica.Address, indx)
 	// No need to compare the volume head disk
 	rwChain = rwChain[1 : indx+1]
 
-	logrus.Infof("chain %v from wo replica %s", chain, address)
+	logrus.Infof("chain %v from wo replica %s, indx: %v", chain, address, indx)
 	chain = chain[1 : indx+1]
 
 	if !reflect.DeepEqual(rwChain, chain) {

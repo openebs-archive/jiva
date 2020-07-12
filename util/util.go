@@ -322,3 +322,12 @@ func GetWriteTimeout() time.Duration {
 	}
 	return time.Duration(writeTimeout) * time.Second
 }
+
+func ChainContainsSnapshot(chain []string, snapshot string) bool {
+	for _, snap := range chain {
+		if snap == snapshot {
+			return true
+		}
+	}
+	return false
+}

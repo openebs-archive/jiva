@@ -387,6 +387,7 @@ func (s *Server) UpdateLUNMap() error {
 	// and the other being filled by preload operation.
 	s.Lock()
 	if s.r == nil {
+		s.Unlock()
 		return fmt.Errorf("UpdateLUNMap failed, s.r not set")
 	}
 	volume := s.r.volume

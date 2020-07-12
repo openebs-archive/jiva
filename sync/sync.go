@@ -325,10 +325,23 @@ func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.R
 		fromClient.GetAddress(), rwReplica.RevisionCounter, toClient.GetAddress(),
 		curReplica.RevisionCounter)
 	logrus.Infof("RW replica chain: %v, cur replica chain: %v", rwReplica.Chain, curReplica.Chain)
+
+	if (curReplica.Checkpoint != "") && (!util.ChainContainsSnapshot(rwReplica.Chain, curReplica.Checkpoint)) {
+		return false, nil, fmt.Errorf("Current replica's checkpoint not present in rwReplica chain")
+	}
 	// Snapshots created after the checkpoint are only being synced,
 	// since till the checkpoint all the replicas are assumed to be
 	// having same data. Checkpoints are created only when the controller
 	// is certain that till this snapshot all the replicas are in sync.
+	// CurReplica's checkpoint is considered and not RWReplica's since,
+	// it is sure that curReplica will have all the snapshots till this checkpoint
+	// although, ideally curReplica should have all the snapshots till the latest checkpoint,
+	// that chekpoint might be in curReplica or rwReplica.
+	// But in case of replica being replaced, curReplica will not have all the snapshots with latest checkpoint.
+	// If indxOf(WOCheckpoint) > indxOf(RWCheckpoint), still we should sync only the snapshots after WOCheckpoint,
+	// Since it is assumed that till this snaphot, WO replica has all the data.
+	// If indxOf(WOCheckpoint) < indxOf(RWCheckpoint), all the snapshots are verified from WOCheckpoint till latest snapshot,
+	// this could have been avoided but to be on the safer side, it is done (also required in case of replica replacement)
 	if curReplica.Checkpoint != "" {
 		for indx, snapshot := range curReplica.Chain {
 			if snapshot == curReplica.Checkpoint {
@@ -342,6 +355,10 @@ func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.R
 				break
 			}
 		}
+		logrus.Infof(
+			"Comparable chains, CurReplica: %v RWReplica: %v Checkpoint: %v",
+			curReplica.Chain, rwReplica.Chain, curReplica.Checkpoint,
+		)
 	}
 	if rwReplica.RevisionCounter == curReplica.RevisionCounter {
 		// ignoring Chain[0] since it's head file and it is opened for writing the latest data.
