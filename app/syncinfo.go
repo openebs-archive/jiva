@@ -59,10 +59,10 @@ func getSyncInfo(c *cli.Context) error {
 
 	fmt.Fprintf(tw, "%v\t%v,\t%v\t%v\n", "DegradedReplica: ", strings.
 		TrimSuffix(strings.TrimPrefix(info.WOReplica, "http://"), ":9502/v1"),
-		"WOSnapshotsTotalSize: ", info.WOSnapshotsTotalSize)
+		"WOSnapshotsTotalSizeTobeSynced: ", info.WOSnapshotsTotalSize)
 	fmt.Fprintf(tw, "%v\t%v,\t%v\t%v\n", "HealthyReplica: ", strings.
 		TrimSuffix(strings.TrimPrefix(info.RWReplica, "http://"), ":9502/v1"),
-		"RWSnapshotsTotalSize: ", info.RWSnapshotsTotalSize)
+		"RWSnapshotsTotalSizeToBeSynced: ", info.RWSnapshotsTotalSize)
 	fmt.Fprintf(tw, "%s\n", "============================================================================")
 	fmt.Fprintf(tw, format, "Snapshot", "Status", "DegradedSize", "HealthySize")
 	for _, snapInfo := range info.Snapshots {

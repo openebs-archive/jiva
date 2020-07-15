@@ -214,6 +214,22 @@ func (c *ControllerClient) GetVolume() (*rest.Volume, error) {
 	return &volumes.Data[0], nil
 }
 
+func (c *ControllerClient) GetCheckpoint() (string, error) {
+	var checkpoint rest.Checkpoint
+
+	err := c.get("/checkpoint", &checkpoint)
+	if err != nil {
+		logrus.Errorf("GetCheckpoint failed, %v", err)
+		return "", err
+	}
+
+	if checkpoint.Snapshot == "" {
+		logrus.Errorf("checkpoint not found")
+		return "", errors.New("No checkpoint found")
+	}
+	return checkpoint.Snapshot, nil
+}
+
 func (c *ControllerClient) Register(address string, revisionCount int64, replicaType string, upTime time.Duration, state string) error {
 	err := c.post("/register", &rest.RegReplica{
 		Address:  address,

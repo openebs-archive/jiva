@@ -18,11 +18,19 @@ jobs:
       env:
         - RUN_FEATURE_TESTS=1
         - RUN_RESILIENCY_TESTS=0
+        - RUN_E2E_AND_FUNCTIONAL_TESTS=0
     - os: linux
       arch: amd64
       env:
         - RUN_FEATURE_TESTS=0
         - RUN_RESILIENCY_TESTS=1
+        - RUN_E2E_AND_FUNCTIONAL_TESTS=0
+    - os: linux
+      arch: amd64
+      env:
+        - RUN_FEATURE_TESTS=0
+        - RUN_RESILIENCY_TESTS=0
+        - RUN_E2E_AND_FUNCTIONAL_TESTS=1
     - os: linux
       arch: arm64
     - os: linux
@@ -46,6 +54,10 @@ script:
     fi
   - if [ $RUN_RESILIENCY_TESTS = 1 ]; then
       make test_resiliency;
+    fi
+  - if [ $RUN_E2E_AND_FUNCTIONAL_TESTS = 1 ]; then
+      sudo docker network create --subnet=172.18.0.0/16 stg-net;
+      make test_functional;
     fi
 
 after_success:

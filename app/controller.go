@@ -124,10 +124,8 @@ func startController(c *cli.Context) error {
 	}
 	logrus.Infof("Starting controller with frontendIP: %v, and clusterIP: %v", tgt.FrontendIP, tgt.ClusterIP)
 
-	//startAutoSnapDeletion := make(chan bool)
 	control := controller.
 		NewController(
-			//		startAutoSnapDeletion,
 			controller.WithName(name),
 			controller.WithClusterIP(tgt.ClusterIP),
 			controller.WithBackend(dynamic.New(
@@ -136,11 +134,6 @@ func startController(c *cli.Context) error {
 			controller.WithRF(int(rf)))
 	server := rest.NewServer(control)
 	router := http.Handler(rest.NewRouter(server))
-	//	go func(c *controller.Controller) {
-	//		for <-startAutoSnapDeletion {
-	//			go autoDeleteSnapshot(c)
-	//		}
-	//	}(control)
 
 	router = util.FilteredLoggingHandler(map[string]struct{}{
 		"/v1/volumes":  {},

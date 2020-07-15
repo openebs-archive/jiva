@@ -2,6 +2,8 @@
 
 package inject
 
+var Envs map[string](map[string]bool)
+
 // AddTimeout add delays into the code
 func AddTimeout() {}
 
@@ -20,6 +22,10 @@ func DisablePunchHoles() bool { return false }
 // PanicAfterPrepareRebuild is used for crashing the replica
 // just after prepare rebuild.
 func PanicAfterPrepareRebuild() {}
+
+// PanicWhileSettingCheckpoint is used for crashing the replica
+// on receiving set checkpoint REST Call
+func PanicWhileSettingCheckpoint(addr string) {}
 
 // UpdateLUNMapTimeoutTriggered is being used to wait for the delay in
 // UpdateLUNMap to start

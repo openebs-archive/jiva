@@ -31,6 +31,7 @@ var StartTime time.Time
 type Server struct {
 	sync.RWMutex
 	r                 *Replica
+	ReplicaAddress    string
 	ServerType        string
 	dir               string
 	defaultSectorSize int64
@@ -43,17 +44,17 @@ type Server struct {
 	preload bool
 }
 
-func NewServer(dir string, sectorSize int64, serverType string) *Server {
+func NewServer(address, dir string, sectorSize int64, serverType string) *Server {
 	ActionChannel = make(chan string, 5)
 	Dir = dir
 	StartTime = time.Now()
 	return &Server{
+		ReplicaAddress:    address,
 		dir:               dir,
 		defaultSectorSize: sectorSize,
 		ServerType:        serverType,
 		MonitorChannel:    make(chan struct{}),
 		preload:           true,
-		//	closeSync:         make(chan struct{}),
 	}
 }
 
@@ -219,8 +220,7 @@ func (s *Server) Reload() error {
 	defer s.Unlock()
 
 	if s.r == nil {
-		logrus.Infof("returning as s.r is nil in reloading volume")
-		return nil
+		return fmt.Errorf("Reload failed, s.r not set")
 	}
 
 	types.ShouldPunchHoles = true
@@ -243,7 +243,7 @@ func (s *Server) UpdateCloneInfo(snapName, revCount string) error {
 	defer s.Unlock()
 
 	if s.r == nil {
-		return nil
+		return fmt.Errorf("UpdateCloneInfo failed, s.r not set")
 	}
 
 	logrus.Infof("Update Clone Info")
@@ -333,6 +333,9 @@ func (s *Server) SetRebuilding(rebuilding bool) error {
 	s.Lock()
 	defer s.Unlock()
 
+	if s.r == nil {
+		return fmt.Errorf("SetRebuilding failed, s.r not set")
+	}
 	state, _ := s.Status()
 	// Must be Open/Dirty to set true or must be Rebuilding to set false
 	if (rebuilding && state != Open && state != Dirty) ||
@@ -346,6 +349,9 @@ func (s *Server) SetRebuilding(rebuilding bool) error {
 func (s *Server) Resize(size string) error {
 	s.Lock()
 	defer s.Unlock()
+	if s.r == nil {
+		return fmt.Errorf("Resize failed, s.r not set")
+	}
 	return s.r.Resize(size)
 }
 
@@ -358,8 +364,7 @@ func (s *Server) Revert(name, created string) error {
 	defer s.Unlock()
 
 	if s.r == nil {
-		logrus.Infof("Revert is not performed as s.r is nil")
-		return nil
+		return fmt.Errorf("Revert failed, s.r not set")
 	}
 
 	logrus.Infof("Reverting to snapshot [%s] on volume at %s", name, created)
@@ -381,6 +386,10 @@ func (s *Server) UpdateLUNMap() error {
 	// be having 2 LUNMaps, one being filled by the parallel write operations
 	// and the other being filled by preload operation.
 	s.Lock()
+	if s.r == nil {
+		s.Unlock()
+		return fmt.Errorf("UpdateLUNMap failed, s.r not set")
+	}
 	volume := s.r.volume
 	volume.location = make([]uint16, len(s.r.volume.location))
 	volume.UsedBlocks = 0
@@ -469,8 +478,7 @@ func (s *Server) Snapshot(name string, userCreated bool, createdTime string) err
 	defer s.Unlock()
 
 	if s.r == nil {
-		logrus.Infof("snapshot is not performed as s.r is nil")
-		return nil
+		return fmt.Errorf("Cannot take snapshot, s.r not set")
 	}
 
 	logrus.Infof("Snapshotting [%s] volume, user created %v, created time %v",
@@ -483,8 +491,7 @@ func (s *Server) RemoveDiffDisk(name string) error {
 	defer s.Unlock()
 
 	if s.r == nil {
-		logrus.Infof("RemoveDiffDisk is not performed as s.r is nil")
-		return nil
+		return fmt.Errorf("RemoveDiffDisk failed, s.r not set")
 	}
 
 	logrus.Infof("Removing disk: %s", name)
@@ -496,8 +503,7 @@ func (s *Server) ReplaceDisk(target, source string) error {
 	defer s.Unlock()
 
 	if s.r == nil {
-		logrus.Infof("ReplicaDisk is not performed as s.r is nil")
-		return nil
+		return fmt.Errorf("Replace disk failed, s.r not set")
 	}
 
 	logrus.Infof("Replacing disk %v with %v", target, source)
@@ -509,8 +515,7 @@ func (s *Server) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) {
 	defer s.Unlock()
 
 	if s.r == nil {
-		logrus.Infof("PrepareRemoveDisk is not performed as s.r is nil")
-		return nil, nil
+		return nil, fmt.Errorf("PrepareRemoveDisk failed, s.r not set")
 	}
 
 	logrus.Infof("Prepare removing disk: %s", name)
@@ -522,7 +527,7 @@ func (s *Server) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) {
 // and deletes the entry from the controller.
 func (s *Server) CheckPreDeleteConditions() error {
 	if s.r == nil {
-		return errors.New("s.r is nil")
+		return errors.New("CheckPreDeleteConditions failed, s.r not set")
 	}
 
 	logrus.Infof("Closing volume")
@@ -639,10 +644,21 @@ func (s *Server) SetReplicaMode(mode string) error {
 	defer s.Unlock()
 
 	if s.r == nil {
-		logrus.Infof("s.r is nil during setReplicaMode")
-		return nil
+		return fmt.Errorf("SetReplicaMode failed, s.r not set")
 	}
 	return s.r.SetReplicaMode(mode)
+}
+
+// SetCheckpoint ...
+func (s *Server) SetCheckpoint(snapshotName string) error {
+	s.Lock()
+	defer s.Unlock()
+
+	if s.r == nil {
+		return fmt.Errorf("SetCheckpoint failed, s.r not set")
+	}
+	inject.PanicWhileSettingCheckpoint(s.ReplicaAddress)
+	return s.r.SetCheckpoint(snapshotName)
 }
 
 func (s *Server) SetRevisionCounter(counter int64) error {
@@ -650,8 +666,7 @@ func (s *Server) SetRevisionCounter(counter int64) error {
 	defer s.Unlock()
 
 	if s.r == nil {
-		logrus.Infof("s.r is nil during setRevisionCounter")
-		return nil
+		return fmt.Errorf("SetRevisionCounter failed, s.r not set")
 	}
 	return s.r.SetRevisionCounter(counter)
 }

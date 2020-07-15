@@ -22,7 +22,6 @@ test_single_replica_stop_start
 test_restart_during_prepare_rebuild
 test_ctrl_stop_start
 test_replica_controller_continuous_stop_start
-test_restart_during_prepare_rebuild
 #test_bad_file_descriptor
 test_replica_rpc_close
 test_controller_rpc_close

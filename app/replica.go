@@ -248,10 +248,10 @@ func startReplica(c *cli.Context) error {
 			return err
 		}
 	}
-	s := replica.NewServer(dir, 512, replicaType)
+	address := c.String("listen")
+	s := replica.NewServer(address, dir, 512, replicaType)
 	go replica.CreateHoles()
 
-	address := c.String("listen")
 	frontendIP := c.String("frontendIP")
 	cloneIP := c.String("cloneIP")
 	snapName := c.String("snapName")
