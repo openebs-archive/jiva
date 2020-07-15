@@ -150,6 +150,18 @@ func (s *Server) GetVolumeStats(rw http.ResponseWriter, req *http.Request) error
 	return nil
 }
 
+func (s *Server) GetCheckpoint(rw http.ResponseWriter, req *http.Request) error {
+	apiContext := api.GetApiContext(req)
+	s.c.RLock()
+	checkpoint := &Checkpoint{
+		Resource: client.Resource{Type: "checkpoint"},
+		Snapshot: s.c.Checkpoint,
+	}
+	s.c.RUnlock()
+	apiContext.Write(checkpoint)
+	return nil
+}
+
 func (s *Server) ShutdownVolume(rw http.ResponseWriter, req *http.Request) error {
 	apiContext := api.GetApiContext(req)
 	id := mux.Vars(req)["id"]

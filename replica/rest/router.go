@@ -78,6 +78,7 @@ func NewRouter(s *Server) *mux.Router {
 		"prepareremovedisk":  s.PrepareRemoveDisk,
 		"setrevisioncounter": s.SetRevisionCounter,
 		"setreplicamode":     s.SetReplicaMode,
+		"setcheckpoint":      s.SetCheckpoint,
 	}
 
 	for name, action := range actions {

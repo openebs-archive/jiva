@@ -6,6 +6,7 @@ import (
 
 	"github.com/openebs/jiva/replica/client"
 	"github.com/openebs/jiva/types"
+	"github.com/openebs/jiva/util"
 	"github.com/sirupsen/logrus"
 )
 
@@ -22,6 +23,21 @@ func getReplicaChain(address string) ([]string, error) {
 			address, err)
 	}
 	return rep.Chain, nil
+}
+
+func getReplicaCheckpoint(address string) (string, error) {
+	repClient, err := client.NewReplicaClient(address)
+	if err != nil {
+		return "", fmt.Errorf("Cannot get replica client for %v: %v",
+			address, err)
+	}
+
+	rep, err := repClient.GetReplica()
+	if err != nil {
+		return "", fmt.Errorf("Cannot get replica for %v: %v",
+			address, err)
+	}
+	return rep.Checkpoint, nil
 }
 
 func (c *Controller) getCurrentAndRWReplica(address string) (*types.Replica, *types.Replica, error) {
@@ -76,17 +92,32 @@ func (c *Controller) VerifyRebuildReplica(address string) error {
 		return err
 	}
 
-	logrus.Infof("chain %v from rw replica %s", rwChain, rwReplica.Address)
-	// Don't need to compare the volume head disk
-	rwChain = rwChain[1:]
-
 	chain, err := getReplicaChain(address)
 	if err != nil {
 		return err
 	}
+	WOCheckpoint, err := getReplicaCheckpoint(address)
+	if err != nil {
+		return err
+	}
+	var (
+		indx     int
+		snapshot string
+	)
+	if (WOCheckpoint != "") && (!util.ChainContainsSnapshot(rwChain, WOCheckpoint)) {
+		return fmt.Errorf("WO replica's checkpoint not present in rwReplica chain")
+	}
+	for indx, snapshot = range rwChain {
+		if snapshot == WOCheckpoint {
+			break
+		}
+	}
+	logrus.Infof("chain %v from rw replica %s, indx: %v", rwChain, rwReplica.Address, indx)
+	// No need to compare the volume head disk
+	rwChain = rwChain[1 : indx+1]
 
-	logrus.Infof("chain %v from wo replica %s", chain, address)
-	chain = chain[1:]
+	logrus.Infof("chain %v from wo replica %s, indx: %v", chain, address, indx)
+	chain = chain[1 : indx+1]
 
 	if !reflect.DeepEqual(rwChain, chain) {
 		return fmt.Errorf("Replica %v's chain not equal to RW replica %v's chain",
@@ -113,7 +144,7 @@ func (c *Controller) VerifyRebuildReplica(address string) error {
 		c.quorumReplicaCount = len(c.quorumReplicas)
 	}
 	c.UpdateVolStatus()
-	//c.StartAutoSnapDeletion <- true
+	c.UpdateCheckpoint()
 	return nil
 }
 

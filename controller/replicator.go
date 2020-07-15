@@ -287,7 +287,7 @@ func (r *replicator) Snapshot(name string, userCreated bool, created string) err
 			wg.Add(1)
 			go func(address string, backend types.Backend) {
 				if err := backend.Snapshot(name, userCreated, created); err != nil {
-					logrus.Infof("failed taking snapshot at %s with err %v", addr, err)
+					logrus.Infof("failed taking snapshot at %s with err %v", address, err)
 					retErrorLock.Lock()
 					retError.Errors[address] = err
 					retErrorLock.Unlock()
@@ -308,6 +308,98 @@ func (r *replicator) Snapshot(name string, userCreated bool, created string) err
 	logrus.Infof("successfully taken snapshots cnt %d", success)
 	if len(retError.Errors) != 0 {
 		return retError
+	}
+	return nil
+}
+
+func (r *replicator) GetLatestSnapshot() (string, error) {
+	retErrorLock := sync.Mutex{}
+	retError := &BackendError{
+		Errors: map[string]error{},
+	}
+	replicaChains := make(map[string][]string)
+	wg := sync.WaitGroup{}
+
+	for addr, backend := range r.backends {
+		if backend.mode == types.RW {
+			wg.Add(1)
+			go func(address string, backend types.Backend) {
+				if chain, err := backend.GetReplicaChain(); err != nil {
+					logrus.Infof("failed getting replica chain from %s with err %v", address, err)
+					retErrorLock.Lock()
+					retError.Errors[address] = err
+					retErrorLock.Unlock()
+				} else {
+					retErrorLock.Lock()
+					replicaChains[address] = chain
+					retErrorLock.Unlock()
+				}
+				wg.Done()
+			}(addr, backend.backend)
+		} else {
+			logrus.Infof("not getting chain from %s as replica in %v mode", addr, backend.mode)
+			break
+		}
+	}
+	wg.Wait()
+	if len(retError.Errors) != 0 {
+		return "", retError
+	}
+	if len(replicaChains) != len(r.backends) {
+		return "", fmt.Errorf("Not able to fetch chain from all replicas")
+	}
+	var snapName string
+	for _, chain := range replicaChains {
+		if len(chain) <= 1 {
+			return "", fmt.Errorf("No snapshot present in one of the replicas: %v", replicaChains)
+		}
+		if snapName == "" {
+			snapName = chain[1]
+			continue
+		}
+		if snapName != chain[1] {
+			return "", fmt.Errorf("Latest Snapshot differs at replicas %v", replicaChains)
+		}
+	}
+	return snapName, nil
+}
+
+func (r *replicator) SetCheckpoint(snapshotName string) error {
+	retErrorLock := sync.Mutex{}
+	retError := &BackendError{
+		Errors: map[string]error{},
+	}
+	wg := sync.WaitGroup{}
+	var success int
+
+	for addr, backend := range r.backends {
+		if backend.mode == types.RW {
+			wg.Add(1)
+			go func(address string, backend types.Backend) {
+				if err := backend.SetCheckpoint(snapshotName); err != nil {
+					logrus.Infof("failed setting checkpoint at %s with err %v", address, err)
+					retErrorLock.Lock()
+					retError.Errors[address] = err
+					retErrorLock.Unlock()
+				} else {
+					retErrorLock.Lock()
+					success = success + 1
+					retErrorLock.Unlock()
+				}
+				wg.Done()
+			}(addr, backend.backend)
+		} else {
+			logrus.Infof("not setting checkpoint at %s in %s mode", addr, backend.mode)
+			break
+		}
+	}
+	wg.Wait()
+	logrus.Infof("successfully set checkpoint cnt %d", success)
+	if len(retError.Errors) != 0 {
+		return retError
+	}
+	if success != len(r.backends) {
+		return fmt.Errorf("Not able to set checkpoint at all the replicas")
 	}
 	return nil
 }

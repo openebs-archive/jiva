@@ -25,6 +25,7 @@ type Controller struct {
 	sectorSize               int64
 	replicas                 []types.Replica
 	ReplicationFactor        int
+	RWReplicaCount           int
 	quorumReplicas           []types.Replica
 	quorumReplicaCount       int
 	factory                  types.BackendFactory
@@ -38,7 +39,7 @@ type Controller struct {
 	ReadOnly                 bool
 	SnapshotName             string
 	IsSnapDeletionInProgress bool
-	//StartAutoSnapDeletion    chan bool
+	Checkpoint               string
 }
 
 func max(x int, y int) int {
@@ -115,8 +116,8 @@ func NewController(opts ...BuildOpts) *Controller {
 }
 
 func (c *Controller) UpdateVolStatus() {
-	prev := c.ReadOnly
 	var rwReplicaCount int
+	prevState := c.ReadOnly
 	for _, replica := range c.replicas {
 		if replica.Mode == "RW" {
 			rwReplicaCount++
@@ -134,9 +135,46 @@ func (c *Controller) UpdateVolStatus() {
 	} else {
 		c.ReadOnly = true
 	}
+	c.RWReplicaCount = rwReplicaCount
 
-	logrus.Infof("Previously Volume RO: %v, Currently: %v,  Total Replicas: %v,  RW replicas: %v, Total backends: %v",
-		prev, c.ReadOnly, len(c.replicas), rwReplicaCount, len(c.backend.backends))
+	logrus.Infof("Previously Volume RO: %v, Currently: %v, Total Replicas: %v, RW replicas: %v, Total backends: %v",
+		prevState, c.ReadOnly, len(c.replicas), rwReplicaCount, len(c.backend.backends))
+}
+
+// UpdateCheckpoint updates c.Checkpoint based on the last snapshot.
+// This function should be called after every removal/addition of replicas.
+// GetLatestSnapshot and SetCheckpoint will error out in cases when one of
+// the replicas go down in which case we should unset c.Checkpoint
+// Checkpoint should be set only when
+// replication factor number of replicas are in RW state
+func (c *Controller) UpdateCheckpoint() {
+	var (
+		latestSnapshot string
+		checkpoint     string
+		rwReplicaCount int
+		err            error
+	)
+	prevCheckpoint := c.Checkpoint
+	for _, replica := range c.replicas {
+		if replica.Mode == "RW" {
+			rwReplicaCount++
+		}
+	}
+
+	if rwReplicaCount == c.ReplicationFactor {
+		latestSnapshot, err = c.backend.GetLatestSnapshot()
+		if err == nil {
+			if err = c.backend.SetCheckpoint(latestSnapshot); err == nil {
+				checkpoint = latestSnapshot
+			}
+		}
+	}
+	if err != nil {
+		logrus.Error(err)
+	}
+	c.Checkpoint = checkpoint
+
+	logrus.Infof("prevCheckpoint: %v, currCheckpoint: %v", prevCheckpoint, c.Checkpoint)
 }
 
 func (c *Controller) AddQuorumReplica(address string) error {
@@ -295,14 +333,8 @@ func (c *Controller) addQuorumReplica(address string, snapshot bool) error {
 		return fmt.Errorf("Failed to set rebuild : %v", true)
 	}
 	c.UpdateVolStatus()
+	c.UpdateCheckpoint()
 
-	/*
-		for _, temprep := range c.replicas {
-			if err := c.backend.SetQuorumReplicaCounter(temprep.Address, int64(len(c.replicas))); err != nil {
-				return fmt.Errorf("Fail to set replica counter for %v: %v", address, err)
-			}
-		}
-	*/
 	return nil
 }
 
@@ -343,6 +375,7 @@ func (c *Controller) addReplica(address string, snapshot bool) error {
 		logrus.Infof("addReplicaNoLock %s from addReplica failed %v", address, err)
 	} else {
 		c.UpdateVolStatus()
+		c.UpdateCheckpoint()
 	}
 	return err
 }
@@ -380,7 +413,8 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 	if c.StartSignalled == true {
 		if c.MaxRevReplica == register.Address {
 			logrus.Infof("Replica %v signalled to start again, registered replicas: %#v", c.MaxRevReplica, c.RegisteredReplicas)
-			if err := c.signalReplica(); err != nil {
+			err := c.signalReplica()
+			if err != nil {
 				return err
 			}
 		} else {
@@ -406,7 +440,8 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 	if (len(c.RegisteredReplicas) >= ((c.ReplicationFactor / 2) + 1)) &&
 		((len(c.RegisteredReplicas) + len(c.RegisteredQuorumReplicas)) >= (((c.quorumReplicaCount + c.ReplicationFactor) / 2) + 1)) {
 		logrus.Infof("Replica %v signalled to start, registered replicas: %#v", c.MaxRevReplica, c.RegisteredReplicas)
-		if err := c.signalReplica(); err != nil {
+		err := c.signalReplica()
+		if err != nil {
 			return err
 		}
 		return nil
@@ -689,6 +724,7 @@ func (c *Controller) RemoveReplicaNoLock(address string) error {
 		}
 	}
 	c.UpdateVolStatus()
+	c.UpdateCheckpoint()
 	return nil
 }
 
@@ -923,6 +959,7 @@ func (c *Controller) Start(addresses ...string) error {
 	}
 	logrus.Info("Update volume status")
 	c.UpdateVolStatus()
+	c.UpdateCheckpoint()
 
 	return nil
 }
