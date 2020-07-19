@@ -7,6 +7,7 @@ import (
 
 	"github.com/openebs/jiva/controller/client"
 	replicaClient "github.com/openebs/jiva/replica/client"
+	replicaRest "github.com/openebs/jiva/replica/rest"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -69,4 +70,13 @@ func getChain(address string) ([]string, error) {
 	}
 
 	return r.Chain, err
+}
+
+func getReplica(address string) (replicaRest.Replica, error) {
+	repClient, err := replicaClient.NewReplicaClient(address)
+	if err != nil {
+		return replicaRest.Replica{}, err
+	}
+
+	return repClient.GetReplica()
 }

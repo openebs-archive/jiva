@@ -3,6 +3,7 @@ package sync
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -16,6 +17,10 @@ import (
 	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
 	"github.com/sirupsen/logrus"
+)
+
+const (
+	SnapshotDeletionInterval = 60 * time.Second
 )
 
 var (
@@ -255,6 +260,11 @@ Register:
 			types.ShouldPunchHoles = false
 			return err
 		}
+		repclient, err := replicaClient.NewReplicaClient(replicaAddress)
+		if err != nil {
+			return err
+		}
+		go t.InternalSnapshotCleaner(s, repclient)
 		return nil
 	}
 	logrus.Infof("Adding replica %s in WO mode", replicaAddress)
@@ -421,6 +431,7 @@ func (t *Task) reloadAndVerify(s *replica.Server, address string, repClient *rep
 		return err
 	}
 
+	go t.InternalSnapshotCleaner(s, repClient)
 	return nil
 }
 
@@ -616,4 +627,105 @@ func (t *Task) getToReplica(address string) (rest.Replica, error) {
 	}
 
 	return rest.Replica{}, fmt.Errorf("Failed to find target replica to copy to")
+}
+
+func (t *Task) InternalSnapshotCleaner(s *replica.Server, repClient *replicaClient.ReplicaClient) {
+	ticker := time.NewTicker(SnapshotDeletionInterval)
+
+	for range ticker.C {
+		snapshot, err := t.client.GetCheckpoint()
+		if err == nil && snapshot == s.Replica().Info().Checkpoint {
+			sortedSnapshotList, _ := getDeleteCandidateChain(s, snapshot)
+			if len(sortedSnapshotList) < 10 {
+				continue
+			}
+			var snap SnapList
+			for _, snap = range sortedSnapshotList {
+				if snap.name != "" { // To remove user created snapshot entries
+					break
+				}
+			}
+			ops, err := s.PrepareRemoveDisk(snap.name)
+			if err != nil {
+				continue
+			}
+			for _, op := range ops {
+				switch op.Action {
+				case replica.OpCoalesce:
+					logrus.Infof("Coalescing %v to %v", op.Target, op.Source)
+					if err = repClient.Coalesce(op.Source, op.Target); err != nil {
+						break
+					}
+				case replica.OpRemove:
+					logrus.Infof("Remove %v", op.Source)
+					if err = s.RemoveDiffDisk(op.Source); err != nil {
+						break
+					}
+				}
+				if err != nil {
+					break
+				}
+			}
+
+		}
+	}
+}
+func isHeadDisk(diskName string) bool {
+	if strings.HasPrefix(diskName, "volume-head-") && strings.HasSuffix(diskName, ".img") {
+		return true
+	}
+	return false
+}
+
+type SnapList struct {
+	name string
+	size int64
+}
+
+func getDeleteCandidateChain(s *replica.Server, checkpoint string) ([]SnapList, error) {
+	var (
+		err      error
+		indx     int
+		snapshot string
+	)
+
+	chain, err := s.Replica().Chain()
+	if err != nil {
+		return nil, err
+	}
+	var replicaChain []string
+	for i := len(chain) - 1; i >= 0; i-- {
+		replicaChain = append(replicaChain, chain[i])
+	}
+	replicaDisks := s.Replica().ListDisks()
+
+	for indx, snapshot = range replicaChain {
+		if snapshot == checkpoint {
+			break
+		}
+	}
+	if len(replicaChain) <= 3 || indx <= 1 { // Head, last snapshot, base snapshot
+		return nil, nil
+	}
+
+	replicaChain = replicaChain[1:indx]
+	var snapList = make([]SnapList, len(replicaChain))
+	i := 0
+	for _, disk := range replicaChain {
+		if replicaDisks[disk].UserCreated && !replicaDisks[disk].Removed {
+			continue
+		}
+		snapList[i].name = disk
+		snapList[i].size, err = strconv.ParseInt(replicaDisks[disk].Size, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to convert size: %v into int64, err: %v", replicaDisks[disk].Size, err)
+		}
+		i++
+	}
+
+	sort.SliceStable(snapList, func(i, j int) bool {
+		return snapList[j].size > snapList[i].size
+	})
+
+	return snapList, err
 }

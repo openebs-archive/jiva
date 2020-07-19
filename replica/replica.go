@@ -563,8 +563,11 @@ func (r *Replica) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) 
 		disk = GenerateSnapshotDiskName(name)
 		data, exists = r.diskData[disk]
 		if !exists {
-			return nil, fmt.Errorf("Can not find snapshot %v", disk)
+			return nil, nil
 		}
+	}
+	if data.Removed {
+		return nil, nil
 	}
 
 	if disk == r.info.Head {
@@ -573,6 +576,9 @@ func (r *Replica) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) 
 
 	if r.info.Parent == disk {
 		return nil, fmt.Errorf("Can't delete latest snapshot: %s", disk)
+	}
+	if data.Parent == "" {
+		return nil, fmt.Errorf("Can't delete base snapshot: %s", disk)
 	}
 
 	logrus.Infof("Mark disk %v as removed", disk)
@@ -606,37 +612,19 @@ func (r *Replica) processPrepareRemoveDisks(disks []string) ([]PrepareRemoveActi
 			return nil, fmt.Errorf("Wrong disk %v doesn't exist", disk)
 		}
 
-		children := r.diskChildrenMap[disk]
-		// 1) leaf node
-		if children == nil {
-			actions = append(actions, PrepareRemoveAction{
+		parent := r.diskData[disk].Parent
+
+		actions = append(actions,
+			PrepareRemoveAction{
+				Action: OpCoalesce,
+				Source: disk,
+				Target: parent,
+			},
+			PrepareRemoveAction{
 				Action: OpRemove,
 				Source: disk,
 			})
-			continue
-		}
 
-		// 2) has only one child and is not head
-		if len(children) == 1 {
-			var child string
-			// Get the only element in children
-			for child = range children {
-			}
-			if child != r.info.Head {
-				actions = append(actions,
-					PrepareRemoveAction{
-						Action: OpCoalesce,
-						Source: disk,
-						Target: child,
-					},
-					PrepareRemoveAction{
-						Action: OpReplace,
-						Source: disk,
-						Target: child,
-					})
-				continue
-			}
-		}
 	}
 
 	return actions, nil

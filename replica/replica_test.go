@@ -640,22 +640,16 @@ func (s *TestSuite) TestPrepareRemove(c *C) {
 	c.Assert(r.activeDiskData[2].Removed, Equals, false)
 
 	actions, err = r.PrepareRemoveDisk("volume-snap-000.img")
-	c.Assert(err, IsNil)
-	c.Assert(actions, HasLen, 2)
-	c.Assert(actions[0].Action, Equals, OpCoalesce)
-	c.Assert(actions[0].Source, Equals, "volume-snap-000.img")
-	c.Assert(actions[0].Target, Equals, "volume-snap-001.img")
-	c.Assert(actions[1].Action, Equals, OpReplace)
-	c.Assert(actions[1].Source, Equals, "volume-snap-000.img")
-	c.Assert(actions[1].Target, Equals, "volume-snap-001.img")
-	c.Assert(r.activeDiskData[1].Removed, Equals, true)
+	c.Assert(err, NotNil)
+	c.Assert(actions, HasLen, 0)
+	c.Assert(r.activeDiskData[1].Removed, Equals, false)
 
 	err = r.Snapshot("002", true, now)
 	c.Assert(err, IsNil)
 
 	/*
-		volume-snap-000.img (r)
-		volume-snap-001.img (r)
+		volume-snap-000.img
+		volume-snap-001.img
 		volume-snap-002.img
 		volume-head-003.img
 	*/
@@ -667,13 +661,7 @@ func (s *TestSuite) TestPrepareRemove(c *C) {
 	actions, err = r.PrepareRemoveDisk("002")
 	c.Assert(err, NotNil)
 	c.Assert(actions, HasLen, 0)
-	/*	c.Assert(actions[0].Action, Equals, OpCoalesce)
-		c.Assert(actions[0].Source, Equals, "volume-snap-001.img")
-		c.Assert(actions[0].Target, Equals, "volume-snap-002.img")
-		c.Assert(actions[1].Action, Equals, OpReplace)
-		c.Assert(actions[1].Source, Equals, "volume-snap-001.img")
-		c.Assert(actions[1].Target, Equals, "volume-snap-002.img")
-	*/
+
 	err = r.Snapshot("003", true, now)
 	c.Assert(err, IsNil)
 
@@ -681,9 +669,9 @@ func (s *TestSuite) TestPrepareRemove(c *C) {
 	c.Assert(err, IsNil)
 
 	/*
-		volume-snap-000.img (r)
-		volume-snap-001.img (r)
-		volume-snap-002.img (r)
+		volume-snap-000.img
+		volume-snap-001.img
+		volume-snap-002.img
 		volume-snap-003.img
 		volume-snap-004.img
 		volume-head-005.img
@@ -695,18 +683,11 @@ func (s *TestSuite) TestPrepareRemove(c *C) {
 	actions, err = r.PrepareRemoveDisk("003")
 	c.Assert(err, IsNil)
 	c.Assert(actions, HasLen, 2)
-	/*	c.Assert(actions[0].Action, Equals, OpCoalesce)
-		c.Assert(actions[0].Source, Equals, "volume-snap-002.img")
-		c.Assert(actions[0].Target, Equals, "volume-snap-003.img")
-		c.Assert(actions[1].Action, Equals, OpReplace)
-		c.Assert(actions[1].Source, Equals, "volume-snap-002.img")
-		c.Assert(actions[1].Target, Equals, "volume-snap-003.img")
-	*/c.Assert(actions[0].Action, Equals, OpCoalesce)
+	c.Assert(actions[0].Action, Equals, OpCoalesce)
 	c.Assert(actions[0].Source, Equals, "volume-snap-003.img")
-	c.Assert(actions[0].Target, Equals, "volume-snap-004.img")
-	c.Assert(actions[1].Action, Equals, OpReplace)
+	c.Assert(actions[0].Target, Equals, "volume-snap-002.img")
+	c.Assert(actions[1].Action, Equals, OpRemove)
 	c.Assert(actions[1].Source, Equals, "volume-snap-003.img")
-	c.Assert(actions[1].Target, Equals, "volume-snap-004.img")
 	c.Assert(r.activeDiskData[4].Removed, Equals, true)
 }
 

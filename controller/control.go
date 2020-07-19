@@ -1244,21 +1244,13 @@ func (c *Controller) IsReplicaRW(replicaInController *types.Replica) error {
 }
 
 // DeleteSnapshot ...
-func (c *Controller) DeleteSnapshot(replicas []types.Replica) error {
+func (c *Controller) DeleteSnapshot(snapshot string, replicas []types.Replica) error {
 	var err error
 
-	ops := make(map[string][]replica.PrepareRemoveAction)
 	for _, r := range replicas {
 		replica := r // pin it
-		ops[replica.Address], err = c.prepareRemoveSnapshot(&replica, c.SnapshotName)
+		_, err = c.prepareRemoveSnapshot(&replica, snapshot)
 		if err != nil {
-			return err
-		}
-	}
-
-	for _, rep := range replicas {
-		replica := rep // pin it
-		if err := c.processRemoveSnapshot(&replica, c.SnapshotName, ops[replica.Address]); err != nil {
 			return err
 		}
 	}
@@ -1318,8 +1310,8 @@ func (c *Controller) processRemoveSnapshot(replicaInController *types.Replica, s
 
 			}
 		case replica.OpCoalesce:
-			logrus.Infof("Coalescing %v to %v on %v", op.Target, op.Source, replicaInController.Address)
-			if err = repClient.Coalesce(op.Target, op.Source); err != nil {
+			logrus.Infof("Coalescing %v to %v on %v", op.Source, op.Target, replicaInController.Address)
+			if err = repClient.Coalesce(op.Source, op.Target); err != nil {
 				logrus.Errorf("Failed to coalesce %s on %s: %v", snapshot, replicaInController.Address, err)
 				return fmt.Errorf("Failed to coalesce %s on %s: %v", snapshot, replicaInController.Address, err)
 			}
