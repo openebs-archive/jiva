@@ -629,6 +629,11 @@ func (t *Task) getToReplica(address string) (rest.Replica, error) {
 	return rest.Replica{}, fmt.Errorf("Failed to find target replica to copy to")
 }
 
+// InternalSnapshotCleaner should be run in the background, it tries to delete a snapshot every 60s
+// It fetches the checkpoint from controller which is present at in-memory of controller.
+// If checkpoint is not available at controller, snapshot delete is not initiated.
+// A deletion candidate list is prepared
+// In each iteration of the loop, one snapshot is picked from the top and deleted.
 func (t *Task) InternalSnapshotCleaner(s *replica.Server, repClient *replicaClient.ReplicaClient) {
 	ticker := time.NewTicker(SnapshotDeletionInterval)
 
@@ -641,12 +646,16 @@ func (t *Task) InternalSnapshotCleaner(s *replica.Server, repClient *replicaClie
 			}
 			var snap SnapList
 			for _, snap = range sortedSnapshotList {
-				if snap.name != "" { // To remove user created snapshot entries
+				if snap.name != "" {
 					break
 				}
 			}
+			if snap.name == "" {
+				continue
+			}
 			ops, err := s.PrepareRemoveDisk(snap.name)
 			if err != nil {
+				logrus.Errorf("PrepareRemoveDisk failed, err: %v", err)
 				continue
 			}
 			for _, op := range ops {
@@ -663,13 +672,14 @@ func (t *Task) InternalSnapshotCleaner(s *replica.Server, repClient *replicaClie
 					}
 				}
 				if err != nil {
+					logrus.Errorf("Snapshot deletion failed, err: %v", err)
 					break
 				}
 			}
-
 		}
 	}
 }
+
 func isHeadDisk(diskName string) bool {
 	if strings.HasPrefix(diskName, "volume-head-") && strings.HasSuffix(diskName, ".img") {
 		return true
@@ -682,6 +692,13 @@ type SnapList struct {
 	size int64
 }
 
+// getDeleteCandidateChain returns the chain of snapshots that can be deleted
+// Chain is sorted based on the snapshot size before returning
+// All the snapshots in the chain are returned except:
+// 1. Head snapshot
+// 2. Last snapshot, snapshot just below head
+// 3. Base snapshot
+// 4. User created snapshots not marked as removed
 func getDeleteCandidateChain(s *replica.Server, checkpoint string) ([]SnapList, error) {
 	var (
 		err      error
