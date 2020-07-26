@@ -217,6 +217,10 @@ func (t *Task) AddReplica(replicaAddress string, s *replica.Server) error {
 	}
 	types.ShouldPunchHoles = false
 	logrus.Infof("Addreplica %v", replicaAddress)
+	repClient, err := replicaClient.NewReplicaClient(replicaAddress)
+	if err != nil {
+		return err
+	}
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 	Replica, err := replica.CreateTempReplica()
@@ -260,11 +264,7 @@ Register:
 			types.ShouldPunchHoles = false
 			return err
 		}
-		repclient, err := replicaClient.NewReplicaClient(replicaAddress)
-		if err != nil {
-			return err
-		}
-		go t.InternalSnapshotCleaner(s, repclient)
+		go t.InternalSnapshotCleaner(s, repClient)
 		return nil
 	}
 	logrus.Infof("Adding replica %s in WO mode", replicaAddress)
@@ -318,7 +318,12 @@ Register:
 	}
 
 	logrus.Infof("reloadAndVerify %v", replicaAddress)
-	return t.reloadAndVerify(s, replicaAddress, toClient)
+	if err = t.reloadAndVerify(s, replicaAddress, toClient); err != nil {
+		return err
+	}
+
+	go t.InternalSnapshotCleaner(s, repClient)
+	return nil
 }
 
 func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.ReplicaClient) (bool, []string, error) {
@@ -431,7 +436,6 @@ func (t *Task) reloadAndVerify(s *replica.Server, address string, repClient *rep
 		return err
 	}
 
-	go t.InternalSnapshotCleaner(s, repClient)
 	return nil
 }
 
@@ -637,44 +641,59 @@ func (t *Task) getToReplica(address string) (rest.Replica, error) {
 func (t *Task) InternalSnapshotCleaner(s *replica.Server, repClient *replicaClient.ReplicaClient) {
 	ticker := time.NewTicker(SnapshotDeletionInterval)
 
+	contMismatchCount := 0
 	for range ticker.C {
 		snapshot, err := t.client.GetCheckpoint()
-		if err == nil && snapshot == s.Replica().Info().Checkpoint {
-			sortedSnapshotList, _ := getDeleteCandidateChain(s, snapshot)
-			if len(sortedSnapshotList) < 10 {
-				continue
+		if err != nil || snapshot == "" {
+			continue
+		}
+		if snapshot != s.Replica().Info().Checkpoint {
+			logrus.Warningf(
+				"Checkpoint mismatch btw controller and replica, cont:%v rep:%v",
+				snapshot, s.Replica().Info().Checkpoint,
+			)
+			// Keep a log over here Panic after 3 times if checkpoint is not same as snapshot
+			contMismatchCount++
+			if contMismatchCount == 3 {
+				logrus.Fatalf("Checkpoint mismatched 3 times continuously")
 			}
-			var snap SnapList
-			for _, snap = range sortedSnapshotList {
-				if snap.name != "" {
+			continue
+		}
+		contMismatchCount = 0
+		sortedSnapshotList, _ := getDeleteCandidateChain(s, snapshot)
+		if len(sortedSnapshotList) < 10 {
+			continue
+		}
+		var snap SnapList
+		for _, snap = range sortedSnapshotList {
+			if snap.name != "" {
+				break
+			}
+		}
+		if snap.name == "" {
+			continue
+		}
+		ops, err := s.PrepareRemoveDisk(snap.name)
+		if err != nil {
+			logrus.Errorf("PrepareRemoveDisk failed, err: %v", err)
+			continue
+		}
+		for _, op := range ops {
+			switch op.Action {
+			case replica.OpCoalesce:
+				logrus.Infof("Coalescing %v to %v", op.Source, op.Target)
+				if err = repClient.Coalesce(op.Source, op.Target); err != nil {
+					break
+				}
+			case replica.OpRemove:
+				logrus.Infof("Remove %v", op.Source)
+				if err = s.RemoveDiffDisk(op.Source); err != nil {
 					break
 				}
 			}
-			if snap.name == "" {
-				continue
-			}
-			ops, err := s.PrepareRemoveDisk(snap.name)
 			if err != nil {
-				logrus.Errorf("PrepareRemoveDisk failed, err: %v", err)
-				continue
-			}
-			for _, op := range ops {
-				switch op.Action {
-				case replica.OpCoalesce:
-					logrus.Infof("Coalescing %v to %v", op.Target, op.Source)
-					if err = repClient.Coalesce(op.Source, op.Target); err != nil {
-						break
-					}
-				case replica.OpRemove:
-					logrus.Infof("Remove %v", op.Source)
-					if err = s.RemoveDiffDisk(op.Source); err != nil {
-						break
-					}
-				}
-				if err != nil {
-					logrus.Errorf("Snapshot deletion failed, err: %v", err)
-					break
-				}
+				logrus.Errorf("Snapshot deletion failed, err: %v", err)
+				break
 			}
 		}
 	}
@@ -711,21 +730,28 @@ func getDeleteCandidateChain(s *replica.Server, checkpoint string) ([]SnapList, 
 		return nil, err
 	}
 	var replicaChain []string
+	// chain        ->  H->S5->S4->S3->S2->S1->S0
+	// replicaChain ->  S0->S1->S2->S3->S4->S5->H
 	for i := len(chain) - 1; i >= 0; i-- {
 		replicaChain = append(replicaChain, chain[i])
 	}
+	if len(replicaChain) <= 3 || snapshot == "" { // Head, last snapshot, base snapshot
+		return nil, nil
+	}
 	replicaDisks := s.Replica().ListDisks()
 
+	checkpointFound := false
 	for indx, snapshot = range replicaChain {
 		if snapshot == checkpoint {
+			checkpointFound = true
 			break
 		}
 	}
-	if len(replicaChain) <= 3 || indx <= 1 { // Head, last snapshot, base snapshot
+	if indx <= 1 || !checkpointFound { //Avoid if base snapshot or the snapshot above base is checkpoint
 		return nil, nil
 	}
 
-	replicaChain = replicaChain[1:indx]
+	replicaChain = replicaChain[1:indx] // Removing the base snapshot
 	var snapList = make([]SnapList, len(replicaChain))
 	i := 0
 	for _, disk := range replicaChain {

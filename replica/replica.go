@@ -566,9 +566,6 @@ func (r *Replica) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) 
 			return nil, nil
 		}
 	}
-	if data.Removed {
-		return nil, nil
-	}
 
 	if disk == r.info.Head {
 		return nil, fmt.Errorf("Can not delete the active differencing disk")

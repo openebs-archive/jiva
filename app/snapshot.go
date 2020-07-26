@@ -266,9 +266,11 @@ func getAllSnapshots(replicas []rest.Replica) ([]string, error) {
 			diffSnapshots = util.Filter(snapshots, func(i string) bool {
 				return !util.Contains(finalSnapshotList, i)
 			})
+			finalSnapshotList = append(finalSnapshotList, diffSnapshots...)
+		} else {
+			finalSnapshotList = append(finalSnapshotList, snapshots...)
 		}
 		first = false
-		finalSnapshotList = append(snapshots, diffSnapshots...)
 	}
 	return finalSnapshotList, nil
 }
