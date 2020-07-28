@@ -237,6 +237,9 @@ func construct(preload, readonly bool, size, sectorSize int64, dir, head string,
 	}
 	r.info.Parent = r.diskData[r.info.Head].Parent
 
+	if err = r.removeStaleFromChildrenMap(); err != nil {
+		return nil, err
+	}
 	r.insertBackingFile()
 	r.ReplicaType = replicaType
 	if preload {
@@ -1087,6 +1090,34 @@ func (r *Replica) openLiveChain() error {
 			r.volume.SnapIndx = len(chain) - i
 		}
 		r.activeDiskData = append(r.activeDiskData, r.diskData[parent])
+	}
+	return nil
+}
+
+func SliceContains(chain []string, item string) bool {
+	for _, element := range chain {
+		if element == item {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *Replica) removeStaleFromChildrenMap() error {
+	chain, err := r.Chain()
+	if err != nil {
+		return err
+	}
+
+	for parent, children := range r.diskChildrenMap {
+		if len(children) <= 1 {
+			continue
+		}
+		for child := range children {
+			if !SliceContains(chain, child) {
+				r.rmChildDisk(parent, child)
+			}
+		}
 	}
 	return nil
 }
