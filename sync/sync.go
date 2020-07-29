@@ -24,7 +24,8 @@ const (
 )
 
 var (
-	RetryCounts = 3
+	RetryCounts            = 3
+	SnapshotRetentionCount = 10
 )
 
 type Task struct {
@@ -643,6 +644,9 @@ func (t *Task) InternalSnapshotCleaner(s *replica.Server, repClient *replicaClie
 
 	contMismatchCount := 0
 	for range ticker.C {
+		if s.Replica() == nil {
+			return
+		}
 		snapshot, err := t.client.GetCheckpoint()
 		if err != nil || snapshot == "" {
 			continue
@@ -660,20 +664,14 @@ func (t *Task) InternalSnapshotCleaner(s *replica.Server, repClient *replicaClie
 			continue
 		}
 		contMismatchCount = 0
-		sortedSnapshotList, _ := getDeleteCandidateChain(s, snapshot)
-		if len(sortedSnapshotList) < 10 {
+		sortedSnapshotList, _ := GetDeleteCandidateChain(s.Replica(), snapshot)
+		if len(sortedSnapshotList) < SnapshotRetentionCount {
 			continue
 		}
-		var snap SnapList
-		for _, snap = range sortedSnapshotList {
-			if snap.name != "" {
-				break
-			}
-		}
-		if snap.name == "" {
+		if sortedSnapshotList[0] == "" {
 			continue
 		}
-		ops, err := s.PrepareRemoveDisk(snap.name)
+		ops, err := s.PrepareRemoveDisk(sortedSnapshotList[0])
 		if err != nil {
 			logrus.Errorf("PrepareRemoveDisk failed, err: %v", err)
 			continue
@@ -711,21 +709,21 @@ type SnapList struct {
 	size int64
 }
 
-// getDeleteCandidateChain returns the chain of snapshots that can be deleted
+// GetDeleteCandidateChain returns the chain of snapshots that can be deleted
 // Chain is sorted based on the snapshot size before returning
 // All the snapshots in the chain are returned except:
 // 1. Head snapshot
 // 2. Last snapshot, snapshot just below head
 // 3. Base snapshot
 // 4. User created snapshots not marked as removed
-func getDeleteCandidateChain(s *replica.Server, checkpoint string) ([]SnapList, error) {
+func GetDeleteCandidateChain(r *replica.Replica, checkpoint string) ([]string, error) {
 	var (
 		err      error
 		indx     int
 		snapshot string
 	)
 
-	chain, err := s.Replica().Chain()
+	chain, err := r.Chain()
 	if err != nil {
 		return nil, err
 	}
@@ -735,10 +733,10 @@ func getDeleteCandidateChain(s *replica.Server, checkpoint string) ([]SnapList, 
 	for i := len(chain) - 1; i >= 0; i-- {
 		replicaChain = append(replicaChain, chain[i])
 	}
-	if len(replicaChain) <= 3 || snapshot == "" { // Head, last snapshot, base snapshot
+	if len(replicaChain) <= 3 || checkpoint == "" { // Head, last snapshot, base snapshot
 		return nil, nil
 	}
-	replicaDisks := s.Replica().ListDisks()
+	replicaDisks := r.ListDisks()
 
 	checkpointFound := false
 	for indx, snapshot = range replicaChain {
@@ -770,5 +768,9 @@ func getDeleteCandidateChain(s *replica.Server, checkpoint string) ([]SnapList, 
 		return snapList[j].size > snapList[i].size
 	})
 
-	return snapList, err
+	var sortedList []string
+	for _, snap := range snapList {
+		sortedList = append(sortedList, snap.name)
+	}
+	return sortedList, err
 }

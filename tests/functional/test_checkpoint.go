@@ -1,6 +1,29 @@
 package main
 
-import inject "github.com/openebs/jiva/error-inject"
+import (
+	"time"
+
+	inject "github.com/openebs/jiva/error-inject"
+)
+
+func testCheckpoint() {
+	replicas := []string{"172.18.0.111", "172.18.0.112", "172.18.0.113"}
+	c := buildConfig("172.18.0.110", replicas)
+	// Start controller
+	go func() {
+		c.startTestController(c.ControllerIP)
+	}()
+	time.Sleep(5 * time.Second)
+	c.startReplicas()
+
+	go c.MonitorReplicas()
+
+	verify("CheckpointTest", c.checkpointTest(replicas), nil)
+
+	c.Stop = true
+	c.stopReplicas()
+	c.cleanReplicaDirs()
+}
 
 func (c *testConfig) checkpointTest(replicas []string) error {
 	c.verifyRWReplicaCount(3)
