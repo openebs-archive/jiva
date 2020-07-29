@@ -522,6 +522,10 @@ func (r *Replica) removeDiskNode(name string) error {
 		logrus.Fatalf("Failed to update parent disk: %v with child: %v", name, child)
 		return err
 	}
+	if err := r.updateParentRevisionCounter(name); err != nil {
+		logrus.Fatalf("Failed to update parent's revision counter: %v", name)
+		return err
+	}
 	delete(r.diskData, name)
 
 	index := r.findDisk(name)
@@ -1059,6 +1063,15 @@ func (r *Replica) updateParentDisk(name, oldParent string) error {
 	return r.encodeToFile(child, child.Name+metadataSuffix)
 }
 
+func (r *Replica) updateParentRevisionCounter(name string) error {
+	parentName := r.diskData[name].Parent
+	if parentName != "" {
+		parent := r.diskData[parentName]
+		r.diskData[parent.Name].RevisionCounter = r.diskData[name].RevisionCounter
+		return r.encodeToFile(parent, parent.Name+metadataSuffix)
+	}
+	return nil
+}
 func (r *Replica) openLiveChain() error {
 	chain, err := r.Chain()
 	if err != nil {
