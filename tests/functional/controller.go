@@ -89,7 +89,7 @@ func (config *testConfig) startTestController(controllerIP string) error {
 }
 func (config *testConfig) verifyRWReplicaCount(count int) {
 	controller := config.Controller[config.ControllerIP].GetController()
-	for controller.RWReplicaCount != config.ReplicationFactor {
+	for controller.RWReplicaCount != count {
 		logrus.Infof("Sleep while verifyRWReplicaCount, Actual: %v Desired: %v", count, controller.RWReplicaCount)
 		time.Sleep(2 * time.Second)
 	}
@@ -132,4 +132,14 @@ func (config *testConfig) createSnapshot(snapshot string) error {
 	controller := config.Controller[config.ControllerIP].GetController()
 	_, err := controller.Snapshot(snapshot)
 	return err
+}
+
+func (config *testConfig) DeleteSnapshot(snapshot string) error {
+	controller := config.Controller[config.ControllerIP].GetController()
+	return controller.DeleteSnapshot(snapshot, controller.ListReplicas())
+}
+
+func (config *testConfig) GetCheckpoint() string {
+	controller := config.Controller[config.ControllerIP].GetController()
+	return controller.Checkpoint
 }

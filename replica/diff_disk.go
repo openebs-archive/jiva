@@ -40,15 +40,14 @@ type diffDisk struct {
 	sectorSize int64
 }
 
-// RemoveIndex remove the index from list the files
-// and update the location of offsets in respective
-// new files where it is merged before deletion of
-// the snapshot.
-//
-// Let's consider this case: H->S4->US3->S2->S1->S0
+// RemoveIndex removes the index from list of files
+// d.location(map[offsets][fileIndx]) is also updated,
+// by decreasing indexes of all offsets above and
+// including given index by 1
+// Let's consider this case: H->S4->S3->S2->S1->S0
 // Update d.location and latest user created snapshot
-// index if S2 is deleted, US3 will take position of S2
-// So resultant chain is H->S4->US3->S1->S0
+// index if S2 is deleted, data of S2 will be merged into S1
+// So resultant chain is H->S4->S3->S1->S0
 //
 // You can notice here as position of S0 and S1 is still
 // the same but we shifting the positions of the childrens.
@@ -61,8 +60,10 @@ func (d *diffDisk) RemoveIndex(index int) error {
 		return err
 	}
 
+	// Indexes are from base to head,
+	// head index is the largest, base index is 1
 	for i := 0; i < len(d.location); i++ {
-		if d.location[i] > uint16(index) {
+		if d.location[i] >= uint16(index) {
 			// move index by one
 			d.location[i]--
 		}
