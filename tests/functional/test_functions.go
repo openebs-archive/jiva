@@ -17,6 +17,45 @@ import (
 func testFunctions() {
 	revisionCountUpdateInParentTest()
 	getDeleteCandidateChainFuncTest()
+	readMetadataFuncTest()
+}
+
+// readMetadataFuncTest verifies if the chains are read correctly
+func readMetadataFuncTest() {
+	var c *checkV1.C
+	dir, err := ioutil.TempDir("", "replica")
+	c.Assert(err, checkV1.IsNil)
+	defer os.RemoveAll(dir)
+
+	r, err := replica.New(true, 10*4096, 4096, dir, nil, "Backend")
+	c.Assert(err, checkV1.IsNil)
+	defer r.Close()
+	err = r.SetReplicaMode("RW")
+	c.Assert(err, checkV1.IsNil)
+
+	now := getNow()
+	err = r.Snapshot("000", false, now)
+	c.Assert(err, checkV1.IsNil)
+
+	err = r.Snapshot("001", false, now)
+	c.Assert(err, checkV1.IsNil)
+
+	err = r.Snapshot("002", false, now)
+	c.Assert(err, checkV1.IsNil)
+
+	chain, err := r.Chain()
+	c.Assert(err, checkV1.IsNil)
+
+	err = r.Close()
+	c.Assert(err, checkV1.IsNil)
+	r, err = replica.New(true, 10*4096, 4096, dir, nil, "Backend")
+	c.Assert(err, checkV1.IsNil)
+	err = r.SetReplicaMode("RW")
+	c.Assert(err, checkV1.IsNil)
+
+	newChain, err := r.Chain()
+	c.Assert(err, checkV1.IsNil)
+	verifyList(chain, newChain)
 }
 
 // revisionCountUpdateInParentTest verifies if on deleting a snapshot,

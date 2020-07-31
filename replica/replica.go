@@ -237,9 +237,6 @@ func construct(preload, readonly bool, size, sectorSize int64, dir, head string,
 	}
 	r.info.Parent = r.diskData[r.info.Head].Parent
 
-	if err = r.removeStaleFromChildrenMap(); err != nil {
-		return nil, err
-	}
 	r.insertBackingFile()
 	r.ReplicaType = replicaType
 	if preload {
@@ -497,6 +494,10 @@ func (r *Replica) ReplaceDisk(target, source string) error {
 }
 
 func (r *Replica) removeDiskNode(name string) error {
+	if _, exists := r.diskData[name]; !exists {
+		logrus.Warnf("removeDiskNode(): Disk doesn't exist in list")
+		return nil
+	}
 	// If snapshot has no child, then we can safely delete it
 	// And it's definitely not in the live chain
 	children, exists := r.diskChildrenMap[name]
@@ -1136,6 +1137,10 @@ func (r *Replica) removeStaleFromChildrenMap() error {
 }
 
 func (r *Replica) readMetadata() (bool, error) {
+	var (
+		parent string
+		err    error
+	)
 	r.diskData = make(map[string]*disk)
 
 	files, err := ioutil.ReadDir(r.dir)
@@ -1145,8 +1150,13 @@ func (r *Replica) readMetadata() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-
+	fileMap := make(map[string]os.FileInfo, len(files))
 	for _, file := range files {
+		tmpFile := file
+		fileMap[file.Name()] = tmpFile
+	}
+	file := fileMap[volumeMetaData]
+	for file != nil {
 		if file.Name() == volumeMetaData {
 			if err := r.unmarshalFile(file.Name(), &r.info); err != nil {
 				logrus.Errorf("failed to read metadata, error in unmarshalling file: %s", file.Name())
@@ -1158,8 +1168,12 @@ func (r *Replica) readMetadata() (bool, error) {
 			} else {
 				r.volume.UsedBlocks += (file.Size()/defaultSectorSize + 1)
 			}
+			if r.info.Head == "" {
+				return false, fmt.Errorf("r.info.Head is nil")
+			}
+			file = fileMap[r.info.Head+metadataSuffix]
 		} else if strings.HasSuffix(file.Name(), metadataSuffix) {
-			if err := r.readDiskData(file.Name()); err != nil {
+			if parent, err = r.readDiskData(file.Name()); err != nil {
 				return false, err
 			}
 			if file.Size()%defaultSectorSize == 0 {
@@ -1167,6 +1181,10 @@ func (r *Replica) readMetadata() (bool, error) {
 			} else {
 				r.volume.UsedBlocks += (file.Size()/defaultSectorSize + 1)
 			}
+			if parent == "" {
+				break
+			}
+			file = fileMap[parent+metadataSuffix]
 		}
 	}
 
@@ -1175,11 +1193,11 @@ func (r *Replica) readMetadata() (bool, error) {
 	return len(r.diskData) > 0, nil
 }
 
-func (r *Replica) readDiskData(file string) error {
+func (r *Replica) readDiskData(file string) (string, error) {
 	var data disk
 	if err := r.unmarshalFile(file, &data); err != nil {
 		logrus.Errorf("failed to read disk data, error while unmarshalling file: %s", file)
-		return err
+		return "", err
 	}
 
 	name := file[:len(file)-len(metadataSuffix)]
@@ -1195,13 +1213,13 @@ func (r *Replica) readDiskData(file string) error {
 		r.diskData[name].RevisionCounter = r.GetRevisionCounter()
 		logrus.Infof("Update revison count: %v of snapshot: %v", r.diskData[name].RevisionCounter, name)
 		if err := r.encodeToFile(r.diskData[name], name+metadataSuffix); err != nil {
-			return err
+			return "", err
 		}
 	}
 	if data.Parent != "" {
 		r.addChildDisk(data.Parent, data.Name)
 	}
-	return nil
+	return data.Parent, nil
 }
 
 func (r *Replica) unmarshalFile(file string, obj interface{}) error {
