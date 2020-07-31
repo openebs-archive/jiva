@@ -3,6 +3,7 @@ package sync
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -18,8 +19,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	SnapshotDeletionInterval = 60 * time.Second
+)
+
 var (
-	RetryCounts = 3
+	RetryCounts            = 3
+	SnapshotRetentionCount = 10
 )
 
 type Task struct {
@@ -212,6 +218,10 @@ func (t *Task) AddReplica(replicaAddress string, s *replica.Server) error {
 	}
 	types.ShouldPunchHoles = false
 	logrus.Infof("Addreplica %v", replicaAddress)
+	repClient, err := replicaClient.NewReplicaClient(replicaAddress)
+	if err != nil {
+		return err
+	}
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 	Replica, err := replica.CreateTempReplica()
@@ -255,6 +265,7 @@ Register:
 			types.ShouldPunchHoles = false
 			return err
 		}
+		go t.InternalSnapshotCleaner(s, repClient)
 		return nil
 	}
 	logrus.Infof("Adding replica %s in WO mode", replicaAddress)
@@ -308,7 +319,12 @@ Register:
 	}
 
 	logrus.Infof("reloadAndVerify %v", replicaAddress)
-	return t.reloadAndVerify(s, replicaAddress, toClient)
+	if err = t.reloadAndVerify(s, replicaAddress, toClient); err != nil {
+		return err
+	}
+
+	go t.InternalSnapshotCleaner(s, repClient)
+	return nil
 }
 
 func (t *Task) isRevisionCountAndChainSame(fromClient, toClient *replicaClient.ReplicaClient) (bool, []string, error) {
@@ -616,4 +632,146 @@ func (t *Task) getToReplica(address string) (rest.Replica, error) {
 	}
 
 	return rest.Replica{}, fmt.Errorf("Failed to find target replica to copy to")
+}
+
+// InternalSnapshotCleaner should be run in the background, it tries to delete a snapshot every 60s
+// It fetches the checkpoint from controller which is present at in-memory of controller.
+// If checkpoint is not available at controller, snapshot delete is not initiated.
+// A deletion candidate list is prepared
+// In each iteration of the loop, one snapshot is picked from the top and deleted.
+func (t *Task) InternalSnapshotCleaner(s *replica.Server, repClient *replicaClient.ReplicaClient) {
+	ticker := time.NewTicker(SnapshotDeletionInterval)
+
+	contMismatchCount := 0
+	for range ticker.C {
+		if s.Replica() == nil {
+			return
+		}
+		snapshot, err := t.client.GetCheckpoint()
+		if err != nil || snapshot == "" {
+			continue
+		}
+		if snapshot != s.Replica().Info().Checkpoint {
+			logrus.Warningf(
+				"Checkpoint mismatch btw controller and replica, cont:%v rep:%v",
+				snapshot, s.Replica().Info().Checkpoint,
+			)
+			// Keep a log over here Panic after 3 times if checkpoint is not same as snapshot
+			contMismatchCount++
+			if contMismatchCount == 3 {
+				logrus.Fatalf("Checkpoint mismatched 3 times continuously")
+			}
+			continue
+		}
+		contMismatchCount = 0
+		sortedSnapshotList, _ := GetDeleteCandidateChain(s.Replica(), snapshot)
+		if len(sortedSnapshotList) < SnapshotRetentionCount {
+			continue
+		}
+		if sortedSnapshotList[0] == "" {
+			logrus.Errorf("Empty snapshot name received in sortedSnapshotList")
+			continue
+		}
+		ops, err := s.PrepareRemoveDisk(sortedSnapshotList[0])
+		if err != nil {
+			logrus.Errorf("PrepareRemoveDisk failed, err: %v", err)
+			continue
+		}
+		for _, op := range ops {
+			switch op.Action {
+			case replica.OpCoalesce:
+				logrus.Infof("Coalescing %v to %v", op.Source, op.Target)
+				if err = repClient.Coalesce(op.Source, op.Target); err != nil {
+					break
+				}
+			case replica.OpRemove:
+				logrus.Infof("Remove %v", op.Source)
+				if err = s.RemoveDiffDisk(op.Source); err != nil {
+					break
+				}
+			}
+			if err != nil {
+				logrus.Errorf("Snapshot deletion failed, err: %v", err)
+				break
+			}
+		}
+	}
+}
+
+func isHeadDisk(diskName string) bool {
+	if strings.HasPrefix(diskName, "volume-head-") && strings.HasSuffix(diskName, ".img") {
+		return true
+	}
+	return false
+}
+
+type SnapList struct {
+	name string
+	size int64
+}
+
+// GetDeleteCandidateChain returns the chain of snapshots that can be deleted
+// Chain is sorted based on the snapshot size before returning
+// All the snapshots in the chain are returned except:
+// 1. Head snapshot
+// 2. Last snapshot, snapshot just below head
+// 3. Base snapshot
+// 4. User created snapshots not marked as removed
+func GetDeleteCandidateChain(r *replica.Replica, checkpoint string) ([]string, error) {
+	var (
+		err      error
+		indx     int
+		snapshot string
+	)
+
+	chain, err := r.Chain()
+	if err != nil {
+		return nil, err
+	}
+	var replicaChain []string
+	// chain        ->  H->S5->S4->S3->S2->S1->S0
+	// replicaChain ->  S0->S1->S2->S3->S4->S5->H
+	for i := len(chain) - 1; i >= 0; i-- {
+		replicaChain = append(replicaChain, chain[i])
+	}
+	if len(replicaChain) <= 3 || checkpoint == "" { // Head, last snapshot, base snapshot
+		return nil, nil
+	}
+	replicaDisks := r.ListDisks()
+
+	checkpointFound := false
+	for indx, snapshot = range replicaChain {
+		if snapshot == checkpoint {
+			checkpointFound = true
+			break
+		}
+	}
+	if indx <= 1 || !checkpointFound { //Avoid if base snapshot or the snapshot above base is checkpoint
+		return nil, nil
+	}
+
+	replicaChain = replicaChain[1:indx] // Removing the base snapshot
+	var snapList = make([]SnapList, len(replicaChain))
+	i := 0
+	for _, disk := range replicaChain {
+		if replicaDisks[disk].UserCreated && !replicaDisks[disk].Removed {
+			continue
+		}
+		snapList[i].name = disk
+		snapList[i].size, err = strconv.ParseInt(replicaDisks[disk].Size, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to convert size: %v into int64, err: %v", replicaDisks[disk].Size, err)
+		}
+		i++
+	}
+
+	sort.SliceStable(snapList, func(i, j int) bool {
+		return snapList[j].size > snapList[i].size
+	})
+
+	var sortedList []string
+	for _, snap := range snapList {
+		sortedList = append(sortedList, snap.name)
+	}
+	return sortedList, err
 }

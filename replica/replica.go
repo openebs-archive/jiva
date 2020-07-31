@@ -494,6 +494,10 @@ func (r *Replica) ReplaceDisk(target, source string) error {
 }
 
 func (r *Replica) removeDiskNode(name string) error {
+	if _, exists := r.diskData[name]; !exists {
+		logrus.Warnf("removeDiskNode(): Disk doesn't exist in list")
+		return nil
+	}
 	// If snapshot has no child, then we can safely delete it
 	// And it's definitely not in the live chain
 	children, exists := r.diskChildrenMap[name]
@@ -517,6 +521,10 @@ func (r *Replica) removeDiskNode(name string) error {
 	r.updateChildDisk(name, child)
 	if err := r.updateParentDisk(child, name); err != nil {
 		logrus.Fatalf("Failed to update parent disk: %v with child: %v", name, child)
+		return err
+	}
+	if err := r.updateParentRevisionCounter(name); err != nil {
+		logrus.Fatalf("Failed to update parent's revision counter: %v", name)
 		return err
 	}
 	delete(r.diskData, name)
@@ -563,7 +571,7 @@ func (r *Replica) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) 
 		disk = GenerateSnapshotDiskName(name)
 		data, exists = r.diskData[disk]
 		if !exists {
-			return nil, fmt.Errorf("Can not find snapshot %v", disk)
+			return nil, nil
 		}
 	}
 
@@ -573,6 +581,9 @@ func (r *Replica) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) 
 
 	if r.info.Parent == disk {
 		return nil, fmt.Errorf("Can't delete latest snapshot: %s", disk)
+	}
+	if data.Parent == "" {
+		return nil, fmt.Errorf("Can't delete base snapshot: %s", disk)
 	}
 
 	logrus.Infof("Mark disk %v as removed", disk)
@@ -606,37 +617,19 @@ func (r *Replica) processPrepareRemoveDisks(disks []string) ([]PrepareRemoveActi
 			return nil, fmt.Errorf("Wrong disk %v doesn't exist", disk)
 		}
 
-		children := r.diskChildrenMap[disk]
-		// 1) leaf node
-		if children == nil {
-			actions = append(actions, PrepareRemoveAction{
+		parent := r.diskData[disk].Parent
+
+		actions = append(actions,
+			PrepareRemoveAction{
+				Action: OpCoalesce,
+				Source: disk,
+				Target: parent,
+			},
+			PrepareRemoveAction{
 				Action: OpRemove,
 				Source: disk,
 			})
-			continue
-		}
 
-		// 2) has only one child and is not head
-		if len(children) == 1 {
-			var child string
-			// Get the only element in children
-			for child = range children {
-			}
-			if child != r.info.Head {
-				actions = append(actions,
-					PrepareRemoveAction{
-						Action: OpCoalesce,
-						Source: disk,
-						Target: child,
-					},
-					PrepareRemoveAction{
-						Action: OpReplace,
-						Source: disk,
-						Target: child,
-					})
-				continue
-			}
-		}
 	}
 
 	return actions, nil
@@ -1071,6 +1064,15 @@ func (r *Replica) updateParentDisk(name, oldParent string) error {
 	return r.encodeToFile(child, child.Name+metadataSuffix)
 }
 
+func (r *Replica) updateParentRevisionCounter(name string) error {
+	parentName := r.diskData[name].Parent
+	if parentName != "" {
+		parent := r.diskData[parentName]
+		r.diskData[parent.Name].RevisionCounter = r.diskData[name].RevisionCounter
+		return r.encodeToFile(parent, parent.Name+metadataSuffix)
+	}
+	return nil
+}
 func (r *Replica) openLiveChain() error {
 	chain, err := r.Chain()
 	if err != nil {
@@ -1106,7 +1108,39 @@ func (r *Replica) openLiveChain() error {
 	return nil
 }
 
+func SliceContains(chain []string, item string) bool {
+	for _, element := range chain {
+		if element == item {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *Replica) removeStaleFromChildrenMap() error {
+	chain, err := r.Chain()
+	if err != nil {
+		return err
+	}
+
+	for parent, children := range r.diskChildrenMap {
+		if len(children) <= 1 {
+			continue
+		}
+		for child := range children {
+			if !SliceContains(chain, child) {
+				r.rmChildDisk(parent, child)
+			}
+		}
+	}
+	return nil
+}
+
 func (r *Replica) readMetadata() (bool, error) {
+	var (
+		parent string
+		err    error
+	)
 	r.diskData = make(map[string]*disk)
 
 	files, err := ioutil.ReadDir(r.dir)
@@ -1116,8 +1150,13 @@ func (r *Replica) readMetadata() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-
+	fileMap := make(map[string]os.FileInfo, len(files))
 	for _, file := range files {
+		tmpFile := file
+		fileMap[file.Name()] = tmpFile
+	}
+	file := fileMap[volumeMetaData]
+	for file != nil {
 		if file.Name() == volumeMetaData {
 			if err := r.unmarshalFile(file.Name(), &r.info); err != nil {
 				logrus.Errorf("failed to read metadata, error in unmarshalling file: %s", file.Name())
@@ -1129,8 +1168,12 @@ func (r *Replica) readMetadata() (bool, error) {
 			} else {
 				r.volume.UsedBlocks += (file.Size()/defaultSectorSize + 1)
 			}
+			if r.info.Head == "" {
+				return false, fmt.Errorf("r.info.Head is nil")
+			}
+			file = fileMap[r.info.Head+metadataSuffix]
 		} else if strings.HasSuffix(file.Name(), metadataSuffix) {
-			if err := r.readDiskData(file.Name()); err != nil {
+			if parent, err = r.readDiskData(file.Name()); err != nil {
 				return false, err
 			}
 			if file.Size()%defaultSectorSize == 0 {
@@ -1138,6 +1181,10 @@ func (r *Replica) readMetadata() (bool, error) {
 			} else {
 				r.volume.UsedBlocks += (file.Size()/defaultSectorSize + 1)
 			}
+			if parent == "" {
+				break
+			}
+			file = fileMap[parent+metadataSuffix]
 		}
 	}
 
@@ -1146,11 +1193,11 @@ func (r *Replica) readMetadata() (bool, error) {
 	return len(r.diskData) > 0, nil
 }
 
-func (r *Replica) readDiskData(file string) error {
+func (r *Replica) readDiskData(file string) (string, error) {
 	var data disk
 	if err := r.unmarshalFile(file, &data); err != nil {
 		logrus.Errorf("failed to read disk data, error while unmarshalling file: %s", file)
-		return err
+		return "", err
 	}
 
 	name := file[:len(file)-len(metadataSuffix)]
@@ -1166,13 +1213,13 @@ func (r *Replica) readDiskData(file string) error {
 		r.diskData[name].RevisionCounter = r.GetRevisionCounter()
 		logrus.Infof("Update revison count: %v of snapshot: %v", r.diskData[name].RevisionCounter, name)
 		if err := r.encodeToFile(r.diskData[name], name+metadataSuffix); err != nil {
-			return err
+			return "", err
 		}
 	}
 	if data.Parent != "" {
 		r.addChildDisk(data.Parent, data.Name)
 	}
-	return nil
+	return data.Parent, nil
 }
 
 func (r *Replica) unmarshalFile(file string, obj interface{}) error {
