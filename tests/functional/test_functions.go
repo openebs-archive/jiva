@@ -8,13 +8,76 @@ import (
 
 	"github.com/openebs/jiva/replica"
 	"github.com/openebs/jiva/sync"
+	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
 	"github.com/sirupsen/logrus"
 	checkV1 "gopkg.in/check.v1"
 )
 
 func testFunctions() {
+	revisionCountUpdateInParentTest()
 	getDeleteCandidateChainFuncTest()
+}
+
+// revisionCountUpdateInParentTest verifies if on deleting a snapshot,
+// its parent is updated with the child's revision counter
+func revisionCountUpdateInParentTest() {
+	var c *checkV1.C
+	dir, err := ioutil.TempDir("", "replica")
+	c.Assert(err, checkV1.IsNil)
+	defer os.RemoveAll(dir)
+
+	r, err := replica.New(true, 10*4096, 4096, dir, nil, "Backend")
+	c.Assert(err, checkV1.IsNil)
+	defer r.Close()
+	err = r.SetReplicaMode("RW")
+	c.Assert(err, checkV1.IsNil)
+
+	buf := make([]byte, 4096*3)
+	fill(buf, 1)
+	_, err = r.WriteAt(buf, 0)
+	c.Assert(err, checkV1.IsNil)
+
+	now := getNow()
+	err = r.Snapshot("000", false, now) // Revision Count = 2
+	c.Assert(err, checkV1.IsNil)
+
+	buf = make([]byte, 4096)
+	fill(buf, 1)
+	_, err = r.WriteAt(buf, 0)
+	c.Assert(err, checkV1.IsNil)
+
+	err = r.Snapshot("001", false, now) // Revision count = 3
+	c.Assert(err, checkV1.IsNil)
+
+	err = r.Snapshot("002", false, now) // Revision count = 3
+	c.Assert(err, checkV1.IsNil)
+
+	// Check if revision counter of snap-001
+	// is copied to snap-000 when snap-001 is deleted
+	disks := r.ListDisks()
+	prevRevCnt := disks["volume-snap-000.img"].RevisionCounter
+	desiredRevCnt := disks["volume-snap-001.img"].RevisionCounter
+	c.Assert(prevRevCnt, checkV1.Not(checkV1.Equals), desiredRevCnt)
+	go func() {
+		time.Sleep(3 * time.Second)
+		types.DrainOps = types.DrainDone
+	}()
+	r.RemoveDiffDisk("volume-snap-001.img")
+	disks = r.ListDisks()
+	actualRevCnt := disks["volume-snap-000.img"].RevisionCounter
+	c.Assert(actualRevCnt, checkV1.Equals, desiredRevCnt)
+
+	// Verify that revision counter is persisted on disk
+	err = r.Close()
+	c.Assert(err, checkV1.IsNil)
+	r, err = replica.New(true, 10*4096, 4096, dir, nil, "Backend")
+	c.Assert(err, checkV1.IsNil)
+	err = r.SetReplicaMode("RW")
+	c.Assert(err, checkV1.IsNil)
+	disks = r.ListDisks()
+	actualRevCnt = disks["volume-snap-000.img"].RevisionCounter
+	c.Assert(actualRevCnt, checkV1.Equals, desiredRevCnt)
 }
 
 func getDeleteCandidateChainFuncTest() {

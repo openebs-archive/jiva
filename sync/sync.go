@@ -669,6 +669,7 @@ func (t *Task) InternalSnapshotCleaner(s *replica.Server, repClient *replicaClie
 			continue
 		}
 		if sortedSnapshotList[0] == "" {
+			logrus.Errorf("Empty snapshot name received in sortedSnapshotList")
 			continue
 		}
 		ops, err := s.PrepareRemoveDisk(sortedSnapshotList[0])
