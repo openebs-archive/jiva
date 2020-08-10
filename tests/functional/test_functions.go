@@ -172,7 +172,7 @@ func getDeleteCandidateChainFuncTest() {
 	// User Created snapshot test
 	list, err = sync.GetDeleteCandidateChain(r, "volume-snap-005.img")
 	c.Assert(err, checkV1.IsNil)
-	verifyList(list, []string{"volume-snap-001.img", "volume-snap-002.img", "volume-snap-004.img"})
+	verifyList(list, []string{"volume-snap-001.img", "volume-snap-002.img"})
 
 	_, err = r.PrepareRemoveDisk("volume-snap-003.img")
 	c.Assert(err, checkV1.IsNil)

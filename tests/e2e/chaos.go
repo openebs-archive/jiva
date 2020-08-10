@@ -164,7 +164,7 @@ func restartControllerTest() {
 func chaosTest() {
 	logrus.Infof("Start chaos Test")
 	var wg sync.WaitGroup
-	wg.Add(1)
+	wg.Add(4)
 
 	go func() {
 		restartOneReplicaTest()
