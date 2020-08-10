@@ -431,6 +431,8 @@ func (r *Replica) hardlinkDisk(target, source string) error {
 // and remove and close both source and target and open
 // new instance of file for R/W and update the file index
 // with new reference.
+// If replace disk is being used then it is possible
+// to delete a snapshot whose parent or child is user created
 func (r *Replica) ReplaceDisk(target, source string) error {
 	r.Lock()
 	defer r.Unlock()
@@ -585,22 +587,16 @@ func (r *Replica) PrepareRemoveDisk(name string) ([]PrepareRemoveAction, error) 
 	if data.Parent == "" {
 		return nil, fmt.Errorf("Can't delete base snapshot: %s", disk)
 	}
-
 	logrus.Infof("Mark disk %v as removed", disk)
 	if err := r.markDiskAsRemoved(disk); err != nil {
 		return nil, fmt.Errorf("Fail to mark disk %v as removed: %v", disk, err)
 	}
-
-	targetDisks := []string{}
-	if data.Parent != "" {
-		// check if metadata of parent exists for the snapshot
-		// going to be deleted.
-		_, exists := r.diskData[data.Parent]
-		if !exists {
-			return nil, fmt.Errorf("Can not find snapshot %v's parent %v", disk, data.Parent)
-		}
+	// check if metadata of parent exists for the snapshot
+	// going to be deleted.
+	if _, exists = r.diskData[data.Parent]; !exists {
+		return nil, fmt.Errorf("Can not find snapshot %v's parent %v", disk, data.Parent)
 	}
-
+	targetDisks := []string{}
 	targetDisks = append(targetDisks, disk)
 	actions, err := r.processPrepareRemoveDisks(targetDisks)
 	if err != nil {
