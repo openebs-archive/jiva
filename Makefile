@@ -82,7 +82,7 @@ test_resiliency:
 	sudo -E bash -x ./ci/resiliency_tests.sh
 
 test_functional:
-	go build && cp ./jiva tests/functional/
+	go build --tags=debug && cp ./jiva tests/functional/
 	cd tests/functional && go build --tags=debug && sudo bash -x test.sh
 
 test_e2e:

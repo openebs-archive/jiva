@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/openebs/jiva/alertlog"
 	"github.com/openebs/jiva/replica"
 	"github.com/openebs/jiva/sync"
+	"github.com/sirupsen/logrus"
 )
 
 func addReplica(replica string) error {
@@ -14,23 +14,10 @@ func autoAddReplica(s *replica.Server, frontendIP string, replica string, replic
 	var err error
 	url := "http://" + frontendIP + ":9501"
 	task := sync.NewTask(url)
-	if replicaType == "quorum" {
-		err = task.AddQuorumReplica(replica, s)
-	} else {
-		err = task.AddReplica(replica, s)
+	if err = task.AddReplica(replica, s); err != nil {
+		logrus.Errorf("jiva.volume.replica.add.failure rname:%v err: %v", replica, err)
+		return err
 	}
-	if err != nil {
-		alertlog.Logger.Errorw("",
-			"eventcode", "jiva.volume.replica.add.failure",
-			"msg", "Failed to add Jiva volume replica",
-			"rname", replica,
-		)
-	} else {
-		alertlog.Logger.Infow("",
-			"eventcode", "jiva.volume.replica.add.success",
-			"msg", "Successfully added Jiva volume replica",
-			"rname", replica,
-		)
-	}
-	return err
+	logrus.Infof("jiva.volume.replica.add.success rname: %v", replica)
+	return nil
 }
