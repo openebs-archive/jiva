@@ -12,11 +12,12 @@ func (config *testConfig) snapshotCreateDelete() {
 	i := 0
 	for {
 		ctrlClient.Snapshot("snap-" + strconv.Itoa(i))
-		time.Sleep(5 * time.Second)
+		time.Sleep(30 * time.Second)
 		ctrlClient.DeleteSnapshot("snap-" + strconv.Itoa(i))
 		i++
 		if config.Stop {
 			return
 		}
+		time.Sleep(30 * time.Second)
 	}
 }

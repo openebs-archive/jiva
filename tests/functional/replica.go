@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/docker/go-units"
-	"github.com/openebs/jiva/alertlog"
 	"github.com/openebs/jiva/controller/client"
 	"github.com/openebs/jiva/replica"
 	"github.com/openebs/jiva/replica/rest"
@@ -121,10 +120,6 @@ func (config *testConfig) startTestReplica(replicaIP, dir string, startSyncAgent
 		}
 	}()
 	address := replicaIP + ":" + "9502"
-	//formatter := &logrus.TextFormatter{
-	//	FullTimestamp: true,
-	//}
-	//logrus.SetFormatter(formatter)
 
 	types.MaxChainLength, _ = strconv.Atoi(os.Getenv("MAX_CHAIN_LENGTH"))
 	if types.MaxChainLength == 0 {
@@ -228,7 +223,7 @@ func (config *testConfig) startTestReplica(replicaIP, dir string, startSyncAgent
 
 	}()
 	// Waiting for servers to start
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 	if config.ControllerIP != "" {
 		if err := autoConfigureReplica(s, frontendIP, "tcp://"+address, replicaType); err != nil {
 			return err
@@ -236,18 +231,10 @@ func (config *testConfig) startTestReplica(replicaIP, dir string, startSyncAgent
 	}
 
 	select {
-	case <-controlResp:
-		alertlog.Logger.Errorw("",
-			"eventcode", "jiva.volume.replica.api.exited",
-			"msg", "Jiva volume replica API stopped",
-			"rname", address,
-		)
-	case <-rpcResp:
-		alertlog.Logger.Errorw("",
-			"eventcode", "jiva.volume.replica.rpc.exited",
-			"msg", "Jiva volume replica RPC stopped",
-			"rname", address,
-		)
+	case err = <-controlResp:
+		logrus.Errorf("jiva.volume.replica.api.exited rname: %v, err: %v", address, err)
+	case err = <-rpcResp:
+		logrus.Errorf("jiva.volume.replica.rpc.exited rname: %v, err: %v", address, err)
 	case <-config.Close[replicaIP]:
 		restart = false
 	}
@@ -264,7 +251,7 @@ func (config *testConfig) RestartTestReplica(replicaIP string) {
 
 func (config *testConfig) AddToReplicaRestartList(replicaIP string) {
 	config.Lock()
-	config.ReplicaRestartList = append(config.ReplicaRestartList, replicaIP)
+	config.ReplicaRestartList[replicaIP] = time.Now()
 	config.Unlock()
 }
 
@@ -309,29 +296,43 @@ func (config *testConfig) ListenAndServeTest(replicaSrv *replica.Server, dataAdd
 
 func (config *testConfig) MonitorReplicas() {
 	for {
+		var (
+			rep      string
+			downTime time.Time
+			found    bool
+		)
 		time.Sleep(5 * time.Second)
 		if config.Stop {
 			return
 		}
-		logrus.Infof("CLOSED REPLICAS: %v", config.ReplicaRestartList)
 		config.Lock()
 		if len(config.ReplicaRestartList) == 0 {
 			config.Unlock()
 			continue
 		}
-		func() {
-			rep := config.ReplicaRestartList[0]
-			if config.isReplicaAttachedToController(rep) {
-				return
+		for rep, downTime = range config.ReplicaRestartList {
+			if rep != "" && time.Since(downTime).Seconds() >= float64(20) {
+				found = true
+				break
 			}
-			go func(replica string) {
-				err := config.startTestReplica(replica, replica+"vol", false)
-				if err != nil {
-					logrus.Infof("ERROR: %v", err)
-				}
-			}(rep)
-			config.ReplicaRestartList = config.ReplicaRestartList[1:]
-		}()
+		}
+		if !found {
+			config.Unlock()
+			continue
+		}
+		logrus.Infof("CLOSED REPLICA: %v: %v", rep, time.Since(downTime).Seconds())
+		if config.isReplicaAttachedToController(rep) {
+			logrus.Infof("Replica %v still connected to controller, skip restarting", rep)
+			config.Unlock()
+			continue
+		}
+		go func(replica string) {
+			err := config.startTestReplica(replica, replica+"vol", false)
+			if err != nil {
+				logrus.Infof("ERROR: %v", err)
+			}
+		}(rep)
+		delete(config.ReplicaRestartList, rep)
 		config.Unlock()
 	}
 }

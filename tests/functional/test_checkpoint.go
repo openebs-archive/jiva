@@ -4,9 +4,11 @@ import (
 	"time"
 
 	inject "github.com/openebs/jiva/error-inject"
+	"github.com/sirupsen/logrus"
 )
 
 func testCheckpoint() {
+	logrus.Infof("Test Checkpoint")
 	replicas := []string{"172.18.0.111", "172.18.0.112", "172.18.0.113"}
 	c := buildConfig("172.18.0.110", replicas)
 	// Start controller

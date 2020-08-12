@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	controllerRest "github.com/openebs/jiva/controller/rest"
 	inject "github.com/openebs/jiva/error-inject"
@@ -24,7 +25,7 @@ type testConfig struct {
 	Replicas           map[string]*replicaInfo
 	ControllerEnvs     map[string]string
 	ReplicaEnvs        map[string]string
-	ReplicaRestartList []string
+	ReplicaRestartList map[string]time.Time
 	Close              map[string]chan struct{}
 }
 
@@ -44,6 +45,7 @@ func buildConfig(controllerIP string, replicas []string) *testConfig {
 	config := &testConfig{
 		ControllerIP: controllerIP,
 	}
+	config.ReplicaRestartList = map[string]time.Time{}
 	config.ReplicationFactor = 3
 	config.VolumeName = "vol" + config.ControllerIP
 	config.Size = "5G"
