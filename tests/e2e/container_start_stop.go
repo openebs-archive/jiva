@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -90,7 +91,7 @@ func createReplica(replicaIP string, config *testConfig) string {
 			},
 			NetworkMode:     "stg-net",
 			PublishAllPorts: true,
-			Binds:           []string{"/tmp/" + replicaIP + "vol:/vol"},
+			Binds:           []string{"/tmp1/" + replicaIP + "vol:/vol"},
 		},
 		&network.NetworkingConfig{
 			EndpointsConfig: map[string]*network.EndpointSettings{
@@ -209,5 +210,6 @@ func verifyRestartCount(containerID string, restartCount int) {
 		if containerInspect.ContainerJSONBase.RestartCount >= restartCount {
 			break
 		}
+		time.Sleep(5 * time.Second)
 	}
 }

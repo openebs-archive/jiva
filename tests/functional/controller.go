@@ -90,7 +90,7 @@ func (config *testConfig) startTestController(controllerIP string) error {
 func (config *testConfig) verifyRWReplicaCount(count int) {
 	controller := config.Controller[config.ControllerIP].GetController()
 	for controller.RWReplicaCount != count {
-		logrus.Infof("Sleep while verifyRWReplicaCount, Actual: %v Desired: %v", count, controller.RWReplicaCount)
+		logrus.Infof("Sleep while verifyRWReplicaCount, Actual: %v Desired: %v", controller.RWReplicaCount, count)
 		time.Sleep(2 * time.Second)
 	}
 }
@@ -103,9 +103,15 @@ func (config *testConfig) verifyCheckpoint(set bool) {
 	}
 }
 func (config *testConfig) verifyCheckpointSameAtReplicas(replicas []string) bool {
+reverify:
 	controller := config.Controller[config.ControllerIP].GetController()
 	checkpoint := controller.Checkpoint
+	time.Sleep(5 * time.Second)
 	for _, rep := range replicas {
+		if config.Replicas[rep].Server.Replica() == nil {
+			config.verifyRWReplicaCount(3)
+			goto reverify
+		}
 		if config.Replicas[rep].Server.Replica().Info().Checkpoint != checkpoint {
 			return false
 		}
