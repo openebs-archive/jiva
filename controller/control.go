@@ -495,6 +495,12 @@ func (c *Controller) Snapshot(name string) (string, error) {
 	if name == "" {
 		name = util.UUID()
 	}
+	if c.RWReplicaCount != c.ReplicationFactor {
+		return "", fmt.Errorf(
+			"RWReplicaCount(%v) != ReplicationFactor(%v)",
+			c.RWReplicaCount, c.ReplicationFactor,
+		)
+	}
 
 	if remain, err := c.backend.RemainSnapshots(); err != nil {
 		return "", err

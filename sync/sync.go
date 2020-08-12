@@ -757,6 +757,10 @@ func GetDeleteCandidateChain(r *replica.Replica, checkpoint string) ([]string, e
 		if replicaDisks[disk].UserCreated && !replicaDisks[disk].Removed {
 			continue
 		}
+		parent := replicaDisks[disk].Parent
+		if replicaDisks[parent].UserCreated && !replicaDisks[parent].Removed {
+			continue
+		}
 		snapList[i].name = disk
 		snapList[i].size, err = strconv.ParseInt(replicaDisks[disk].Size, 10, 64)
 		if err != nil {
@@ -771,6 +775,9 @@ func GetDeleteCandidateChain(r *replica.Replica, checkpoint string) ([]string, e
 
 	var sortedList []string
 	for _, snap := range snapList {
+		if snap.name == "" {
+			continue
+		}
 		sortedList = append(sortedList, snap.name)
 	}
 	return sortedList, err

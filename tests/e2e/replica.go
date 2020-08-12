@@ -42,7 +42,7 @@ func (config *testConfig) verifyRWReplicaCount(count int) {
 func createReplicas(config *testConfig) {
 	replicas := config.Replicas
 	for replicaIP := range replicas {
-		os.Mkdir("/tmp"+replicaIP+"vol", 0755)
+		os.Mkdir("/tmp1/"+replicaIP+"vol", 0755)
 		config.Replicas[replicaIP] = createReplica(replicaIP, config)
 	}
 }
@@ -52,7 +52,7 @@ func deleteReplicas(config *testConfig) {
 	for replicaIP := range replicas {
 		stopContainer(config.Replicas[replicaIP])
 		removeContainer(config.Replicas[replicaIP])
-		os.RemoveAll("/tmp" + replicaIP + "vol")
+		os.RemoveAll("/tmp1/" + replicaIP + "vol")
 	}
 }
 
