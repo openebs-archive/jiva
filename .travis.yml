@@ -41,6 +41,7 @@ addons:
     update: true
 
 before_install:
+  - echo N | sudo tee /sys/module/overlay/parameters/metacopy
   - sudo apt-get install -y curl open-iscsi
   - go get -u golang.org/x/lint/golint
   - go env && pwd
