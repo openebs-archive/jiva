@@ -6,7 +6,7 @@
 [![GoDoc](https://godoc.org/github.com/openebs/jiva?status.svg)](https://godoc.org/github.com/openebs/jiva)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fopenebs%2Fjiva.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fopenebs%2Fjiva?ref=badge_shield)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1755/badge)](https://bestpractices.coreinfrastructure.org/projects/1755)
-[![Community Meetings](https://hackmd.io/badge.svg)](https://hackmd.io/hiRcXyDTRVO2_Zs9fp0CAg)
+[![Community Meetings](https://img.shields.io/badge/Community-Meetings-blue)](https://hackmd.io/hiRcXyDTRVO2_Zs9fp0CAg)
 
 Jiva provides highly available iSCSI block storage Persistent Volumes for Kubernetes Stateful Applications, by making use of the host filesystem.
 
