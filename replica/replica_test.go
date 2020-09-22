@@ -577,8 +577,7 @@ func (s *TestSuite) TestPartialWriteRead(c *C) {
 func (s *TestSuite) testPartialRead(c *C, totalLength int64, readBuf []byte, offset int64) (int, error) {
 	fmt.Println("Filling data for partialRead")
 	dir, err := ioutil.TempDir("", "replica")
-	fmt.Printf("Volume: %s
-", dir)
+	fmt.Printf("Volume: %s\n", dir)
 	c.Assert(err, IsNil)
 	defer os.RemoveAll(dir)
 

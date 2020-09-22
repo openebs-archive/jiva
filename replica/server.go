@@ -139,8 +139,7 @@ func (s *Server) isExtentSupported() error {
 		_ = os.Remove(filePath)
 	}()
 
-	_, err = file.WriteString("This is temp file
-")
+	_, err = file.WriteString("This is temp file\n")
 	if err != nil {
 		return err
 	}

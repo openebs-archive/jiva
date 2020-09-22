@@ -57,8 +57,7 @@ func lsReplica(c *cli.Context) error {
 		return err
 	}
 
-	format := "%s	%s	%v
-"
+	format := "%s\t%s\t%v\n"
 	tw := tabwriter.NewWriter(os.Stdout, 0, 20, 1, ' ', 0)
 	fmt.Fprintf(tw, format, "ADDRESS", "MODE", "CHAIN")
 	for _, r := range reps {

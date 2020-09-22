@@ -373,8 +373,7 @@ func startReplica(c *cli.Context) error {
 		time.Sleep(2 * time.Second)
 	}
 	if replicaType == "clone" && snapName != "" {
-		logrus.Infof("Starting clone process
-")
+		logrus.Infof("Starting clone process")
 		status := s.Replica().GetCloneStatus()
 		if status != "completed" {
 			logrus.Infof("Set clone status as inProgress")
@@ -396,8 +395,7 @@ func startReplica(c *cli.Context) error {
 			logrus.Error("Error in setting the clone status as 'completed'")
 			return err
 		}
-		logrus.Infof("Clone process completed successfully
-")
+		logrus.Infof("Clone process completed successfully")
 	} else {
 		logrus.Infof("Set clone status as NA")
 		if err := s.Replica().SetCloneStatus("NA"); err != nil {

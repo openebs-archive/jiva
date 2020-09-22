@@ -198,8 +198,7 @@ func rmSnapshot(c *cli.Context) error {
 	}
 	for _, name := range c.Args() {
 		if err := task.DeleteSnapshot(name); err == nil {
-			fmt.Printf("deleted snapshot: %s
-", name)
+			fmt.Printf("deleted snapshot: %s\n", name)
 			alertlog.Logger.Infow("",
 				"eventcode", "jiva.snapshot.remove.success",
 				"msg", "Successfully removed Jiva snapshot",
@@ -207,8 +206,7 @@ func rmSnapshot(c *cli.Context) error {
 			)
 		} else {
 			lastErr = err
-			fmt.Fprintf(os.Stderr, "Failed to delete snapshot: %s, error: %v
-", name, err)
+			fmt.Fprintf(os.Stderr, "Failed to delete snapshot: %s, error: %v\n", name, err)
 			alertlog.Logger.Errorw("",
 				"eventcode", "jiva.snapshot.remove.failure",
 				"msg", "Failed to remove Jiva snapshot",
@@ -310,8 +308,7 @@ func lsSnapshot(c *cli.Context) error {
 		return err
 	}
 
-	format := "%s
-"
+	format := "%s\n"
 	tw := tabwriter.NewWriter(os.Stdout, 0, 20, 1, ' ', 0)
 	fmt.Fprintf(tw, format, "ID")
 	for _, s := range snapshots {
