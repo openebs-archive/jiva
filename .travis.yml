@@ -47,6 +47,7 @@ before_install:
   - mkdir -p $HOME/gopath/bin
 
 script:
+  - make license-check
   - make build
 
   - if [ $RUN_FEATURE_TESTS = 1 ]; then

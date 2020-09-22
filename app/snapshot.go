@@ -1,3 +1,22 @@
+/*
+ Copyright © 2020 The OpenEBS Authors
+
+ This file was originally authored by Rancher Labs
+ under Apache License 2018.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+*/
+
 package app
 
 import (
@@ -179,7 +198,8 @@ func rmSnapshot(c *cli.Context) error {
 	}
 	for _, name := range c.Args() {
 		if err := task.DeleteSnapshot(name); err == nil {
-			fmt.Printf("deleted snapshot: %s\n", name)
+			fmt.Printf("deleted snapshot: %s
+", name)
 			alertlog.Logger.Infow("",
 				"eventcode", "jiva.snapshot.remove.success",
 				"msg", "Successfully removed Jiva snapshot",
@@ -187,7 +207,8 @@ func rmSnapshot(c *cli.Context) error {
 			)
 		} else {
 			lastErr = err
-			fmt.Fprintf(os.Stderr, "Failed to delete snapshot: %s, error: %v\n", name, err)
+			fmt.Fprintf(os.Stderr, "Failed to delete snapshot: %s, error: %v
+", name, err)
 			alertlog.Logger.Errorw("",
 				"eventcode", "jiva.snapshot.remove.failure",
 				"msg", "Failed to remove Jiva snapshot",
@@ -289,7 +310,8 @@ func lsSnapshot(c *cli.Context) error {
 		return err
 	}
 
-	format := "%s\n"
+	format := "%s
+"
 	tw := tabwriter.NewWriter(os.Stdout, 0, 20, 1, ' ', 0)
 	fmt.Fprintf(tw, format, "ID")
 	for _, s := range snapshots {
@@ -377,7 +399,7 @@ func infoSnapshot(c *cli.Context) error {
 
 	}
 
-	output, err = json.MarshalIndent(outputDisks, "", "\t")
+	output, err = json.MarshalIndent(outputDisks, "", "	")
 	if err != nil {
 		return err
 	}

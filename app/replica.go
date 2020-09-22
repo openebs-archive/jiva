@@ -1,3 +1,22 @@
+/*
+ Copyright © 2020 The OpenEBS Authors
+
+ This file was originally authored by Rancher Labs
+ under Apache License 2018.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+*/
+
 package app
 
 import (
@@ -354,7 +373,8 @@ func startReplica(c *cli.Context) error {
 		time.Sleep(2 * time.Second)
 	}
 	if replicaType == "clone" && snapName != "" {
-		logrus.Infof("Starting clone process\n")
+		logrus.Infof("Starting clone process
+")
 		status := s.Replica().GetCloneStatus()
 		if status != "completed" {
 			logrus.Infof("Set clone status as inProgress")
@@ -376,7 +396,8 @@ func startReplica(c *cli.Context) error {
 			logrus.Error("Error in setting the clone status as 'completed'")
 			return err
 		}
-		logrus.Infof("Clone process completed successfully\n")
+		logrus.Infof("Clone process completed successfully
+")
 	} else {
 		logrus.Infof("Set clone status as NA")
 		if err := s.Replica().SetCloneStatus("NA"); err != nil {
