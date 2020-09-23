@@ -1,3 +1,20 @@
+# Copyright © 2020 The OpenEBS Authors
+#
+# This file was originally authored by Rancher Labs
+# under Apache License 2018.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # Makefile for building jiva docker image
 #
 # Reference Guide - https://www.gnu.org/software/make/manual/make.html
@@ -121,3 +138,16 @@ build_gitlab: deps build_image _push_image
 
 .PHONY: help deps build $(TARGETS)
 .DEFAULT_GOAL := build
+
+
+.PHONY: license-check
+license-check:
+	@echo "Checking license header..."
+	@licRes=$$(for file in $$(find . -type f -regex '.*\.sh\|.*\.go\|.*Docker.*\|.*\Makefile*' ! -path './vendor/*' ) ; do \
+               awk 'NR<=5' $$file | grep -Eq "(Copyright|generated|GENERATED|License)" || echo $$file; \
+       done); \
+       if [ -n "$${licRes}" ]; then \
+               echo "license header checking failed:"; echo "$${licRes}"; \
+               exit 1; \
+       fi
+	@echo "Done checking license."
