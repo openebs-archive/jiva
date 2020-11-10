@@ -45,10 +45,10 @@ jobs:
           if [ ${BRANCH} = "master" ]; then
             CI_TAG="ci"
           fi
-          echo "::set-env name=TAG::${CI_TAG}"
+          echo "::set-env name=IMAGE_TAG::${CI_TAG}"
           echo "::set-env name=BRANCH::${BRANCH}"
           echo "BRANCH: ${BRANCH}"
-          echo "TAG: ${CI_TAG}"
+          echo "IMAGE_TAG: ${CI_TAG}"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1

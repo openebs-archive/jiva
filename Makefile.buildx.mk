@@ -15,8 +15,8 @@
 # ==============================================================================
 # Build Options
 
-ifeq (${TAG}, )
-	export TAG=ci
+ifeq (${IMAGE_TAG}, )
+	export IMAGE_TAG=ci
 endif
 
 # Specify the date of build
@@ -56,7 +56,7 @@ else
 endif
 
 # Name of the multiarch image for jiva
-DOCKERX_IMAGE_JIVA:=${IMAGE_ORG}/jiva:${TAG}
+DOCKERX_IMAGE_JIVA:=${IMAGE_ORG}/jiva:${IMAGE_TAG}
 
 .PHONY: docker.buildx.jiva
 docker.buildx.jiva:
