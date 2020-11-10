@@ -48,6 +48,6 @@ then
   docker build -f ${DOCKERFILE} -t ${IMAGE_ORG}/jiva-${XC_ARCH}:${TAG} --build-arg BASE_IMAGE=${BASE_DOCKER_IMAGEPPC64LE} .
 else
   DOCKERFILE=Dockerfile_build_amd64
-  docker build -f ${DOCKERFILE} -t ${IMAGE_ORG}/jiva:${TAG} .
+  docker build -f ${DOCKERFILE} -t ${IMAGE_ORG}/jiva-${XC_ARCH}:${TAG} .
 fi
 echo Built ${IMAGE_ORG}/jiva-${XC_ARCH}:${TAG}
