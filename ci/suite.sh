@@ -115,8 +115,8 @@ prepare_test_env() {
 	mkdir -pv /mnt/store /mnt/store2
 
 	docker network create --subnet=172.18.0.0/16 stg-net
-	JI=$(docker images | grep ${IMAGE_ORG}/jiva | awk '{print $1":"$2}' | awk 'NR == 2 {print}')
-	JI_DEBUG=$(docker images | grep ${IMAGE_ORG}/jiva | awk '{print $1":"$2}' | awk 'NR == 1 {print}')
+	JI=$(docker images | grep ${IMAGE_ORG}/jiva-amd64 | awk '{print $1":"$2}' | awk 'NR == 2 {print}')
+	JI_DEBUG=$(docker images | grep ${IMAGE_ORG}/jiva-amd64 | awk '{print $1":"$2}' | awk 'NR == 1 {print}')
 	echo "Run CI tests on $JI and $JI_DEBUG"
 }
 
