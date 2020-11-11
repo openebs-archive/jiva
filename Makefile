@@ -151,3 +151,5 @@ license-check:
                exit 1; \
        fi
 	@echo "Done checking license."
+
+include Makefile.buildx.mk
