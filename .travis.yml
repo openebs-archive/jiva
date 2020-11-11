@@ -31,10 +31,6 @@ jobs:
         - RUN_FEATURE_TESTS=0
         - RUN_RESILIENCY_TESTS=0
         - RUN_E2E_AND_FUNCTIONAL_TESTS=1
-    - os: linux
-      arch: arm64
-    - os: linux
-      arch: ppc64le
 
 addons:
   apt:
