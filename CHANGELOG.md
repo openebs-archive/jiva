@@ -1,3 +1,15 @@
+v2.3.0 / 2020-11-14
+========================
+* chore(build): add support for multiarch build ([#331](https://github.com/openebs/upgrade/pull/32),[@shubham14bajpai](https://github.com/shubham14bajpai))
+
+v2.3.0-RC1 / 2020-11-13
+========================
+* No changes
+
+v2.3.0-RC1 / 2020-11-12
+========================
+* chore(build): add support for multiarch build ([#331](https://github.com/openebs/upgrade/pull/32),[@shubham14bajpai](https://github.com/shubham14bajpai))
+
 v2.2.0 / 2020-10-13
 ========================
   
