@@ -46,12 +46,14 @@ jobs:
             CI_TAG="ci"
           fi
           echo "TAG=${CI_TAG}" >> $GITHUB_ENV
+          echo "IMAGE_TAG=${CI_TAG}" >> $GITHUB_ENV
           echo "BRANCH=${BRANCH}" >> $GITHUB_ENV
 
       - name: Print Tag info
         run: |
           echo "BRANCH: ${BRANCH}"
           echo "TAG: ${TAG}"
+          echo "IMAGE_TAG: ${TAG}"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
