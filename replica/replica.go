@@ -443,7 +443,7 @@ func (r *Replica) hardlinkDisk(target, source string) error {
 	if err := os.Link(r.diskPath(source), r.diskPath(target)); err != nil {
 		return fmt.Errorf("Fail to link %s to %s", source, target)
 	}
-	return r.syncDir()
+	return r.SyncDir()
 }
 
 // ReplaceDisk replace the source with target snapshot
@@ -731,7 +731,7 @@ func (r *Replica) closeAndSyncDir(f types.DiffDisk) error {
 	if err != nil {
 		return err
 	}
-	if err = r.syncDir(); err != nil {
+	if err = r.SyncDir(); err != nil {
 		return err
 	}
 	return nil
@@ -752,7 +752,9 @@ func (r *Replica) encodeToFile(obj interface{}, file string) error {
 		return nil
 	}
 
-	f, err := os.Create(r.diskPath(file + ".tmp"))
+	// Metadata files need to be opened in O_SYNC mode so that it is immediately synced to disk,
+	// if the kernel crashes, the data in these files might be lost.
+	f, err := os.OpenFile(r.diskPath(file+".tmp"), os.O_RDWR|os.O_CREATE|os.O_TRUNC|os.O_SYNC, 0666)
 	if err != nil {
 		logrus.Errorf("Failed to create temp file: %s while encoding the data to file", file)
 		return err
@@ -774,7 +776,7 @@ func (r *Replica) encodeToFile(obj interface{}, file string) error {
 	if err := os.Rename(r.diskPath(file+".tmp"), r.diskPath(file)); err != nil {
 		return err
 	}
-	return r.syncDir()
+	return r.SyncDir()
 }
 
 func (r *Replica) nextFile(parsePattern *regexp.Regexp, pattern, parent string) (string, error) {
@@ -795,7 +797,7 @@ func (r *Replica) openFile(name string, flag int) (types.DiffDisk, error) {
 	return sparse.NewDirectFileIoProcessor(r.diskPath(name), os.O_RDWR|flag, 06666, true)
 }
 
-func (r *Replica) syncDir() error {
+func (r *Replica) SyncDir() error {
 	return util.SyncDir(r.dir)
 }
 
@@ -859,7 +861,7 @@ func (r *Replica) linkDisk(oldname, newname string) error {
 	if err := os.Link(r.diskPath(oldname+metadataSuffix), r.diskPath(newname+metadataSuffix)); err != nil {
 		return err
 	}
-	return r.syncDir()
+	return r.SyncDir()
 }
 
 func (r *Replica) markDiskAsRemoved(name string) error {
@@ -891,7 +893,7 @@ func (r *Replica) rmDisk(name string) error {
 		return err
 	}
 
-	return r.syncDir()
+	return r.SyncDir()
 }
 
 func (r *Replica) revertDisk(parent, created string) (*Replica, error) {
@@ -929,6 +931,14 @@ func (r *Replica) revertDisk(parent, created string) (*Replica, error) {
 }
 
 func (r *Replica) createDisk(name string, userCreated bool, created string) error {
+	// this function is called to create snapshots.
+	// To ensure that the snapshot file has all the data and metadata synced to disk
+	// we are syncing the directory before creating snapshot.
+	// When snapshots are created IOs are paused,
+	// therefore at this point there are no IOs running in parallel.
+	if err := r.SyncDir(); err != nil {
+		return err
+	}
 	if r.readOnly {
 		return fmt.Errorf("Can not create disk on read-only replica")
 	}
@@ -1286,7 +1296,7 @@ func (r *Replica) Delete() error {
 		logrus.Error("Error in removing revision counter file, error : ", err.Error())
 		return err
 	}
-	return r.syncDir()
+	return r.SyncDir()
 }
 
 func (r *Replica) DeleteAll() error {
