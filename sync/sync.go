@@ -442,6 +442,15 @@ func (t *Task) reloadAndVerify(s *replica.Server, address string, repClient *rep
 		logrus.Errorf("Error in reloadreplica %s", address)
 		return err
 	}
+
+	// Sync is being called over here so that after the reload is complete
+	// metadata for this dir is synced to disk. While syncing this replica
+	// from a healthy replica some snapshot files might have been pulled.
+	if err := s.Replica().SyncDir(); err != nil {
+		logrus.Errorf("Directory Sync Failed %v", err)
+		return err
+	}
+
 	if err := s.UpdateLUNMap(); err != nil {
 		return fmt.Errorf("UpdateLUNMap() failed, err: %v", err.Error())
 	}
