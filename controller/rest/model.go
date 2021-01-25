@@ -144,6 +144,7 @@ type PrepareRebuildOutput struct {
 type RegReplica struct {
 	client.Resource
 	Address  string        `json:"Address"`
+	UUID     string        `json:"UUID"`
 	RevCount string        `json:"RevCount"`
 	RepType  string        `json:"RepType"`
 	RepState string        `json:"RepState"`

@@ -11,6 +11,7 @@ require (
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-units v0.4.0
 	github.com/frostschutz/go-fibmap v0.0.0-20160825162329-b32c231bfe6a
+	github.com/google/uuid v1.2.0
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/handlers v1.4.2
 	github.com/gorilla/mux v1.7.4

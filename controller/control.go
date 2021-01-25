@@ -406,8 +406,8 @@ func (c *Controller) signalToAdd() {
 func (c *Controller) registerReplica(register types.RegReplica) error {
 	c.Lock()
 	defer c.Unlock()
-	logrus.Infof("Register Replica, Address: %v Uptime: %v State: %v Type: %v RevisionCount: %v",
-		register.Address, register.UpTime, register.RepState, register.RepType, register.RevCount)
+	logrus.Infof("Register Replica, Address: %v UUID: %v Uptime: %v State: %v Type: %v RevisionCount: %v",
+		register.Address, register.UUID, register.UpTime, register.RepState, register.RepType, register.RevCount)
 
 	_, ok := c.RegisteredReplicas[register.Address]
 	if !ok {
@@ -422,6 +422,11 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 		c.RegisteredQuorumReplicas[register.Address] = register
 		return nil
 	}
+	for replicaAddr, registry := range c.RegisteredReplicas {
+		if registry.UUID == register.UUID && replicaAddr != register.Address {
+			delete(c.RegisteredReplicas, replicaAddr)
+		}
+	}
 	c.RegisteredReplicas[register.Address] = register
 
 	if len(c.replicas) > 0 {
@@ -430,17 +435,25 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 	}
 
 	if c.StartSignalled == true {
-		if c.MaxRevReplica == register.Address {
+		switch {
+		case (register.Address == c.MaxRevReplica):
 			logrus.Infof("Replica %v signalled to start again, registered replicas: %#v", c.MaxRevReplica, c.RegisteredReplicas)
 			err := c.signalReplica()
 			if err != nil {
 				return err
 			}
-		} else {
+
+		case !c.VerifyReplicaAlive(c.MaxRevReplica):
+			logrus.Infof("Replica %v is not reachable, will elect a new leader", c.MaxRevReplica)
+			delete(c.RegisteredReplicas, c.MaxRevReplica)
+			c.MaxRevReplica = ""
+			c.StartSignalled = false
+
+		default:
 			logrus.Infof("Can signal only to %s , can't signal to %s, no of registered replicas are %d and replication factor is %d",
 				c.MaxRevReplica, register.Address, len(c.RegisteredReplicas), c.ReplicationFactor)
+			return nil
 		}
-		return nil
 	}
 
 	if register.RepState == "rebuilding" {
@@ -448,12 +461,15 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 		return nil
 	}
 
+	// Choose a leader among registered replicas
 	if c.MaxRevReplica == "" {
 		c.MaxRevReplica = register.Address
 	}
 
-	if c.RegisteredReplicas[c.MaxRevReplica].RevCount < register.RevCount {
-		c.MaxRevReplica = register.Address
+	for replica, _ := range c.RegisteredReplicas {
+		if c.RegisteredReplicas[c.MaxRevReplica].RevCount < c.RegisteredReplicas[replica].RevCount {
+			c.MaxRevReplica = register.Address
+		}
 	}
 
 	if (len(c.RegisteredReplicas) >= ((c.ReplicationFactor / 2) + 1)) &&
@@ -486,6 +502,17 @@ func (c *Controller) signalReplica() error {
 	}
 	c.StartSignalled = true
 	return nil
+}
+
+func (c *Controller) VerifyReplicaAlive(replica string) bool {
+	for i := 0; i < 3; i++ {
+		if c.factory.VerifyReplicaAlive(c.MaxRevReplica) {
+			return true
+		}
+		time.Sleep(time.Second)
+	}
+	return false
+
 }
 
 // IsSnapShotExist verifies whether snapshot with the given name
@@ -921,6 +948,12 @@ func (c *Controller) Start(addresses ...string) error {
 	if len(c.replicas) > 0 {
 		logrus.Infof("already %d replicas are started and added", len(c.replicas))
 		return nil
+	}
+
+	if addresses[0] != "tcp://"+c.MaxRevReplica+":9502" {
+		err := fmt.Errorf("Signalled replica to start: %s, received start from %s", c.MaxRevReplica, addresses[0])
+		logrus.Errorf(err.Error())
+		return err
 	}
 
 	c.reset()

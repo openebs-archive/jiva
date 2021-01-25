@@ -126,6 +126,7 @@ func (s *Server) RegisterReplica(rw http.ResponseWriter, req *http.Request) erro
 	localRevCount, _ = strconv.ParseInt(regReplica.RevCount, 10, 64)
 	local := types.RegReplica{
 		Address:  regReplica.Address,
+		UUID:     regReplica.UUID,
 		RevCount: localRevCount,
 		RepType:  regReplica.RepType,
 		UpTime:   regReplica.UpTime,

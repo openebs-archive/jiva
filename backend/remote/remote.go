@@ -39,9 +39,10 @@ import (
 )
 
 var (
-	pingInveral   = 2 * time.Second
-	timeout       = 30 * time.Second
-	requestBuffer = 1024
+	pingInveral               = 2 * time.Second
+	timeout                   = 30 * time.Second
+	VerifyReplicaAliveTimeout = 5 * time.Second
+	requestBuffer             = 1024
 )
 
 func New() types.BackendFactory {
@@ -334,6 +335,34 @@ func (rf *Factory) SignalToAdd(address string, action string) error {
 	}
 	inject.AddTimeout()
 	return r.doAction("start", &map[string]string{"Action": action})
+}
+
+func (rf *Factory) VerifyReplicaAlive(address string) bool {
+	controlAddress, _, _, err := util.ParseAddresses(address + ":9502")
+	if err != nil {
+		return false
+	}
+	replicaURL := fmt.Sprintf("http://%s/ping", controlAddress)
+	req, err := http.NewRequest("GET", replicaURL, nil)
+	if err != nil {
+		logrus.Errorf(err.Error())
+		return false
+	}
+	httpClient := &http.Client{
+		Timeout: VerifyReplicaAliveTimeout,
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return false
+	}
+
+	return true
 }
 
 func (r *Remote) monitorPing(client *rpc.Client) {

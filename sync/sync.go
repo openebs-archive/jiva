@@ -116,7 +116,7 @@ Register:
 		replicaType := "quorum"
 		upTime := time.Since(Replica.ReplicaStartTime)
 		state, _ := server.PrevStatus()
-		_ = t.client.Register(parts[0], revisionCount, replicaType, upTime, string(state))
+		_ = t.client.Register(parts[0], Replica.Info().UUID, revisionCount, replicaType, upTime, string(state))
 		select {
 		case <-ticker.C:
 			goto Register
@@ -266,7 +266,7 @@ Register:
 		upTime := time.Since(Replica.ReplicaStartTime)
 		state, _ := server.PrevStatus()
 		logrus.Infof("Register replica at controller")
-		err := t.client.Register(parts[0], revisionCount, replicaType, upTime, string(state))
+		err := t.client.Register(parts[0], Replica.Info().UUID, revisionCount, replicaType, upTime, string(state))
 		if err != nil {
 			logrus.Errorf("Error in sending register command, error: %s", err)
 		}
