@@ -466,7 +466,7 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 		c.MaxRevReplica = register.Address
 	}
 
-	for replica, _ := range c.RegisteredReplicas {
+	for replica := range c.RegisteredReplicas {
 		if c.RegisteredReplicas[c.MaxRevReplica].RevCount < c.RegisteredReplicas[replica].RevCount {
 			c.MaxRevReplica = register.Address
 		}
