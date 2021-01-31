@@ -409,6 +409,11 @@ func (c *Controller) registerReplica(register types.RegReplica) error {
 	logrus.Infof("Register Replica, Address: %v UUID: %v Uptime: %v State: %v Type: %v RevisionCount: %v",
 		register.Address, register.UUID, register.UpTime, register.RepState, register.RepType, register.RevCount)
 
+	if register.UUID == "" {
+		logrus.Infof("Replica: %v registration failed, UUID is nil", register.Address)
+		return nil
+	}
+
 	_, ok := c.RegisteredReplicas[register.Address]
 	if !ok {
 		_, ok = c.RegisteredQuorumReplicas[register.Address]
