@@ -249,9 +249,10 @@ func (c *ControllerClient) GetCheckpoint() (string, error) {
 	return checkpoint.Snapshot, nil
 }
 
-func (c *ControllerClient) Register(address string, revisionCount int64, replicaType string, upTime time.Duration, state string) error {
+func (c *ControllerClient) Register(address string, UUID string, revisionCount int64, replicaType string, upTime time.Duration, state string) error {
 	err := c.post("/register", &rest.RegReplica{
 		Address:  address,
+		UUID:     UUID,
 		RevCount: strconv.FormatInt(revisionCount, 10),
 		RepType:  replicaType,
 		UpTime:   upTime,
