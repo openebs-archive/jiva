@@ -98,7 +98,7 @@ func find(list []string, item string) int {
 	return -1
 }
 
-func (t *Task) AddQuorumReplica(replicaAddress string, _ *replica.Server) error {
+func (t *Task) AddQuorumReplica(replicaAddress string, s *replica.Server) error {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 Register:
@@ -108,8 +108,8 @@ Register:
 	}
 	addr := strings.Split(replicaAddress, "://")
 	parts := strings.Split(addr[1], ":")
-	Replica, _ := replica.CreateTempReplica()
-	server, _ := replica.CreateTempServer()
+	Replica, _ := replica.CreateTempReplica(s)
+	server, _ := replica.CreateTempServer(s)
 
 	if volume.ReplicaCount == 0 {
 		revisionCount := Replica.GetRevisionCounter()
@@ -243,11 +243,11 @@ func (t *Task) AddReplica(replicaAddress string, s *replica.Server) error {
 	}
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
-	Replica, err := replica.CreateTempReplica()
+	Replica, err := replica.CreateTempReplica(s)
 	if err != nil {
 		return fmt.Errorf("failed to create temp replica, error: %s", err.Error())
 	}
-	server, err := replica.CreateTempServer()
+	server, err := replica.CreateTempServer(s)
 	if err != nil {
 		return fmt.Errorf("failed to create temp server, error: %s", err.Error())
 	}

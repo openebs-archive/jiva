@@ -20,6 +20,7 @@
 package replica
 
 import (
+	"crypto/sha1"
 	"errors"
 	"fmt"
 	"os"
@@ -27,6 +28,7 @@ import (
 	"time"
 
 	fibmap "github.com/frostschutz/go-fibmap"
+	guuid "github.com/google/uuid"
 	inject "github.com/openebs/jiva/error-inject"
 	"github.com/openebs/jiva/types"
 	"github.com/sirupsen/logrus"
@@ -44,7 +46,7 @@ const (
 type State string
 
 var ActionChannel chan string
-var Dir string
+
 var StartTime time.Time
 
 type Server struct {
@@ -52,7 +54,7 @@ type Server struct {
 	r                 *Replica
 	ReplicaAddress    string
 	ServerType        string
-	dir               string
+	Dir               string
 	defaultSectorSize int64
 	backing           *BackingFile
 	//This channel is used to montitor the IO connection
@@ -65,11 +67,10 @@ type Server struct {
 
 func NewServer(address, dir string, sectorSize int64, serverType string) *Server {
 	ActionChannel = make(chan string, 5)
-	Dir = dir
 	StartTime = time.Now()
 	return &Server{
 		ReplicaAddress:    address,
-		dir:               dir,
+		Dir:               dir,
 		defaultSectorSize: sectorSize,
 		ServerType:        serverType,
 		MonitorChannel:    make(chan struct{}),
@@ -129,7 +130,7 @@ func (s *Server) createTempFile(filePath string) (*os.File, error) {
 }
 
 func (s *Server) isExtentSupported() error {
-	filePath := s.dir + "/tmpFile.tmp"
+	filePath := s.Dir + "/tmpFile.tmp"
 	file, err := s.createTempFile(filePath)
 	if err != nil {
 		return err
@@ -159,25 +160,45 @@ func (s *Server) isExtentSupported() error {
 	return file.Close()
 }
 
+func (s *Server) initUUID() error {
+	var err error
+	r := &Replica{
+		dir:              s.Dir,
+		ReplicaStartTime: StartTime,
+		mode:             types.INIT,
+	}
+	if r.info, err = ReadInfo(s.Dir); err != nil {
+		return err
+	}
+	if r.info.UUID == "" {
+		UUID := guuid.New().String() + s.ReplicaAddress
+		hash := sha1.New()
+		hash.Write([]byte(UUID))
+		r.info.UUID = fmt.Sprintf("%x", hash.Sum(nil))
+		r.writeVolumeMetaData(r.info.Dirty, r.info.Rebuilding)
+	}
+	return nil
+}
+
 func (s *Server) Create(size int64) error {
 	s.Lock()
 	defer s.Unlock()
 	if err := s.isExtentSupported(); err != nil {
 		return err
 	}
+	defer s.initUUID()
 	state, _ := s.Status()
 
 	if state != Initial {
-		fmt.Println("STATE = ", state)
 		return nil
 	}
 
 	size = s.getSize(size)
 	sectorSize := s.getSectorSize()
 
-	logrus.Infof("Creating volume %s, size %d/%d", s.dir, size, sectorSize)
+	logrus.Infof("Creating volume %s, size %d/%d", s.Dir, size, sectorSize)
 	// Preload is not needed over here since the volume is being newly created
-	r, err := New(false, size, sectorSize, s.dir, s.backing, s.ServerType)
+	r, err := New(false, size, sectorSize, s.Dir, s.backing, s.ServerType)
 	if err != nil {
 		return err
 	}
@@ -196,8 +217,8 @@ func (s *Server) Open() error {
 	_, info := s.Status()
 	size := s.getSize(info.Size)
 	sectorSize := s.getSectorSize()
-	logrus.Infof("Opening volume %s, size %d/%d", s.dir, size, sectorSize)
-	r, err := New(s.preload, size, sectorSize, s.dir, s.backing, s.ServerType)
+	logrus.Infof("Opening volume %s, size %d/%d", s.Dir, size, sectorSize)
+	r, err := New(s.preload, size, sectorSize, s.Dir, s.backing, s.ServerType)
 	if err != nil {
 		logrus.Errorf("Error %v during open", err)
 		return err
@@ -271,7 +292,7 @@ func (s *Server) UpdateCloneInfo(snapName, revCount string) error {
 
 func (s *Server) Status() (State, Info) {
 	if s.r == nil {
-		info, err := ReadInfo(s.dir)
+		info, err := ReadInfo(s.Dir)
 		if os.IsNotExist(err) {
 			return Initial, Info{}
 		} else if err != nil {
@@ -291,7 +312,7 @@ func (s *Server) Status() (State, Info) {
 }
 
 func (s *Server) PrevStatus() (State, Info) {
-	info, err := ReadInfo(s.dir)
+	info, err := ReadInfo(s.Dir)
 	if os.IsNotExist(err) {
 		return Initial, Info{}
 	} else if err != nil {
@@ -327,7 +348,7 @@ func (s *Server) Stats() *types.Stats {
 // GetRevisionCounter reads the revison counter
 func (s *Server) GetRevisionCounter() (int64, error) {
 	tmpReplica := Replica{
-		dir: Dir,
+		dir: s.Dir,
 	}
 	err := tmpReplica.initRevisionCounter()
 	if err != nil {

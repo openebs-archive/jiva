@@ -26,7 +26,6 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
-	"github.com/openebs/jiva/replica"
 	"github.com/openebs/jiva/sync/rebuild"
 	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
@@ -119,7 +118,7 @@ func (s *Server) GetVolUsage(rw http.ResponseWriter, req *http.Request) error {
 
 func (s *Server) GetRebuildInfo(rw http.ResponseWriter, req *http.Request) error {
 	apiContext := api.GetApiContext(req)
-	info := rebuild.GetRebuildInfo()
+	info := rebuild.GetRebuildInfo(s.s.Dir)
 	resp := &RebuildInfoOutput{
 		Resource: client.Resource{
 			Type:    "rebuildinfo",
@@ -155,7 +154,7 @@ func (s *Server) SetLogging(rw http.ResponseWriter, req *http.Request) error {
 	}
 	logrus.Infof("SetLogging to %v", input.LogToFile)
 
-	return s.doOp(req, util.SetLogging(replica.Dir, input.LogToFile))
+	return s.doOp(req, util.SetLogging(s.s.Dir, input.LogToFile))
 }
 
 func (s *Server) SetRebuilding(rw http.ResponseWriter, req *http.Request) error {
