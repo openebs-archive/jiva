@@ -159,6 +159,11 @@ func CreateTempReplica(s *Server) (*Replica, error) {
 		ReplicaStartTime: StartTime,
 		mode:             types.INIT,
 	}
+
+	if r.info, err = ReadInfo(r.dir); err != nil {
+		return nil, err
+	}
+
 	if err = r.initRevisionCounter(); err != nil {
 		logrus.Errorf("Error in initializing revision counter while creating temp replica")
 		return nil, err
