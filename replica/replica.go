@@ -33,7 +33,6 @@ import (
 	"time"
 
 	units "github.com/docker/go-units"
-	guuid "github.com/google/uuid"
 	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
 	"github.com/openebs/sparse-tools/sparse"
@@ -149,34 +148,32 @@ const (
 	OpReplace  = "replace"
 )
 
-func CreateTempReplica() (*Replica, error) {
+func CreateTempReplica(s *Server) (*Replica, error) {
 	var err error
-	if err = os.Mkdir(Dir, 0700); err != nil && !os.IsExist(err) {
+	if err = os.Mkdir(s.Dir, 0700); err != nil && !os.IsExist(err) {
 		return nil, err
 	}
 
 	r := &Replica{
-		dir:              Dir,
+		dir:              s.Dir,
 		ReplicaStartTime: StartTime,
 		mode:             types.INIT,
 	}
+
+	if r.info, err = ReadInfo(r.dir); err != nil {
+		return nil, err
+	}
+
 	if err = r.initRevisionCounter(); err != nil {
 		logrus.Errorf("Error in initializing revision counter while creating temp replica")
 		return nil, err
 	}
-	if r.info, err = ReadInfo(r.dir); err != nil {
-		return nil, err
-	}
-	if r.info.UUID == "" {
-		r.info.UUID = guuid.New().String()
-		r.writeVolumeMetaData(r.info.Dirty, r.info.Rebuilding)
-	}
 	return r, nil
 }
 
-func CreateTempServer() (*Server, error) {
+func CreateTempServer(s *Server) (*Server, error) {
 	return &Server{
-		dir: Dir,
+		Dir: s.Dir,
 	}, nil
 }
 
@@ -1205,9 +1202,6 @@ func (r *Replica) readMetadata() (bool, error) {
 			}
 			if r.info.Head == "" {
 				return false, fmt.Errorf("r.info.Head is nil")
-			}
-			if r.info.UUID == "" {
-				r.info.UUID = guuid.New().String()
 			}
 			file = fileMap[r.info.Head+metadataSuffix]
 		} else if strings.HasSuffix(file.Name(), metadataSuffix) {
