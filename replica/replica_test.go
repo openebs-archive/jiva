@@ -671,7 +671,7 @@ func (s *TestSuite) TestUpdateLUNMap(c *C) {
 	c.Assert(err, IsNil)
 	server := &Server{
 		r:   r,
-		dir: dir,
+		Dir: dir,
 	}
 	// Fill data for S0
 	lunMapS0 := []int{1, 3, 5, 6}

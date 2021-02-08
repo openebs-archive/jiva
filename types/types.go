@@ -113,6 +113,7 @@ type Backend interface {
 type BackendFactory interface {
 	Create(address string) (Backend, error)
 	SignalToAdd(string, string) error
+	VerifyReplicaAlive(string) bool
 }
 
 type VolUsage struct {
@@ -201,6 +202,7 @@ type Replica struct {
 
 type RegReplica struct {
 	Address  string
+	UUID     string
 	UpTime   time.Duration
 	RevCount int64
 	RepType  string

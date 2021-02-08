@@ -112,6 +112,10 @@ func (ff *Factory) SignalToAdd(address string, action string) error {
 	return nil
 }
 
+func (ff *Factory) VerifyReplicaAlive(address string) bool {
+	return false
+}
+
 func (f *Wrapper) GetMonitorChannel() types.MonitorChannel {
 	return nil
 }

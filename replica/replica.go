@@ -106,6 +106,7 @@ type Info struct {
 	Checkpoint      string
 	BackingFile     *BackingFile `json:"-"`
 	RevisionCounter int64
+	UUID            string
 }
 
 type disk struct {
@@ -147,26 +148,32 @@ const (
 	OpReplace  = "replace"
 )
 
-func CreateTempReplica() (*Replica, error) {
-	if err := os.Mkdir(Dir, 0700); err != nil && !os.IsExist(err) {
+func CreateTempReplica(s *Server) (*Replica, error) {
+	var err error
+	if err = os.Mkdir(s.Dir, 0700); err != nil && !os.IsExist(err) {
 		return nil, err
 	}
 
 	r := &Replica{
-		dir:              Dir,
+		dir:              s.Dir,
 		ReplicaStartTime: StartTime,
 		mode:             types.INIT,
 	}
-	if err := r.initRevisionCounter(); err != nil {
+
+	if r.info, err = ReadInfo(r.dir); err != nil {
+		return nil, err
+	}
+
+	if err = r.initRevisionCounter(); err != nil {
 		logrus.Errorf("Error in initializing revision counter while creating temp replica")
 		return nil, err
 	}
 	return r, nil
 }
 
-func CreateTempServer() (*Server, error) {
+func CreateTempServer(s *Server) (*Server, error) {
 	return &Server{
-		dir: Dir,
+		Dir: s.Dir,
 	}, nil
 }
 

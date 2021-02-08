@@ -54,3 +54,10 @@ func (d *Factory) SignalToAdd(address string, action string) error {
 	}
 	return nil
 }
+
+func (d *Factory) VerifyReplicaAlive(address string) bool {
+	if factory, ok := d.factories["tcp"]; ok {
+		return factory.VerifyReplicaAlive(address)
+	}
+	return false
+}

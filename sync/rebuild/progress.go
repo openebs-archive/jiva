@@ -19,7 +19,6 @@ package rebuild
 import (
 	"path"
 
-	"github.com/openebs/jiva/replica"
 	"github.com/openebs/jiva/types"
 	"github.com/openebs/jiva/util"
 )
@@ -47,13 +46,13 @@ func SetStatus(disk, status string) {
 
 // GetRebuildInfo returns the updated SyncInfo such as total
 // used size of snapshots and size of individual snapshots.
-func GetRebuildInfo() *types.SyncInfo {
+func GetRebuildInfo(dir string) *types.SyncInfo {
 	if Info == nil {
 		return nil
 	}
 	var totSize int64
 	for i, snap := range Info.Snapshots {
-		size := util.GetFileActualSize(path.Join(replica.Dir, snap.Name))
+		size := util.GetFileActualSize(path.Join(dir, snap.Name))
 		if size == -1 {
 			Info.Snapshots[i].WOSize = "NA"
 		} else {
