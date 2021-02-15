@@ -1,0 +1,1 @@
+fix(registration): add UUID field to avoid duplicate registration attempts
