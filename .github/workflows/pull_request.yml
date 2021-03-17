@@ -36,10 +36,56 @@ jobs:
           path: '.'
           pattern: '*.sh'
           exclude: './vendor/*'
-
-  jiva:
+  
+  feature-test:
     runs-on: ubuntu-latest
     needs: ['lint']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Build
+        run: make build
+      
+      - name: Test
+        run: make test_features
+
+  resiliency-test:
+    runs-on: ubuntu-latest
+    needs: ['lint']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Set up Go 1.14
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.14.7
+
+      - name: Build
+        run: make build
+      
+      - name: Test
+        run: make test_resiliency
+
+  functional-test:
+    runs-on: ubuntu-latest
+    needs: ['lint']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Build
+        run: make build
+      
+      - name: Test
+        run: |
+          sudo docker network create --subnet=172.18.0.0/16 stg-net;
+          make test_functional;
+  
+  jiva:
+    runs-on: ubuntu-latest
+    needs: ['feature-test', 'resiliency-test', 'functional-test']
     steps:
       - name: Checkout
         uses: actions/checkout@v2
