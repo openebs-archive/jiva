@@ -87,6 +87,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: Set Image Org
+        # sets the default IMAGE_ORG to openebs
+        run: |
+          [ -z "${{ secrets.IMAGE_ORG }}" ] && IMAGE_ORG=openebs || IMAGE_ORG=${{ secrets.IMAGE_ORG}}
+          echo "IMAGE_ORG=${IMAGE_ORG}" >> $GITHUB_ENV
+
       - name: Set tag
         run: |
           BRANCH="${GITHUB_REF##*/}"
@@ -97,10 +103,28 @@ jobs:
           echo "IMAGE_TAG=${CI_TAG}" >> $GITHUB_ENV
           echo "BRANCH=${BRANCH}" >> $GITHUB_ENV
 
+      - name: Set Build Date
+        id: date
+        run: |
+          echo "::set-output name=DATE::$(date -u +'%Y-%m-%dT%H:%M:%S%Z')"
+
+      - name: Docker meta
+        id: docker_meta
+        uses: crazy-max/ghaction-docker-meta@v1
+        with:
+          # add each registry to which the image needs to be pushed here
+          images: |
+            ${{ env.IMAGE_ORG }}/jiva
+            quay.io/${{ env.IMAGE_ORG }}/jiva
+          tag-latest: false
+          tag-custom-only: true
+          tag-custom: |
+            ${{ env.TAG }}
+
       - name: Print Tag info
         run: |
           echo "BRANCH: ${BRANCH}"
-          echo "IMAGE_TAG: ${CI_TAG}"
+          echo "${{ steps.docker_meta.outputs.tags }}"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
@@ -119,10 +143,24 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Login to Quay
+        uses: docker/login-action@v1
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_TOKEN }}
+
       - name: Build & Push Image
-        env:
-          IMAGE_ORG: ${{ secrets.IMAGE_ORG}}
-        run: |
-          make docker.buildx.jiva
-          make buildx.push.jiva
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./package/jiva.Dockerfile
+          push: true
+          platforms: linux/amd64, linux/arm64
+          tags: |
+            ${{ steps.docker_meta.outputs.tags }}
+          build-args: |
+            DBUILD_DATE=${{ steps.date.outputs.DATE }}
+            DBUILD_REPO_URL=https://github.com/openebs/jiva
+            DBUILD_SITE_URL=https://openebs.io
 

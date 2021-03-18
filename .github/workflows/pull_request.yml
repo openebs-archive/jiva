@@ -102,6 +102,11 @@ jobs:
           version: v0.5.1
 
       - name: Build Image
-        env:
-          IMG_RESULT: cache
-        run: make docker.buildx.jiva
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./package/jiva.Dockerfile
+          push: false
+          platforms: linux/amd64, linux/arm64
+          tags: |
+            openebs/jiva:ci
