@@ -101,7 +101,6 @@ jobs:
             CI_TAG="ci"
           fi
           echo "IMAGE_TAG=${CI_TAG}" >> $GITHUB_ENV
-          echo "BRANCH=${BRANCH}" >> $GITHUB_ENV
 
       - name: Set Build Date
         id: date
@@ -123,7 +122,6 @@ jobs:
 
       - name: Print Tag info
         run: |
-          echo "BRANCH: ${BRANCH}"
           echo "${{ steps.docker_meta.outputs.tags }}"
 
       - name: Set up QEMU
