@@ -118,7 +118,7 @@ jobs:
           tag-latest: false
           tag-custom-only: true
           tag-custom: |
-            ${{ env.TAG }}
+            ${{ env.IMAGE_TAG }}
 
       - name: Print Tag info
         run: |
