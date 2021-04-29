@@ -13,10 +13,23 @@
 # limitations under the License.
 name: build
 
-on: ['push']
+on:
+  create:
+  push:
+    branches:
+      - 'master'
+      - 'v*'
+    paths-ignore:
+      - '*.md'
+      - 'changelogs/**'
+      - 'docs/**'
+      - 'LICENSE'
+      - 'MAINTAINERS'
 
 jobs:
   lint:
+    # to ignore builds on release
+    if: ${{ (github.event.ref_type != 'tag') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
