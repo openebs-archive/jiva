@@ -99,3 +99,17 @@ jobs:
             DBUILD_REPO_URL=https://github.com/openebs/jiva
             DBUILD_SITE_URL=https://openebs.io
             RELEASE_TAG=${{ env.RELEASE_TAG }}
+
+  downstream-tagging:
+    runs-on: ubuntu-latest
+    needs: ['jiva']
+    steps:
+      - name: Downstream tagging
+        uses: akhilerm/openebs-release-mgmt@v1.1.0
+        with:
+          tag-name: ${{ github.ref }}
+          body: 'Release created from jiva'
+          repo: |
+            jiva-operator
+          # GR_TOKEN secret is the access token to perform github releases
+          github-token: ${{ secrets.GR_TOKEN }}
