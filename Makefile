@@ -49,6 +49,8 @@ export XC_ARCH
 ARCH:=${XC_OS}_${XC_ARCH}
 export ARCH
 
+PACKAGES = $(shell go list ./... | grep -v 'vendor\|tests')
+
 help:
 	@echo ""
 	@echo "Usage:-"
@@ -89,8 +91,9 @@ _run_ci:
 	sudo -E bash ./ci/start_init_test.sh
 
 test:
-	@echo "INFO:\tRun ci over jiva image"
-	sudo -E bash -x ./ci/start_init_test.sh
+	go fmt ./...
+	@echo "--> Running go test" ;
+	@go test -v $(PACKAGES)
 
 test_features:
 	sudo -E bash -x ./ci/feature_tests.sh
