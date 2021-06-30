@@ -192,6 +192,7 @@ func (t *goTgt) startScsiTarget(cfg *config.Config) error {
 	}
 	t.targetDriver.NewTarget(t.tgtName, cfg)
 	t.targetDriver.SetClusterIP(t.clusterIP)
+	t.targetDriver.EnableBlockMultipleHostLogin()
 	go t.targetDriver.Run()
 
 	logrus.Infof("SCSI device created")
