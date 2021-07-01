@@ -16,7 +16,7 @@ require (
 	github.com/gorilla/handlers v1.4.2
 	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/websocket v1.4.1 // indirect
-	github.com/gostor/gotgt v0.2.1-0.20201208040256-8b433a89c6dc
+	github.com/gostor/gotgt v0.2.1-0.20210701103144-9fe48c7708fa
 	github.com/kubernetes-csi/csi-lib-iscsi v0.0.0-20200118015005-959f12c91ca8
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/natefinch/lumberjack v2.0.0+incompatible
@@ -39,7 +39,4 @@ require (
 	gotest.tools v2.2.0+incompatible // indirect
 )
 
-replace (
-	github.com/frostschutz/go-fibmap => github.com/rancher/go-fibmap v0.0.0-20160418233256-5fc9f8c1ed47
-	github.com/gostor/gotgt => github.com/shubham14bajpai/gotgt v0.2.1-0.20210629154554-b278ab3133cf
-)
+replace github.com/frostschutz/go-fibmap => github.com/rancher/go-fibmap v0.0.0-20160418233256-5fc9f8c1ed47
