@@ -1,3 +1,93 @@
+v2.11.0 / 2021-07-14
+========================
+* Reject current login request if existing one is alive ([#353](https://github.com/openebs/jiva/pull/353),[@shubham14bajpai](https://github.com/shubham14bajpai))
+
+
+v2.11.0-RC2 / 2021-07-12
+========================
+
+
+v2.11.0-RC1 / 2021-07-07
+========================
+* Reject current login request if existing one is alive ([#353](https://github.com/openebs/jiva/pull/353),[@shubham14bajpai](https://github.com/shubham14bajpai))
+
+
+v2.10.0 / 2021-06-14
+========================
+* No changes
+
+v2.10.0-RC2 / 2021-06-11
+========================
+* No changes
+
+v2.10.0-RC1 / 2021-06-08
+========================
+* No changes
+
+v2.9.0 / 2021-05-15
+========================
+* No changes
+
+v2.9.0-RC2 / 2021-05-11
+========================
+* No changes
+
+v2.9.0-RC1 / 2021-05-06
+========================
+* No changes
+
+v2.8.0 / 2021-04-14
+========================
+* No changes
+
+v2.7.0 / 2021-03-11
+========================
+* No changes
+
+v2.7.0-RC2 / 2021-03-10
+========================
+* No changes
+
+v2.7.0-RC1 / 2021-03-08
+========================
+* No changes
+
+v2.6.0 / 2021-02-13
+========================
+* No changes
+
+v2.6.0-RC2 / 2021-02-11
+========================
+* No changes
+
+v2.6.0-RC1 / 2021-02-08
+========================
+* No changes
+
+v2.5.0 / 2021-01-13
+========================
+* No changes
+
+v2.5.0-RC2 / 2021-01-11
+========================
+* No changes
+
+v2.5.0-RC1 / 2021-01-08
+========================
+* No changes
+
+v2.4.0 / 2020-12-13
+========================
+* No changes
+
+v2.4.0-RC2 / 2020-12-12
+========================
+* No changes
+
+v2.4.0-RC1 / 2020-12-10
+========================
+* No changes
+
 v2.3.0 / 2020-11-14
 ========================
 * chore(build): add support for multiarch build ([#331](https://github.com/openebs/upgrade/pull/32),[@shubham14bajpai](https://github.com/shubham14bajpai))
