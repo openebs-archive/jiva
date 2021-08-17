@@ -16,7 +16,7 @@ require (
 	github.com/gorilla/handlers v1.4.2
 	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/websocket v1.4.1 // indirect
-	github.com/gostor/gotgt v0.2.1-0.20210701103144-9fe48c7708fa
+	github.com/gostor/gotgt v0.2.1-0.20210817044456-e5d5366e2b59
 	github.com/kubernetes-csi/csi-lib-iscsi v0.0.0-20200118015005-959f12c91ca8
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/natefinch/lumberjack v2.0.0+incompatible
