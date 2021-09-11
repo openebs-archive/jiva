@@ -7,7 +7,7 @@ build-jiva:
    stage: build
    only:
      refs:
-       - /^(v[0-9][.][0-9][.]x|master)?$/
+       - /^(v[0-9][.][0-9][.]x|develop)?$/
    before_script:
      - export COMMIT=${CI_COMMIT_SHORT_SHA}
      - sudo apt-get install -y
@@ -25,7 +25,7 @@ baseline-image:
   stage: baseline
   only:
     refs:
-      - /^(v[0-9][.][0-9][.]x|master)?$/
+      - /^(v[0-9][.][0-9][.]x|develop)?$/
   script:
      - pwd
      - export BRANCH=${CI_COMMIT_REF_NAME}
@@ -57,7 +57,7 @@ cleanup:
   stage: cleanup
   only:
     refs:
-      - /^(v[0-9][.][0-9][.]x|master)?$/  
+      - /^(v[0-9][.][0-9][.]x|develop)?$/  
   script:
      - sudo rm -r ~/go
      - sudo docker images 

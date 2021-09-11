@@ -1,38 +1,29 @@
 # Release Process
-jiva follows a monthly release cadence. The scope of the release is determined by contributor availability. The scope is published in the [Release Tracker Projects](https://github.com/orgs/openebs/projects).
 
-## Release Candidate Verification Checklist
+**jiva** follows the [OpenEBS release](https://github.com/openebs/openebs/blob/HEAD/RELEASE.md) process for major and minor releases. The scope of the release is determined by contributor availability. The scope is published in the [Release Tracker Projects](https://github.com/orgs/openebs/projects). The release process involves the following steps:
 
-Every release has release candidate builds that are created starting from the third week into the release. These release candidate builds help to freeze the scope and maintain the quality of the release. The release candidate builds will go through:
-- Platform Verification
-- Regression and Feature Verification Automated tests.
-- Exploratory testing by QA engineers
-- Strict security scanners on the container images
-- Upgrade from previous releases
-- Beta testing by users on issues that they are interested in.
-- Dogfooding on workload and MayaData OpenEBS Director staging cluster.
+- After all the scoped features are committed to `develop` branch, a release branch is created. Name of the release branch should follow the naming convention of `v<major-release>.<minor-release>.x`. Example: v1.9.x.
+- Create release candidate (`RC`) tags from the release branch and run release pipelines.
+- Create release tag once the verification is complete.
+- Update the [changelog](./changelogs/released/).
+- Update and release a new version of [Jiva Operator](https://github.com/openebs/jiva-operator/blob/HEAD/RELEASE.md).
 
-If any issues are found during the above stages, they are fixed and a new release candidate builds are generated.
+Patch releases are created on demand, depending on the severity of the fixes. The fixes will have to merged into the `develop` branch and cherry picked into the corresponding release branches and a new patch release is created.
 
-Once all the above tests are completed, a main release tagged image is published.
+## Released Containers Images
 
-## Release Tagging
+Multi-arch containers are pushed to different container registeries, via the [Github Actions release workflow](./.github/workflows/release.yaml).
 
-jiva is released as container image with versioned tag.
+The following container images are generated from this repo:
+- Docker Hub (Default)
+  - openebs/jiva
+- Quay.io
+  - quay.io/jiva
+- GHCR
+  - ghcr.io/jiva
 
-Before creating a release, repo owner needs to create a separate branch from the active branch, which is `master`. Name of the branch should follow the naming convention of `v.1.9.x`, if release is for 1.9.0.
+## Update CHANGELOG
 
-Once the release branch is created, changelog from `changelogs/unreleased` needs to be moved to release specific folder `changelogs/v1.9.x`, if release branch is `v1.10.x` then folder will be `changelogs/v1.10.x`.
-
-The format of the release tag is either "Release-Name-RC1" or "Release-Name" depending on whether the tag is a release candidate or a release. (Example: 1.9.0-RC1 is a GitHub release tag for jiva release build. 1.9.0 is the release tag that is created after the release criteria are satisfied by the jiva builds.)
-
-Once the release is triggered, Travis build process has to be monitored. Once Travis build is passed images are pushed to docker hub and quay.io. Images can be verified by going through docker hub and quay.io. Also the images shouldn't have any high level vulnerabilities.
-
-Images are published at following location:
-https://quay.io/repository/openebs/jiva?tab=tags
-https://hub.docker.com/r/openebs/jiva/tags
-
-Once a release is created, update the release description with the change log mentioned in `changelog/v1.9.x`. Once the change logs are updated in release, repo owner needs to create a PR to `master` with the following details:
-1. update the changelog from `changelog/v1.9.x` to `jiva/CHANGELOG.md`
-2. If release is not a RC tag then PR should include the changes to remove `changelog/v1.9.x` folder.
-3. If release is a RC tag then PR should include the changes to remove the changelog from `changelog/v1.9.x` which are already mentioned in `jiva/CHANGELOG.md` as part of step number 1.
+Once a release tag is created, raise a changelog PR to `develop` branch that updates the following:
+- Move the fixes that went into the release from `changeslogs/unreleased` to `changeslogs/released/<release tag>`. 
+- Update [CHANGELOG.md] with fixes that went into the current release.

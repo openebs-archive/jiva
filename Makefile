@@ -84,13 +84,9 @@ mod:  go.mod go.sum
 deps: _build_check_go _build_check_docker mod
 	@echo "INFO:\tVerifying dependencies for jiva"
 
-_run_ci:
+_run_ci: test_functional test_features test_resiliency
 	@echo "INFO:\tRun ci over jiva image"
 	sudo -E bash ./ci/start_init_test.sh
-
-test:
-	@echo "INFO:\tRun ci over jiva image"
-	sudo -E bash -x ./ci/start_init_test.sh
 
 test_features:
 	sudo -E bash -x ./ci/feature_tests.sh
@@ -113,12 +109,6 @@ build_image:
 _push_image:
 	DIMAGE="${IMAGE_ORG}/jiva" ./scripts/push
 
-#
-# Will build the go based binaries
-# The binaries will be placed at $GOPATH/bin/
-#
-# build: deps _install_trash _fetch_longhorn _customize_longhorn _build_longhorn _run_ci _push_image
-#
 golint := $(shell which golint 2> /dev/null )
 
 lint:
