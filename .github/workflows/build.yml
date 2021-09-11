@@ -17,7 +17,7 @@ on:
   create:
   push:
     branches:
-      - 'master'
+      - 'develop'
       - 'v*'
     paths-ignore:
       - '*.md'
@@ -110,7 +110,7 @@ jobs:
         run: |
           BRANCH="${GITHUB_REF##*/}"
           CI_TAG=${BRANCH#v}-ci
-          if [ ${BRANCH} = "master" ]; then
+          if [ ${BRANCH} = "develop" ]; then
             CI_TAG="ci"
           fi
           echo "IMAGE_TAG=${CI_TAG}" >> $GITHUB_ENV
@@ -128,6 +128,7 @@ jobs:
           images: |
             ${{ env.IMAGE_ORG }}/jiva
             quay.io/${{ env.IMAGE_ORG }}/jiva
+            ghcr.io/${{ env.IMAGE_ORG }}/jiva
           tag-latest: false
           tag-custom-only: true
           tag-custom: |
@@ -160,6 +161,13 @@ jobs:
           registry: quay.io
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_TOKEN }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build & Push Image
         uses: docker/build-push-action@v2
