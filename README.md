@@ -1,6 +1,6 @@
 # Jiva
 
-[![Build Status](https://github.com/openebs/jiva/actions/workflows/build.yaml/badge.svg)](https://github.com/openebs/jiva/actions/workflows/build.yml)
+[![Build Status](https://github.com/openebs/jiva/actions/workflows/build.yml/badge.svg)](https://github.com/openebs/jiva/actions/workflows/build.yml)
 [![Releases](https://img.shields.io/github/release/openebs/jiva/all.svg?style=flat-square)](https://github.com/openebs/jiva/releases)
 [![Docker Pulls](https://img.shields.io/docker/pulls/openebs/jiva)](https://hub.docker.com/repository/docker/openebs/jiva)
 [![Slack](https://img.shields.io/badge/chat!!!-slack-ff1493.svg?style=flat-square)](https://kubernetes.slack.com/messages/openebs)
