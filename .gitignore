@@ -4,6 +4,7 @@
 *.pyc
 *.pyo
 *.swp
+**/.idea
 
 integration/.idea/
 integration/.tox/
