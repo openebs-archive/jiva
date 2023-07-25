@@ -26,7 +26,7 @@ import (
 	"github.com/rancher/go-rancher/api"
 )
 
-//ListJournal flushes operation journal (replica read/write, ping, etc.) accumulated since previous flush
+// ListJournal flushes operation journal (replica read/write, ping, etc.) accumulated since previous flush
 func (s *Server) ListJournal(rw http.ResponseWriter, req *http.Request) error {
 	var input JournalInput
 	apiContext := api.GetApiContext(req)

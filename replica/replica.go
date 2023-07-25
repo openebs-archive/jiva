@@ -691,8 +691,8 @@ func (r *Replica) DisplayChain() ([]string, error) {
 	return result, nil
 }
 
-//Chain returns the disk chain starting with Head(index=0),
-//till the base snapshot
+// Chain returns the disk chain starting with Head(index=0),
+// till the base snapshot
 func (r *Replica) Chain() ([]string, error) {
 	r.RLock()
 	defer r.RUnlock()

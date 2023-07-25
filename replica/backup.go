@@ -231,7 +231,7 @@ func drainHoleCreatorChan() {
 	}
 }
 
-//CreateHoles removes the offsets from corresponding sparse files
+// CreateHoles removes the offsets from corresponding sparse files
 func CreateHoles() {
 	var (
 		fd uintptr
