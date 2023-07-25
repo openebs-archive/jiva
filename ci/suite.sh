@@ -271,7 +271,7 @@ verify_controller_quorum() {
 verify_go_routine_leak() {
 	echo "---------------------Verify goroutine leak-------------------------"
 	i=0
-	no_of_goroutine=$(curl http://$2:9502/debug/pprof/goroutine?debug=1 | grep goroutine | awk '{ print $4}')
+	no_of_goroutine=$(curl http://$2:9502/debug/pprof/goroutine?debug=1 | grep "goroutine profile: total" | awk '{ print $4}')
 	passed=0
 	req_cnt=0
 	while [ "$i" != 30 ]; do
@@ -280,7 +280,7 @@ verify_go_routine_leak() {
 		sleep 2
 	done
 	wait
-	new_no_of_goroutine=$(curl http://$2:9502/debug/pprof/goroutine?debug=1 | grep goroutine | awk '{ print $4}')
+	new_no_of_goroutine=$(curl http://$2:9502/debug/pprof/goroutine?debug=1 | grep "goroutine profile: total" | awk '{ print $4}')
 	old=`expr $no_of_goroutine + 3`
 	if [ $new_no_of_goroutine -lt $old ]; then
 		echo "Verify_go_routine for " $1 "--passed"
