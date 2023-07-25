@@ -161,7 +161,7 @@ func (t *goTgt) Stats() types.Stats {
 	return (types.Stats)(t.targetDriver.Stats())
 }
 
-//  Resize is called to resize the volume
+// Resize is called to resize the volume
 func (t *goTgt) Resize(size uint64) error {
 	if !t.isUp {
 		return fmt.Errorf("Volume is not up")
