@@ -55,7 +55,7 @@ func SetRPCTimeout() {
 	}
 }
 
-//SampleOp operation
+// SampleOp operation
 type SampleOp int
 
 const (
@@ -75,7 +75,7 @@ const (
 	OpUnmap
 )
 
-//Client replica client
+// Client replica client
 type Client struct {
 	end       chan struct{}
 	requests  chan *Message
@@ -89,7 +89,7 @@ type Client struct {
 	err       error
 }
 
-//NewClient replica client
+// NewClient replica client
 func NewClient(conn net.Conn, closeChan chan struct{}) *Client {
 	c := &Client{
 		wire:      NewWire(conn),
@@ -107,12 +107,12 @@ func NewClient(conn net.Conn, closeChan chan struct{}) *Client {
 	return c
 }
 
-//TargetID operation target ID
+// TargetID operation target ID
 func (c *Client) TargetID() string {
 	return c.peerAddr
 }
 
-//WriteAt replica client
+// WriteAt replica client
 func (c *Client) WriteAt(buf []byte, offset int64) (int, error) {
 	return c.operation(TypeWrite, buf, offset, int64(len(buf)))
 }
@@ -124,19 +124,19 @@ func (c *Client) Update() (int, error) {
 }
 */
 
-//SetError replica client transport error
+// SetError replica client transport error
 func (c *Client) SetError(err error) {
 	c.responses <- &Message{
 		transportErr: err,
 	}
 }
 
-//ReadAt replica client
+// ReadAt replica client
 func (c *Client) ReadAt(buf []byte, offset int64) (int, error) {
 	return c.operation(TypeRead, buf, offset, int64(len(buf)))
 }
 
-//Sync replica client
+// Sync replica client
 func (c *Client) Sync() (int, error) {
 	_, err := c.operation(TypeSync, nil, 0, 0)
 	if err != nil {
@@ -153,7 +153,7 @@ func (c *Client) Unmap(offset int64, length int64) (int, error) {
 	return 0, err
 }
 
-//Ping replica client
+// Ping replica client
 func (c *Client) Ping() error {
 	_, err := c.operation(TypePing, nil, 0, 0)
 	return err
@@ -244,7 +244,7 @@ func (c *Client) operation(op uint32, buf []byte, offset int64, length int64) (i
 	}
 }
 
-//Close replica client
+// Close replica client
 func (c *Client) Close() error {
 	if err := c.wire.CloseRead(); err != nil {
 		return err

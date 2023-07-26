@@ -15,7 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.14.7 as build
+FROM golang:1.19.11 as build
 
 ARG TARGETOS
 ARG TARGETARCH
