@@ -77,6 +77,7 @@ _build_check_docker:
 
 deps: _build_check_go _build_check_docker
 	@echo "INFO:\tVerifying dependencies for jiva"
+	go mod tidy
 
 _run_ci: test_functional test_features test_resiliency
 	@echo "INFO:\tRun ci over jiva image"
