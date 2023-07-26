@@ -75,13 +75,7 @@ _build_check_docker:
 		&& exit 1; \
 		fi;
 
-
-mod:  go.mod go.sum
-	@echo "INFO:\tVendor update"
-	@GO111MODULE=on go mod download
-	@GO111MODULE=on go mod vendor
-
-deps: _build_check_go _build_check_docker mod
+deps: _build_check_go _build_check_docker
 	@echo "INFO:\tVerifying dependencies for jiva"
 
 _run_ci: test_functional test_features test_resiliency
