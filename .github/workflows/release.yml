@@ -54,8 +54,7 @@ jobs:
             quay.io/${{ env.IMAGE_ORG }}/jiva
             ghcr.io/${{ env.IMAGE_ORG }}/jiva
           tags: |
-            type=raw,value=latest,enable=true
-            type=raw,value={{version}}
+            type=semver,pattern={{version}}
 
       - name: Print Tag info
         run: |
