@@ -21,6 +21,7 @@ package app
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -293,6 +294,7 @@ func startReplica(c *cli.Context) error {
 		host, _ := os.Hostname()
 		addrs, _ := net.LookupIP(host)
 		for _, addr := range addrs {
+			// first try: handle addr as v4 address
 			if ipv4 := addr.To4(); ipv4 != nil {
 				address = ipv4.String()
 				if address == "127.0.0.1" {
@@ -301,7 +303,17 @@ func startReplica(c *cli.Context) error {
 				}
 				address = address + ":9502"
 				break
+			} else if ipv6 := addr.To16(); ipv6 != nil {
+				// second try: handle addr as v6 address only if we know it is not v4
+				address = ipv6.String()
+				if address == "::1" {
+					address = fmt.Sprintf("[%s]:9502", address)
+					continue
+				}
+				address = fmt.Sprintf("[%s]:9502", address)
+				break
 			}
+
 		}
 	}
 	controlAddress, dataAddress, syncAddress, err := util.ParseAddresses(address)
